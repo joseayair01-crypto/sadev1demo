@@ -4,7 +4,7 @@
 (function configurarDeployRifaPlus() {
     const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1']);
     const SOCKET_CDN_URL = 'https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.8.1/socket.io.min.js';
-    const FORCE_LOCAL_ONLY = false;
+    const FORCE_LOCAL_ONLY = true;
     const LOCAL_API_BASE = 'http://localhost:5001';
     const LOCAL_PUBLIC_BASE = 'http://localhost:5001';
 
@@ -98,8 +98,8 @@
             socketScriptUrl: SOCKET_CDN_URL
         },
         production: {
-            apiBase: 'https://pruebasopt-production.up.railway.app',
-            publicBase: 'https://pruebasopt.pages.dev',
+            apiBase: obtenerMeta('rifaplus-api-base') || origin,
+            publicBase: origin,
             socketScriptUrl: SOCKET_CDN_URL
         }
     };
