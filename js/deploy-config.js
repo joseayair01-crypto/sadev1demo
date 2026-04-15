@@ -98,8 +98,8 @@
             socketScriptUrl: SOCKET_CDN_URL
         },
         production: {
-            apiBase: obtenerMeta('rifaplus-api-base') || origin,
-            publicBase: origin,
+            apiBase: 'https://sadevdemo1m-production.up.railway.app',
+            publicBase: 'https://sadevdemo1m.pages.dev',
             socketScriptUrl: SOCKET_CDN_URL
         }
     };
