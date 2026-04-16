@@ -900,7 +900,7 @@ async function guardarOrden() {
                 const p1 = parseFloat(ordenActual.totales?.precioUnitario);
                 if (!Number.isNaN(p1) && p1 > 0) return p1;
                 if (typeof obtenerPrecioDinamico === 'function') return obtenerPrecioDinamico();
-                return (window.rifaplusConfig?.rifa?.precioBoleto && Number(window.rifaplusConfig.rifa.precioBoleto)) || 15;
+                return window.rifaplusConfig?.obtenerPrecioBoleto?.() || Number(window.rifaplusConfig?.rifa?.precioBoleto || 0);
             })(),
             metodoPago: 'transferencia',
             notas: '',
@@ -1116,7 +1116,9 @@ async function guardarOrden() {
                                 });
                                 
                                 // Recalcular totales
-                                const precioUnitarioActual = payload.precioUnitario || 100;
+                                const precioUnitarioActual = Number(payload.precioUnitario)
+                                    || window.rifaplusConfig?.obtenerPrecioBoleto?.()
+                                    || Number(window.rifaplusConfig?.rifa?.precioBoleto || 0);
                                 payload.cantidad_boletos = boletosArray.length;
                                 payload.totales = {
                                     subtotal: boletosArray.length * precioUnitarioActual,

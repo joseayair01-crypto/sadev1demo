@@ -675,7 +675,7 @@ function calcularTotales(cantidad, precioUnitario = null) {
     
     // Fallback si calculo-precios.js no está cargado (no debería pasar)
     console.warn('⚠️ calcularTotales: calculo-precios.js no está cargado');
-    precioUnitario = precioUnitario || (window.rifaplusConfig?.rifa?.precioBoleto || 15);
+    precioUnitario = precioUnitario || window.rifaplusConfig?.obtenerPrecioBoleto?.() || Number(window.rifaplusConfig?.rifa?.precioBoleto || 0);
     const subtotal = cantidad * precioUnitario;
     return {
         cantidadBoletos: cantidad,

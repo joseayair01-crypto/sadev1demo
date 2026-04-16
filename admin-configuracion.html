@@ -7371,7 +7371,7 @@
 
         async function cargarPrecioDelBoleto() {
             try {
-                let precio = 10000;
+                let precio = window.rifaplusConfig?.obtenerPrecioBoleto?.() || Number(window.rifaplusConfig?.rifa?.precioBoleto || 0);
                 const token = localStorage.getItem(TOKEN_KEY) || localStorage.getItem('rifaplus_admin_token');
 
                 if (token) {
@@ -7381,16 +7381,16 @@
 
                     if (response.ok) {
                         const config = await response.json();
-                        precio = config.data?.rifa?.precioBoleto || 10000;
+                        precio = Number(config.data?.rifa?.precioBoleto || 0);
                     }
-                } else if (window.rifaplusConfig?.rifa?.precioBoleto) {
-                    precio = window.rifaplusConfig.rifa.precioBoleto;
+                } else if (window.rifaplusConfig?.rifa?.precioBoleto !== undefined) {
+                    precio = Number(window.rifaplusConfig.rifa.precioBoleto || 0);
                 }
 
                 document.getElementById('precio-boleto').value = precio;
                 actualizarPrecioPreview();
             } catch (error) {
-                document.getElementById('precio-boleto').value = 10000;
+                document.getElementById('precio-boleto').value = window.rifaplusConfig?.obtenerPrecioBoleto?.() || Number(window.rifaplusConfig?.rifa?.precioBoleto || 0);
                 actualizarPrecioPreview();
             }
         }
@@ -11633,7 +11633,7 @@
                 const porcentaje = parseFloat(document.getElementById('promo-porcentaje-valor')?.value) || 0;
                 const inicio = document.getElementById('promo-porcentaje-inicio')?.value || '';
                 const fin = document.getElementById('promo-porcentaje-fin')?.value || '';
-                const precioBoleto = window.rifaplusConfig?.rifa?.precioBoleto || 20;
+                const precioBoleto = window.rifaplusConfig?.obtenerPrecioBoleto?.() || Number(window.rifaplusConfig?.rifa?.precioBoleto || 0);
                 
                 const previewBox = document.getElementById('promo-porcentaje-preview-box');
                 

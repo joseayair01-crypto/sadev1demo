@@ -914,7 +914,7 @@ function calcularDescuentoGlobal(cantidad, precioUnitario = null) {
     }
     
     // Fallback si calculo-precios.js no está cargado (calcular con precio unitario base)
-    precioUnitario = precioUnitario || (window.rifaplusConfig?.rifa?.precioBoleto || 15);
+    precioUnitario = precioUnitario || window.rifaplusConfig?.obtenerPrecioBoleto?.() || Number(window.rifaplusConfig?.rifa?.precioBoleto || 0);
     const subtotal = cantidad * precioUnitario;
     return {
         cantidadBoletos: cantidad,

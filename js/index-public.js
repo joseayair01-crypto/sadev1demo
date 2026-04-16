@@ -462,7 +462,7 @@
         if (!precioEl) return;
 
         const rifa = obtenerRifaPublica();
-        const precioBoleto = window.rifaplusConfig?.obtenerPrecioBoleto?.() || Number(rifa?.precioBoleto || 100);
+        const precioBoleto = Number(window.rifaplusConfig?.obtenerPrecioBoleto?.() || rifa?.precioBoleto || 0);
         const ahora = new Date();
         let hayPromocionActiva = false;
         let precioEspecial = precioBoleto;

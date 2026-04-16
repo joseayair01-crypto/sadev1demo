@@ -4211,7 +4211,7 @@
                     precioNormalDinamico = subtotalGuardado / cantidadProductos;
                 }
                 if (!(precioNormalDinamico > 0)) {
-                    precioNormalDinamico = window.rifaplusConfig?.rifa?.precioBoleto || 20;
+                    precioNormalDinamico = window.rifaplusConfig?.obtenerPrecioBoleto?.() || Number(window.rifaplusConfig?.rifa?.precioBoleto || 0);
                 }
 
                 let subtotalDinamico = subtotalGuardado > 0

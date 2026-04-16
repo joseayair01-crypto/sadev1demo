@@ -24,14 +24,193 @@ window.rifaplusConfig._configPublicaCacheTime = 0;
 window.rifaplusConfig._configPublicaPromise = null;
 window.rifaplusConfig._intervaloEstadoId = null;
 window.rifaplusConfig._intervaloConfigId = null;
+window.rifaplusConfig._publicSnapshotLoaded = false;
 
 const RIFAPLUS_SYNC_DEBUG = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+const RIFAPLUS_PUBLIC_SNAPSHOT_VERSION = 1;
 
 function syncDebug(...args) {
     if (RIFAPLUS_SYNC_DEBUG) {
         console.debug(...args);
     }
 }
+
+function syncEsObjetoPlano(valor) {
+    return Boolean(valor) && typeof valor === 'object' && !Array.isArray(valor);
+}
+
+function syncClonarValor(valor) {
+    if (valor === null || valor === undefined) {
+        return valor;
+    }
+
+    try {
+        return JSON.parse(JSON.stringify(valor));
+    } catch (error) {
+        return Array.isArray(valor) ? valor.slice() : { ...valor };
+    }
+}
+
+function syncMezclar(destino, origen) {
+    if (!syncEsObjetoPlano(destino) || !syncEsObjetoPlano(origen)) {
+        return destino;
+    }
+
+    Object.keys(origen).forEach((clave) => {
+        const valor = origen[clave];
+        if (valor === undefined) {
+            return;
+        }
+
+        if (Array.isArray(valor)) {
+            destino[clave] = syncClonarValor(valor);
+            return;
+        }
+
+        if (syncEsObjetoPlano(valor) && syncEsObjetoPlano(destino[clave])) {
+            syncMezclar(destino[clave], valor);
+            return;
+        }
+
+        destino[clave] = valor;
+    });
+
+    return destino;
+}
+
+function syncSanitizarRifaParaSnapshot(rifa = {}) {
+    const clone = syncClonarValor(rifa);
+    if (!syncEsObjetoPlano(clone)) {
+        return {};
+    }
+
+    delete clone.estado;
+    delete clone.modalFinalizadoSnapshot;
+    delete clone.ganadores;
+    delete clone.boletosVendidos;
+    delete clone.boletosApartados;
+    delete clone.boletosDisponibles;
+    delete clone.stats;
+
+    return clone;
+}
+
+function syncConstruirSnapshotPublico(config) {
+    const cfg = config || window.rifaplusConfig || {};
+    return {
+        version: RIFAPLUS_PUBLIC_SNAPSHOT_VERSION,
+        savedAt: new Date().toISOString(),
+        data: {
+            cliente: syncClonarValor(cfg.cliente || {}),
+            rifa: syncSanitizarRifaParaSnapshot(cfg.rifa || {}),
+            seo: syncClonarValor(cfg.seo || {}),
+            tema: syncClonarValor(cfg.tema || {}),
+            cuentas: Array.isArray(cfg.tecnica?.bankAccounts) ? syncClonarValor(cfg.tecnica.bankAccounts) : []
+        }
+    };
+}
+
+function syncPersistirCachesDerivadas(snapshotData) {
+    if (!snapshotData || typeof localStorage === 'undefined') {
+        return;
+    }
+
+    const cliente = snapshotData.cliente || {};
+    const rifa = snapshotData.rifa || {};
+    const logo = String(cliente.logo || cliente.logotipo || '').trim();
+
+    if (logo) {
+        localStorage.setItem('rifaplus_cached_logo', logo);
+    }
+
+    if (Array.isArray(rifa.galeria?.imagenes)) {
+        localStorage.setItem('rifaplus_cached_gallery_v1', JSON.stringify(syncClonarValor(rifa.galeria.imagenes)));
+    }
+
+    if (String(rifa.edicionNombre || '').trim()) {
+        localStorage.setItem('rifaplus_index_hero_edicion', String(rifa.edicionNombre).trim());
+    }
+
+    if (String(rifa.nombreSorteo || '').trim()) {
+        localStorage.setItem('rifaplus_index_hero_nombre', String(rifa.nombreSorteo).trim());
+        localStorage.setItem('rifaplus_compra_hero_sorteo', String(rifa.nombreSorteo).trim());
+    }
+
+    if (String(rifa.descripcion || '').trim()) {
+        localStorage.setItem('rifaplus_index_hero_descripcion', String(rifa.descripcion).trim());
+    }
+
+    const precioBoleto = Number(rifa.precioBoleto);
+    if (Number.isFinite(precioBoleto) && precioBoleto > 0) {
+        localStorage.setItem('rifaplus_compra_precio_cache_v1', JSON.stringify({
+            precio: precioBoleto,
+            timestamp: Date.now()
+        }));
+    }
+
+    localStorage.setItem('rifaplus_config_actual_v2', JSON.stringify({
+        cliente: syncClonarValor(cliente),
+        rifa: syncClonarValor(rifa),
+        tecnica: {
+            bankAccounts: Array.isArray(snapshotData.cuentas) ? syncClonarValor(snapshotData.cuentas) : []
+        },
+        seo: syncClonarValor(snapshotData.seo || {}),
+        tema: syncClonarValor(snapshotData.tema || {})
+    }));
+}
+
+window.rifaplusConfig.persistirSnapshotPublicoLocal = function(configFuente = null) {
+    try {
+        const snapshot = syncConstruirSnapshotPublico(configFuente || this);
+        localStorage.setItem(this._PUBLIC_SNAPSHOT_KEY || 'rifaplus_public_snapshot_v1', JSON.stringify(snapshot));
+        syncPersistirCachesDerivadas(snapshot.data);
+        return snapshot;
+    } catch (error) {
+        syncDebug('ℹ️ No se pudo persistir snapshot público:', error?.message || error);
+        return null;
+    }
+};
+
+window.rifaplusConfig.aplicarSnapshotPublicoLocal = function(snapshotData, opciones = {}) {
+    if (!snapshotData || typeof snapshotData !== 'object') {
+        return false;
+    }
+
+    if (syncEsObjetoPlano(snapshotData.cliente)) {
+        syncMezclar(this.cliente, snapshotData.cliente);
+    }
+
+    if (syncEsObjetoPlano(snapshotData.rifa)) {
+        const infoRifaLocal = Array.isArray(this.rifa?.infoRifa) ? this.rifa.infoRifa : [];
+        syncMezclar(this.rifa, snapshotData.rifa);
+        if (infoRifaLocal.length > 0) {
+            this.rifa.infoRifa = infoRifaLocal;
+        }
+    }
+
+    if (syncEsObjetoPlano(snapshotData.seo)) {
+        this.seo = Object.assign({}, this.seo || {}, syncClonarValor(snapshotData.seo));
+    }
+
+    if (syncEsObjetoPlano(snapshotData.tema)) {
+        this.tema = Object.assign({}, this.tema || {}, syncClonarValor(snapshotData.tema));
+        if (syncEsObjetoPlano(snapshotData.tema.colores)) {
+            this.tema.colores = Object.assign({}, this.tema.colores || {}, syncClonarValor(snapshotData.tema.colores));
+        }
+    }
+
+    if (Array.isArray(snapshotData.cuentas)) {
+        this.tecnica.bankAccounts = syncClonarValor(snapshotData.cuentas);
+    }
+
+    this._publicSnapshotLoaded = true;
+
+    if (opciones.persistir !== false) {
+        this.persistirSnapshotPublicoLocal(this);
+    }
+
+    return true;
+};
 
 window.rifaplusConfig.debeSincronizarEstadoAutomaticamente = function() {
     const body = document.body;
@@ -96,6 +275,8 @@ window.rifaplusConfig.obtenerConfigPublicaCompartida = async function(opciones =
                 this.rifa.precioBoleto = Number(data.precioBoleto);
             }
 
+            this.persistirSnapshotPublicoLocal(this);
+
             return data;
         })
         .catch((error) => {
@@ -103,7 +284,21 @@ window.rifaplusConfig.obtenerConfigPublicaCompartida = async function(opciones =
                 console.debug('ℹ️ Usando caché local de configuración pública tras fallo:', error.message);
                 return this._configPublicaCache;
             }
-            throw error;
+
+            const fallbackData = {
+                totalBoletos: Number.isFinite(Number(this.rifa?.totalBoletos)) ? Number(this.rifa.totalBoletos) : null,
+                precioBoleto: Number.isFinite(Number(this.rifa?.precioBoleto)) ? Number(this.rifa.precioBoleto) : null,
+                tiempoApartadoHoras: Number.isFinite(Number(this.rifa?.tiempoApartadoHoras)) ? Number(this.rifa.tiempoApartadoHoras) : null,
+                intervaloLimpiezaMinutos: Number.isFinite(Number(this.rifa?.intervaloLimpiezaMinutos)) ? Number(this.rifa.intervaloLimpiezaMinutos) : null,
+                sistemaPremios: this.rifa?.sistemaPremios || null,
+                rifa: this.rifa && typeof this.rifa === 'object' ? { ...this.rifa } : {},
+                cuentas: Array.isArray(this.tecnica?.bankAccounts) ? [...this.tecnica.bankAccounts] : []
+            };
+
+            this._configPublicaCache = fallbackData;
+            this._configPublicaCacheTime = Date.now();
+            console.debug('ℹ️ Usando configuración pública local tras fallo remoto:', error.message);
+            return fallbackData;
         })
         .finally(() => {
             this._configPublicaPromise = null;
@@ -257,6 +452,8 @@ window.rifaplusConfig.sincronizarConfigDelBackend = async function(opciones = {}
             if (typeof this.actualizarNombreClienteEnUI === 'function') {
                 this.actualizarNombreClienteEnUI();
             }
+
+            this.persistirSnapshotPublicoLocal(this);
             
             // Resetear reintentos fallidos cuando funciona
             this._reintentosFallidos = 0;
@@ -459,6 +656,14 @@ window.rifaplusConfig.emitirEvento = function(evento, datos) {
  */
 window.rifaplusConfig.inicializar = async function() {
     try {
+        const snapshotLocal = typeof this.obtenerSnapshotPublicoLocal === 'function'
+            ? this.obtenerSnapshotPublicoLocal()
+            : null;
+
+        if (snapshotLocal?.data) {
+            this.aplicarSnapshotPublicoLocal(snapshotLocal.data, { persistir: false });
+        }
+
         // 0. Calcular tiempoMs basado en tiempoApartadoHoras
         if (this.rifa && this.rifa.tiempoApartadoHoras) {
             this.rifa.tiempoApartadoMs = this.rifa.tiempoApartadoHoras * 60 * 60 * 1000;

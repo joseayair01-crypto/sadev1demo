@@ -13,7 +13,7 @@
  */
 function obtenerPrecioBoleto() {
     const ahora = new Date();
-    const precioNormal = window.rifaplusConfig?.rifa?.precioBoleto || 20;
+    const precioNormal = Number(window.rifaplusConfig?.obtenerPrecioBoleto?.() ?? window.rifaplusConfig?.rifa?.precioBoleto ?? 0);
     let precioFinal = precioNormal;
     let mejorDescuento = 0;
     let tipoDescuento = null;
@@ -88,7 +88,7 @@ function calcularTotalConPromociones(cantidad, precioBoleto = null) {
     }
 
     // PASO 1: Obtener precio NORMAL (sin promoción)
-    const precioNormal = window.rifaplusConfig?.rifa?.precioBoleto || 20;
+    const precioNormal = Number(window.rifaplusConfig?.obtenerPrecioBoleto?.() ?? window.rifaplusConfig?.rifa?.precioBoleto ?? 0);
     
     // PASO 2: Verificar descuentos disponibles (Tiempo + Porcentaje) y usar el mejor
     const ahora = new Date();

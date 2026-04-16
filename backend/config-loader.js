@@ -73,6 +73,20 @@ function cargarConfigJavaScript() {
  */
 function obtenerConfigExpiracion() {
     let configGuardado = {};
+    const resolverNumeroPreferido = (...candidatos) => {
+        for (const candidato of candidatos) {
+            if (candidato === null || candidato === undefined || candidato === '') {
+                continue;
+            }
+
+            const numero = Number(candidato);
+            if (Number.isFinite(numero)) {
+                return numero;
+            }
+        }
+
+        return null;
+    };
     
     // 🔥 PASO 1: Intentar leer desde config.json local como fallback de arranque
     try {
@@ -112,10 +126,11 @@ function obtenerConfigExpiracion() {
             || null,
         
         // Precio de respaldo para arranque/fallback
-        precioBoleto: parseInt(process.env.PRECIO_BOLETO) 
-            || configGuardado.precioBoleto
-            || configDefault.precioBoleto 
-            || 15,
+        precioBoleto: resolverNumeroPreferido(
+            process.env.PRECIO_BOLETO,
+            configGuardado.precioBoleto,
+            configDefault.precioBoleto
+        ),
         
         // Total de boletos de respaldo para arranque/fallback
         totalBoletos: parseInt(process.env.TOTAL_BOLETOS)

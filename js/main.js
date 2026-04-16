@@ -348,7 +348,8 @@ window.utilidadesRifaPlus = {
         }
 
         if (!precioUnitario) {
-            precioUnitario = (window.rifaplusConfig && window.rifaplusConfig.rifa && window.rifaplusConfig.rifa.precioBoleto) ? Number(window.rifaplusConfig.rifa.precioBoleto) : 50;
+            precioUnitario = window.rifaplusConfig?.obtenerPrecioBoleto?.()
+                || Number(window.rifaplusConfig?.rifa?.precioBoleto || 0);
         }
         let precioTotal = 0;
         let montoDescuento = 0;
@@ -392,7 +393,8 @@ window.utilidadesRifaPlus = {
      */
     calcularDescuento: function(cantidad, precioUnitario = null) {
         if (!precioUnitario) {
-            precioUnitario = (window.rifaplusConfig && window.rifaplusConfig.rifa && window.rifaplusConfig.rifa.precioBoleto) ? Number(window.rifaplusConfig.rifa.precioBoleto) : 50;
+            precioUnitario = window.rifaplusConfig?.obtenerPrecioBoleto?.()
+                || Number(window.rifaplusConfig?.rifa?.precioBoleto || 0);
         }
         const resultado = this.calcularPrecioConDescuento(cantidad, precioUnitario);
         return {

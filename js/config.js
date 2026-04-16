@@ -66,6 +66,7 @@ function normalizarBaseUrl(url) {
 
 const RIFAPLUS_PROMO_TIMEZONE = 'America/Mexico_City';
 const RIFAPLUS_DEFAULT_TIMEZONE = 'America/Mexico_City';
+const RIFAPLUS_PUBLIC_SNAPSHOT_KEY = 'rifaplus_public_snapshot_v1';
 const RIFAPLUS_TIMEZONE_LABELS = {
     'America/Mexico_City': 'Hora Centro Mexico',
     'America/Monterrey': 'Hora Monterrey',
@@ -202,8 +203,81 @@ function resolverSocketScriptUrlRifaPlus() {
     return `${apiBase}/socket.io/socket.io.js`;
 }
 
+function esObjetoPlanoRifaPlus(valor) {
+    return Boolean(valor) && typeof valor === 'object' && !Array.isArray(valor);
+}
+
+function clonarValorSeguroRifaPlus(valor) {
+    if (valor === null || valor === undefined) {
+        return valor;
+    }
+
+    try {
+        return JSON.parse(JSON.stringify(valor));
+    } catch (error) {
+        return Array.isArray(valor) ? valor.slice() : { ...valor };
+    }
+}
+
+function mezclarConfigTempranaRifaPlus(destino, origen) {
+    if (!esObjetoPlanoRifaPlus(destino) || !esObjetoPlanoRifaPlus(origen)) {
+        return destino;
+    }
+
+    Object.keys(origen).forEach((clave) => {
+        const valor = origen[clave];
+        if (valor === undefined) {
+            return;
+        }
+
+        if (Array.isArray(valor)) {
+            destino[clave] = clonarValorSeguroRifaPlus(valor);
+            return;
+        }
+
+        if (esObjetoPlanoRifaPlus(valor) && esObjetoPlanoRifaPlus(destino[clave])) {
+            mezclarConfigTempranaRifaPlus(destino[clave], valor);
+            return;
+        }
+
+        destino[clave] = valor;
+    });
+
+    return destino;
+}
+
+function leerSnapshotPublicoInicialRifaPlus() {
+    try {
+        const raw = localStorage.getItem(RIFAPLUS_PUBLIC_SNAPSHOT_KEY);
+        if (!raw) return null;
+
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') return null;
+
+        const data = parsed.data && typeof parsed.data === 'object'
+            ? parsed.data
+            : parsed;
+
+        return data && typeof data === 'object' ? data : null;
+    } catch (error) {
+        return null;
+    }
+}
+
 window.rifaplusConfig.obtenerApiBase = resolverApiBaseRifaPlus;
 window.rifaplusConfig.obtenerSocketScriptUrl = resolverSocketScriptUrlRifaPlus;
+window.rifaplusConfig._PUBLIC_SNAPSHOT_KEY = RIFAPLUS_PUBLIC_SNAPSHOT_KEY;
+window.rifaplusConfig.obtenerSnapshotPublicoLocal = function() {
+    const data = leerSnapshotPublicoInicialRifaPlus();
+    if (!data) {
+        return null;
+    }
+
+    return {
+        version: 1,
+        data: clonarValorSeguroRifaPlus(data)
+    };
+};
 
 // Versión de configuración
 window.rifaplusConfig._VERSION = '3.1.0';  // v3.1.0 = Arquitectura limpia sin duplicación
@@ -506,6 +580,35 @@ Object.assign(window.rifaplusConfig, {
         copyright: ""
     }
 });
+
+const rifaplusSnapshotInicial = leerSnapshotPublicoInicialRifaPlus();
+if (rifaplusSnapshotInicial) {
+    if (esObjetoPlanoRifaPlus(rifaplusSnapshotInicial.cliente)) {
+        mezclarConfigTempranaRifaPlus(window.rifaplusConfig.cliente, rifaplusSnapshotInicial.cliente);
+    }
+
+    if (esObjetoPlanoRifaPlus(rifaplusSnapshotInicial.rifa)) {
+        const infoRifaLocal = Array.isArray(window.rifaplusConfig.rifa?.infoRifa)
+            ? window.rifaplusConfig.rifa.infoRifa
+            : [];
+        mezclarConfigTempranaRifaPlus(window.rifaplusConfig.rifa, rifaplusSnapshotInicial.rifa);
+        if (infoRifaLocal.length > 0) {
+            window.rifaplusConfig.rifa.infoRifa = infoRifaLocal;
+        }
+    }
+
+    if (esObjetoPlanoRifaPlus(rifaplusSnapshotInicial.seo)) {
+        mezclarConfigTempranaRifaPlus(window.rifaplusConfig.seo, rifaplusSnapshotInicial.seo);
+    }
+
+    if (esObjetoPlanoRifaPlus(rifaplusSnapshotInicial.tema)) {
+        mezclarConfigTempranaRifaPlus(window.rifaplusConfig.tema, rifaplusSnapshotInicial.tema);
+    }
+
+    if (Array.isArray(rifaplusSnapshotInicial.cuentas)) {
+        window.rifaplusConfig.tecnica.bankAccounts = clonarValorSeguroRifaPlus(rifaplusSnapshotInicial.cuentas);
+    }
+}
 
 // ====================================
 // ALIAS Y PROPIEDADES DINÁMICAS
@@ -1487,11 +1590,20 @@ window.rifaplusConfig.obtenerTotalBoletos = function() {
  * @returns {number} Precio unitario (con fallback)
  */
 window.rifaplusConfig.obtenerPrecioBoleto = function() {
-    const precio = this.rifa?.precioBoleto;
-    if (typeof precio === 'number' && !Number.isNaN(precio) && precio > 0) {
-        return parseFloat(precio);
+    const candidatos = [
+        this.rifa?.precioBoleto,
+        this._configPublicaCache?.rifa?.precioBoleto,
+        this._configPublicaCache?.precioBoleto
+    ];
+
+    for (const valor of candidatos) {
+        const precio = Number(valor);
+        if (Number.isFinite(precio) && precio > 0) {
+            return precio;
+        }
     }
-    return 100;
+
+    return 0;
 };
 
 /**

@@ -644,10 +644,7 @@
 
     <script>
     // Actualizar footer dinámicamente desde config.js
-    document.addEventListener('DOMContentLoaded', async function() {
-        if (window.rifaplusConfig?.sincronizarConfigDelBackend) {
-            await window.rifaplusConfig.sincronizarConfigDelBackend();
-        }
+    document.addEventListener('DOMContentLoaded', function() {
         const config = window.rifaplusConfig;
         if (!config) return;
 
@@ -684,6 +681,12 @@
         if (footerCopyright) {
             const anio = config.cliente.anioActual || new Date().getFullYear();
             // Nombre ya se actualiza con actualizarNombreClienteEnUI() en script anterior
+        }
+
+        if (window.rifaplusConfig?.sincronizarConfigDelBackend) {
+            window.rifaplusConfig.sincronizarConfigDelBackend().catch((error) => {
+                console.debug('ℹ️ [Ayuda] No se pudo revalidar config al cargar:', error?.message || error);
+            });
         }
     });
     

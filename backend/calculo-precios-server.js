@@ -87,7 +87,7 @@ function esFechaActiva(fechaInicio, fechaFin, ahora = new Date()) {
  */
 function obtenerPrecioUnitarioVigente(config = {}, ahora = new Date()) {
     const rifa = config?.rifa || {};
-    const precioNormal = Number(rifa.precioBoleto) || 20;
+    const precioNormal = Number(rifa.precioBoleto) || 0;
 
     let precioFinal = precioNormal;
     let mejorDescuento = 0;

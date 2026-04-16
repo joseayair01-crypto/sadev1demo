@@ -77,6 +77,11 @@ class ConfigManager {
           login: 1000,
           ordenes: 1000,
           windowMs: 900000,
+          publicReadConfig: {
+            enabled: false,
+            windowMs: 60000,
+            max: 10000
+          },
           ordenesConfig: {
             enabled: false,
             windowMs: 60000,
@@ -87,10 +92,15 @@ class ConfigManager {
           }
         },
         production: {
-          general: 100,
+          general: 800,
           login: 5,
           ordenes: 120,
           windowMs: 900000,
+          publicReadConfig: {
+            enabled: true,
+            windowMs: 60000,
+            max: 1200
+          },
           ordenesConfig: {
             enabled: true,
             windowMs: 60000,
@@ -123,7 +133,12 @@ class ConfigManager {
   }
 
   get precioBoleto() {
-    return this.config?.rifa?.precioBoleto || 4;
+    const precioActual = Number(this.config?.rifa?.precioBoleto);
+    if (Number.isFinite(precioActual) && precioActual >= 0) {
+      return precioActual;
+    }
+
+    return Number(this.getDefaultConfig().rifa.precioBoleto) || 0;
   }
 
   get tiempoApartadoHoras() {

@@ -23,6 +23,7 @@ const socketIO = require('socket.io');  // 🔌 WebSocket para actualizaciones e
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const app = express();
+app.set('trust proxy', true);
 const db = require('./db'); // Instancia Knex (Postgres)
 const cloudinary = require('./cloudinary-config'); // ✅ Cloudinary para almacenar comprobantes
 const ordenExpirationService = require('./services/ordenExpirationService'); // Servicio de expiración
@@ -38,6 +39,13 @@ const { obtenerConfigExpiracion } = require('./config-loader'); // Fallback/base
 const dbUtils = require('./db-utils');
 const { calcularDescuentoCompartido, auditarConsistenciaPrecios, calcularTotalesServidor } = require('./calculo-precios-server'); // ✅ Cálculo sincronizado
 const { resolverConfigOportunidades } = require('./oportunidades-config');
+const PUBLIC_READ_ESSENTIAL_PATHS = new Set([
+    '/api/health',
+    '/api/public/config',
+    '/api/public/ordenes-stats',
+    '/api/public/boletos',
+    '/api/public/boletos/stats'
+]);
 
 // ===== VALIDACIÓN CRÍTICA DE CONFIGURACIÓN =====
 // Verificar que variables de entorno REQUERIDAS existan y sean válidas
@@ -131,9 +139,7 @@ function obtenerPrecioDinamico() {
     } catch (err) {
         console.error('Error leyendo precio dinámico:', err.message);
     }
-    // ✅ Fallback: Retorna 15 como default si falla
-    // (No depende de PRECIO_BOLETO_DEFAULT ya que está hardcodeado)
-    return 15;
+    return Number(PRECIO_BOLETO_DEFAULT) || 0;
 }
 
 // Configuración base de arranque para expiración de órdenes
@@ -357,24 +363,79 @@ app.use(fileUpload({
 
 // 🔒 RATE LIMITING: Protegiendo contra ataques de fuerza bruta y DoS
 
+function esMetodoLecturaHttp(method) {
+    return method === 'GET' || method === 'HEAD';
+}
+
+function esRutaLecturaPublicaEsencial(req) {
+    if (!req || !esMetodoLecturaHttp(req.method)) {
+        return false;
+    }
+
+    return PUBLIC_READ_ESSENTIAL_PATHS.has(req.path);
+}
+
+function obtenerRateLimitsEntornoActual() {
+    const isProduction = process.env.NODE_ENV === 'production';
+    const envKey = isProduction ? 'production' : 'development';
+    const defaults = configManager?.getDefaultConfig?.().rate_limits?.[envKey] || {};
+
+    let configActual = null;
+    try {
+        configActual = typeof obtenerConfigActual === 'function' ? obtenerConfigActual() : null;
+    } catch (error) {
+        configActual = null;
+    }
+
+    return {
+        isProduction,
+        envKey,
+        config: configActual?.rate_limits?.[envKey]
+            || configManager?.config?.rate_limits?.[envKey]
+            || defaults,
+        defaults
+    };
+}
+
+function obtenerConfiguracionRateLimitGeneral() {
+    const { isProduction, config, defaults } = obtenerRateLimitsEntornoActual();
+
+    return {
+        enabled: isProduction,
+        windowMs: normalizarEnteroPositivo(config?.windowMs, normalizarEnteroPositivo(defaults?.windowMs, 15 * 60 * 1000)),
+        max: normalizarEnteroPositivo(config?.general, normalizarEnteroPositivo(defaults?.general, isProduction ? 800 : 10000))
+    };
+}
+
+function obtenerConfiguracionRateLimitLecturaPublica() {
+    const { isProduction, config } = obtenerRateLimitsEntornoActual();
+    const defaults = {
+        enabled: isProduction,
+        windowMs: 60 * 1000,
+        max: isProduction ? 1200 : 10000
+    };
+    const rawConfig = config?.publicReadConfig || config?.lecturaPublicaConfig || {};
+
+    return {
+        enabled: rawConfig.enabled !== undefined ? rawConfig.enabled === true : defaults.enabled,
+        windowMs: normalizarEnteroPositivo(rawConfig.windowMs, defaults.windowMs),
+        max: normalizarEnteroPositivo(rawConfig.max, defaults.max)
+    };
+}
+
 const limiterGeneral = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutos
-    max: process.env.NODE_ENV === 'production' ? 200 : 10000,
+    windowMs: 15 * 60 * 1000,
+    max: process.env.NODE_ENV === 'production' ? 800 : 10000,
     message: 'Demasiadas solicitudes, intenta más tarde',
     standardHeaders: true,
     legacyHeaders: false,
-    skip: (req, res) => {
-        if (process.env.NODE_ENV !== 'production') {
+    skip: (req) => {
+        const configGeneral = obtenerConfiguracionRateLimitGeneral();
+        if (!configGeneral.enabled) {
             return true;
         }
 
-        const publicReadSafePaths = new Set([
-            '/api/health',
-            '/api/public/ordenes-stats',
-            '/api/public/boletos/stats'
-        ]);
-
-        return publicReadSafePaths.has(req.path);
+        return esRutaLecturaPublicaEsencial(req);
     }
 });
 
@@ -507,7 +568,25 @@ function limpiarRateLimitOrdenes(now = Date.now()) {
 }
 
 function obtenerKeyRateLimitOrdenes(req) {
-    const ip = String(req.ip || req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').trim();
+    const ipCdn = String(req.headers['cf-connecting-ip'] || '').trim();
+    if (ipCdn) {
+        return ipCdn;
+    }
+
+    const forwardedFor = String(req.headers['x-forwarded-for'] || '')
+        .split(',')
+        .map((value) => value.trim())
+        .find(Boolean);
+    if (forwardedFor) {
+        return forwardedFor;
+    }
+
+    const ipReal = String(req.headers['x-real-ip'] || '').trim();
+    if (ipReal) {
+        return ipReal;
+    }
+
+    const ip = String(req.ip || req.socket?.remoteAddress || 'unknown').trim();
     return ip || 'unknown';
 }
 
@@ -521,6 +600,90 @@ function establecerHeadersRateLimitOrdenes(res, { limit, remaining, resetAt, win
     res.setHeader('RateLimit-Remaining', String(Math.max(0, remaining)));
     res.setHeader('RateLimit-Reset', String(resetSeconds));
     res.setHeader('Retry-After', String(resetSeconds));
+}
+
+const publicReadRateLimitStore = new Map();
+let publicReadRateLimitLastCleanupAt = 0;
+
+function limpiarRateLimitLecturaPublica(now = Date.now()) {
+    if (now - publicReadRateLimitLastCleanupAt < 60 * 1000) {
+        return;
+    }
+
+    publicReadRateLimitLastCleanupAt = now;
+
+    for (const [key, entry] of publicReadRateLimitStore.entries()) {
+        if (!entry || entry.resetAt <= now) {
+            publicReadRateLimitStore.delete(key);
+        }
+    }
+}
+
+function establecerHeadersRateLimitLecturaPublica(res, { limit, remaining, resetAt, windowMs }) {
+    const now = Date.now();
+    const resetSeconds = Math.max(1, Math.ceil((resetAt - now) / 1000));
+    const policyWindow = Math.max(1, Math.ceil(windowMs / 1000));
+
+    res.setHeader('RateLimit-Policy', `${limit};w=${policyWindow}`);
+    res.setHeader('RateLimit-Limit', String(limit));
+    res.setHeader('RateLimit-Remaining', String(Math.max(0, remaining)));
+    res.setHeader('RateLimit-Reset', String(resetSeconds));
+    res.setHeader('Retry-After', String(resetSeconds));
+}
+
+function limiterLecturasPublicas(req, res, next) {
+    if (!esRutaLecturaPublicaEsencial(req)) {
+        return next();
+    }
+
+    const configLectura = obtenerConfiguracionRateLimitLecturaPublica();
+    if (!configLectura.enabled) {
+        return next();
+    }
+
+    const now = Date.now();
+    limpiarRateLimitLecturaPublica(now);
+
+    const key = `public-read:${obtenerKeyRateLimitOrdenes(req)}`;
+    let entry = publicReadRateLimitStore.get(key);
+
+    if (!entry || entry.resetAt <= now || entry.windowMs !== configLectura.windowMs) {
+        entry = {
+            count: 0,
+            resetAt: now + configLectura.windowMs,
+            windowMs: configLectura.windowMs
+        };
+    }
+
+    if (entry.count >= configLectura.max) {
+        publicReadRateLimitStore.set(key, entry);
+        establecerHeadersRateLimitLecturaPublica(res, {
+            limit: configLectura.max,
+            remaining: 0,
+            resetAt: entry.resetAt,
+            windowMs: configLectura.windowMs
+        });
+
+        return res.status(429).json({
+            success: false,
+            message: 'Demasiadas lecturas públicas en un corto periodo. Intenta nuevamente en unos segundos.',
+            code: 'RATE_LIMIT_PUBLIC_READ',
+            retryAfterSeconds: Math.max(1, Math.ceil((entry.resetAt - now) / 1000)),
+            limit: configLectura.max
+        });
+    }
+
+    entry.count += 1;
+    publicReadRateLimitStore.set(key, entry);
+
+    establecerHeadersRateLimitLecturaPublica(res, {
+        limit: configLectura.max,
+        remaining: configLectura.max - entry.count,
+        resetAt: entry.resetAt,
+        windowMs: configLectura.windowMs
+    });
+
+    return next();
 }
 
 function limiterOrdenes(req, res, next) {
@@ -593,6 +756,7 @@ const limiterRecuperacionOrdenes = rateLimit({
 
 // Aplicar rate limiting general a todas las rutas
 app.use(limiterGeneral);
+app.use(limiterLecturasPublicas);
 
 // ===== FASE 1: HTTP CACHING HEADERS UTILITY (PROFESIONAL & SIMPLE) =====
 // ⭐ Función utility para agregar headers de caching HTTP en respuestas
@@ -9256,7 +9420,7 @@ app.get('/api/cliente', (req, res) => {
         const precioConfig = Number(config.rifa.precioBoleto);
         if (!Number.isFinite(precioConfig) || precioConfig < 0) {
             console.warn('⚠️  precioBoleto inválido en configuración actual, usando fallback');
-            config.rifa.precioBoleto = 100;
+            config.rifa.precioBoleto = Number(PRECIO_BOLETO_DEFAULT) || 0;
         }
         
         // Combinar datos actuales con la estructura esperada por frontend

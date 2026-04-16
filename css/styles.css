@@ -1458,10 +1458,6 @@ body.rifaplus-logo-ready .logo-circle img[data-dynamic-logo="true"] {
     animation: rifaplusCarruselSkeleton 1.2s linear infinite;
 }
 
-.carrusel.carrusel--vertical-active .carrusel-inner {
-    height: clamp(560px, 76vw, 980px);
-}
-
 .carrusel-item {
     position: absolute;
     top: 0;
@@ -1596,11 +1592,8 @@ body.rifaplus-logo-ready .logo-circle img[data-dynamic-logo="true"] {
 
     .carrusel-inner {
         height: min(78vh, 620px);
+        min-height: 320px;
         max-height: none;
-    }
-
-    .carrusel.carrusel--vertical-active .carrusel-inner {
-        height: min(86vh, 760px);
     }
     
     .carrusel-item {
@@ -1635,10 +1628,7 @@ body.rifaplus-logo-ready .logo-circle img[data-dynamic-logo="true"] {
 @media (min-width: 481px) and (max-width: 768px) {
     .carrusel-inner {
         height: min(76vh, 700px);
-    }
-
-    .carrusel.carrusel--vertical-active .carrusel-inner {
-        height: min(86vh, 860px);
+        min-height: 420px;
     }
 
     .carrusel-item {
@@ -1661,10 +1651,7 @@ body.rifaplus-logo-ready .logo-circle img[data-dynamic-logo="true"] {
 @media (min-width: 769px) and (max-width: 1199px) {
     .carrusel-inner {
         height: 620px;
-    }
-
-    .carrusel.carrusel--vertical-active .carrusel-inner {
-        height: 760px;
+        min-height: 620px;
     }
 }
 
