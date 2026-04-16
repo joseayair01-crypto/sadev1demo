@@ -107,6 +107,7 @@ function abrirModalContacto(opciones = {}) {
     limpiarFormularioContacto();
     modal.classList.add('show');
     window.rifaplusModalScrollLock?.sync?.();
+    modalContactoViewportManager.open();
 
     window.requestAnimationFrame(() => {
         if (primerCampo instanceof HTMLElement) {
@@ -129,6 +130,7 @@ function cerrarModalContacto() {
         delete modal.dataset.opening;
         modal.classList.remove('show');
         modal.classList.remove('modal-overlay--handoff');
+        modalContactoViewportManager.close();
         window.rifaplusModalScrollLock?.sync?.();
     }
 }
@@ -150,6 +152,114 @@ function limpiarErroresFormularioContacto() {
         error.textContent = '';
     });
 }
+
+const modalContactoViewportManager = (() => {
+    const MOBILE_MAX_WIDTH = 768;
+    const KEYBOARD_OPEN_THRESHOLD = 120;
+    const FIELD_SCROLL_PADDING = 20;
+    const KEYBOARD_SETTLE_DELAY_MS = 140;
+    const FIELD_SELECTOR = 'input, select, textarea';
+
+    let activeField = null;
+    let settleTimer = 0;
+    let bound = false;
+
+    function getModal() {
+        return document.getElementById('modalContacto');
+    }
+
+    function getModalCard() {
+        return document.querySelector('#modalContacto .modal-contacto');
+    }
+
+    function isField(element) {
+        return element instanceof HTMLElement && element.matches(FIELD_SELECTOR);
+    }
+
+    function syncViewport() {
+        const modal = getModal();
+        if (!modal) return;
+
+        const viewportHeight = Math.round(window.visualViewport?.height || window.innerHeight || 0);
+        const offsetTop = Math.max(12, Math.round((window.visualViewport?.offsetTop || 0) + 12));
+        const keyboardOpen = window.matchMedia(`(max-width: ${MOBILE_MAX_WIDTH}px)`).matches
+            && window.visualViewport
+            && (window.innerHeight - window.visualViewport.height) > KEYBOARD_OPEN_THRESHOLD;
+
+        modal.style.setProperty('--modal-contacto-viewport-height', `${viewportHeight}px`);
+        modal.style.setProperty('--modal-contacto-offset-top', `${offsetTop}px`);
+        modal.style.setProperty('--modal-contacto-offset-bottom', keyboardOpen ? '12px' : '20px');
+        modal.classList.toggle('modal-overlay--keyboard-open', Boolean(keyboardOpen));
+    }
+
+    function ensureFieldVisible(target = activeField) {
+        const modalCard = getModalCard();
+        if (!modalCard || !isField(target) || !modalCard.contains(target)) return;
+
+        const fieldRect = target.getBoundingClientRect();
+        const cardRect = modalCard.getBoundingClientRect();
+        const footerHeight = modalCard.querySelector('.modal-footer-contacto')?.getBoundingClientRect().height || 0;
+        const visibleTop = cardRect.top + FIELD_SCROLL_PADDING;
+        const visibleBottom = cardRect.bottom - footerHeight - FIELD_SCROLL_PADDING;
+
+        if (fieldRect.top < visibleTop || fieldRect.bottom > visibleBottom) {
+            target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
+        }
+    }
+
+    function schedule(target = activeField, delay = KEYBOARD_SETTLE_DELAY_MS) {
+        window.clearTimeout(settleTimer);
+        settleTimer = window.setTimeout(() => {
+            syncViewport();
+            ensureFieldVisible(target);
+        }, delay);
+    }
+
+    function bind() {
+        if (bound) return;
+
+        const modal = getModal();
+        if (!modal) return;
+
+        const handleViewportChange = () => schedule();
+        const handleFocusIn = (event) => {
+            if (!isField(event.target)) return;
+            activeField = event.target;
+            schedule(activeField);
+        };
+        const handleFocusOut = (event) => {
+            if (event.target === activeField) activeField = null;
+            schedule(null, 60);
+        };
+
+        window.visualViewport?.addEventListener('resize', handleViewportChange);
+        window.visualViewport?.addEventListener('scroll', handleViewportChange);
+        modal.addEventListener('focusin', handleFocusIn);
+        modal.addEventListener('focusout', handleFocusOut);
+        bound = true;
+    }
+
+    return {
+        open() {
+            bind();
+            schedule();
+        },
+        close() {
+            const modal = getModal();
+            if (!modal) return;
+
+            activeField = null;
+            window.clearTimeout(settleTimer);
+            modal.classList.remove('modal-overlay--keyboard-open');
+            modal.style.removeProperty('--modal-contacto-viewport-height');
+            modal.style.removeProperty('--modal-contacto-offset-top');
+            modal.style.removeProperty('--modal-contacto-offset-bottom');
+        },
+        ensureFieldVisible(target) {
+            schedule(target);
+        }
+    };
+})();
 
 function obtenerDatosFormularioContacto() {
     const estadoEl = document.getElementById('clienteEstado');

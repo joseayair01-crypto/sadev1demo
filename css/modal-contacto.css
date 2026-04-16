@@ -14,6 +14,9 @@
     padding: 1rem;
     backdrop-filter: blur(4px);
     overscroll-behavior: contain;
+    --modal-contacto-viewport-height: 100dvh;
+    --modal-contacto-offset-top: 16px;
+    --modal-contacto-offset-bottom: 20px;
 }
 
 .modal-overlay.show {
@@ -40,11 +43,13 @@
         0 28px 70px rgba(0, 0, 0, 0.24),
         0 10px 24px rgba(0, 0, 0, 0.12);
     animation: slideUp 0.3s ease-out;
-    max-height: 90vh;
+    max-height: min(90vh, calc(var(--modal-contacto-viewport-height) - var(--modal-contacto-offset-top) - var(--modal-contacto-offset-bottom)));
     overflow-y: auto;
     border: 1px solid rgba(15, 23, 42, 0.08);
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
+    scroll-padding-bottom: 104px;
+    scroll-padding-top: 16px;
 }
 
 .modal-overlay.modal-overlay--handoff.show {
@@ -362,6 +367,16 @@
 }
 
 @media (max-width: 768px) {
+    .modal-overlay.show {
+        align-items: flex-start;
+        padding-top: var(--modal-contacto-offset-top);
+        padding-bottom: var(--modal-contacto-offset-bottom);
+    }
+
+    .modal-overlay.modal-overlay--keyboard-open {
+        backdrop-filter: blur(2px);
+    }
+
     .form-group select {
         padding: 0.7rem 2.2rem 0.7rem 0.75rem;
         font-size: 0.9rem;
@@ -369,6 +384,16 @@
 }
 
 @media (max-width: 640px) {
+    .modal-overlay {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+
+    .modal-contacto {
+        max-width: none;
+        border-radius: 22px;
+    }
+
     .form-group select {
         padding: 0.65rem 2rem 0.65rem 0.7rem;
         font-size: 0.875rem;
@@ -376,6 +401,11 @@
 }
 
 @media (max-width: 480px) {
+    .modal-contacto {
+        max-height: calc(var(--modal-contacto-viewport-height) - var(--modal-contacto-offset-top) - var(--modal-contacto-offset-bottom));
+        scroll-padding-bottom: 116px;
+    }
+
     .form-group select {
         padding: 0.6rem 2rem 0.6rem 0.65rem;
         font-size: 0.8rem;
