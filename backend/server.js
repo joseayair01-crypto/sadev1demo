@@ -508,6 +508,15 @@ function normalizarHoraDelDia(valor, fallback) {
     return Number.isInteger(numero) && numero >= 0 && numero <= 23 ? numero : fallback;
 }
 
+function esperar(ms) {
+    const duration = Math.max(0, Number(ms) || 0);
+    if (duration <= 0) {
+        return Promise.resolve();
+    }
+
+    return new Promise((resolve) => setTimeout(resolve, duration));
+}
+
 function resolverHoraActualEnZona(timeZone) {
     const zona = String(timeZone || '').trim() || 'America/Mexico_City';
 
@@ -545,6 +554,8 @@ function obtenerConfiguracionRateLimitOrdenes() {
         peakMax: isProduction ? 300 : 10000,
         normalBurstCapacity: isProduction ? 240 : 20000,
         peakBurstCapacity: isProduction ? 480 : 20000,
+        maxQueueWaitMs: isProduction ? 1500 : 0,
+        queuePollMs: 100,
         peakStartHour: 20,
         peakEndHour: 23
     };
@@ -588,6 +599,14 @@ function obtenerConfiguracionRateLimitOrdenes() {
         rawOrdersConfig.peakBurstCapacity ?? rawOrdersConfig.burstCapacityPeak,
         Math.max(peakMax, defaults.peakBurstCapacity)
     );
+    const maxQueueWaitMs = normalizarEnteroPositivo(
+        rawOrdersConfig.maxQueueWaitMs ?? rawOrdersConfig.queueMaxWaitMs,
+        defaults.maxQueueWaitMs
+    );
+    const queuePollMs = normalizarEnteroPositivo(
+        rawOrdersConfig.queuePollMs ?? rawOrdersConfig.queueCheckEveryMs,
+        defaults.queuePollMs
+    );
     const peakStartHour = normalizarHoraDelDia(
         rawOrdersConfig.peakStartHour ?? rawEnvConfig.horaPicoInicio,
         defaults.peakStartHour
@@ -605,6 +624,8 @@ function obtenerConfiguracionRateLimitOrdenes() {
         peakMax: Math.max(peakMax, normalMax),
         normalBurstCapacity: Math.max(normalBurstCapacity, normalMax),
         peakBurstCapacity: Math.max(peakBurstCapacity, peakMax, normalBurstCapacity),
+        maxQueueWaitMs,
+        queuePollMs,
         peakStartHour,
         peakEndHour,
         timeZone
@@ -669,6 +690,19 @@ function calcularResetSegundosTokenBucket(entry, now = Date.now()) {
 
     const missingTokens = Math.max(0, 1 - Number(entry.tokens || 0));
     return Math.max(1, Math.ceil(missingTokens / entry.refillPerMs / 1000));
+}
+
+function calcularEsperaSiguienteTokenMs(entry) {
+    if (!entry || !Number.isFinite(entry.refillPerMs) || entry.refillPerMs <= 0) {
+        return Infinity;
+    }
+
+    const missingTokens = Math.max(0, 1 - Number(entry.tokens || 0));
+    if (missingTokens <= 0) {
+        return 0;
+    }
+
+    return Math.ceil(missingTokens / entry.refillPerMs);
 }
 
 function establecerHeadersRateLimitOrdenes(res, { policyLimit, remaining, resetSeconds, windowMs }) {
@@ -787,7 +821,7 @@ function limiterLecturasPublicas(req, res, next) {
     return next();
 }
 
-function limiterOrdenes(req, res, next) {
+async function limiterOrdenes(req, res, next) {
     const configOrdenes = obtenerConfiguracionRateLimitOrdenes();
 
     if (!configOrdenes.enabled) {
@@ -823,8 +857,29 @@ function limiterOrdenes(req, res, next) {
 
     refillOrderRateLimitEntry(entry, now);
 
+    let waitedMs = 0;
+    while (entry.tokens < 1) {
+        const waitForNextTokenMs = calcularEsperaSiguienteTokenMs(entry);
+        const maxQueueWaitMs = Number(configOrdenes.maxQueueWaitMs || 0);
+
+        if (!Number.isFinite(waitForNextTokenMs) || waitForNextTokenMs <= 0 || waitForNextTokenMs > maxQueueWaitMs || waitedMs >= maxQueueWaitMs) {
+            break;
+        }
+
+        const remainingQueueBudgetMs = Math.max(0, maxQueueWaitMs - waitedMs);
+        const queuePollMs = Math.max(25, Number(configOrdenes.queuePollMs || 100));
+        const waitMs = Math.max(25, Math.min(waitForNextTokenMs, queuePollMs, remainingQueueBudgetMs));
+        if (waitMs <= 0) {
+            break;
+        }
+
+        await esperar(waitMs);
+        waitedMs += waitMs;
+        refillOrderRateLimitEntry(entry, Date.now());
+    }
+
     if (entry.tokens < 1) {
-        const resetSeconds = calcularResetSegundosTokenBucket(entry, now);
+        const resetSeconds = calcularResetSegundosTokenBucket(entry, Date.now());
         orderRateLimitStore.set(key, entry);
         establecerHeadersRateLimitOrdenes(res, {
             policyLimit: burstCapacity,

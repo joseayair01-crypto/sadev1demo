@@ -415,6 +415,8 @@ class ConfigManagerV2 {
             peakMax: 1000,
             normalBurstCapacity: 2000,
             peakBurstCapacity: 2000,
+            maxQueueWaitMs: 0,
+            queuePollMs: 100,
             peakStartHour: 20,
             peakEndHour: 23
           }
@@ -436,6 +438,8 @@ class ConfigManagerV2 {
             peakMax: 300,
             normalBurstCapacity: 240,
             peakBurstCapacity: 480,
+            maxQueueWaitMs: 1500,
+            queuePollMs: 100,
             peakStartHour: 20,
             peakEndHour: 23
           }
