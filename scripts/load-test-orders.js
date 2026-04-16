@@ -10,7 +10,9 @@ const DEFAULTS = {
     pricePerTicket: Number(process.env.PRICE_PER_TICKET || 6),
     allowRemote: false,
     allowProduction: false,
-    useAvailablePool: true
+    useAvailablePool: true,
+    delayMs: 0,
+    respectRetryAfter: true
 };
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
@@ -42,9 +44,20 @@ function parseArgs(argv) {
         if (key === 'allowRemote') config.allowRemote = value !== 'false';
         if (key === 'allowProduction') config.allowProduction = value !== 'false';
         if (key === 'useAvailablePool') config.useAvailablePool = value !== 'false';
+        if (key === 'delayMs' && value) config.delayMs = Number(value);
+        if (key === 'respectRetryAfter') config.respectRetryAfter = value !== 'false';
     });
 
     return config;
+}
+
+function sleep(ms) {
+    const duration = Number(ms);
+    if (!Number.isFinite(duration) || duration <= 0) {
+        return Promise.resolve();
+    }
+
+    return new Promise((resolve) => setTimeout(resolve, duration));
 }
 
 function ensureSafeTarget(baseUrl, options) {
@@ -186,6 +199,10 @@ function takeNextTicketBlock(state, options, orderIndex) {
         return Array.from({ length: options.ticketsPerOrder }, (_, idx) => ticketBase + idx);
     }
 
+    if (Array.isArray(state.recycledTicketBlocks) && state.recycledTicketBlocks.length > 0) {
+        return state.recycledTicketBlocks.pop();
+    }
+
     const start = state.nextTicketIndex;
     const end = start + options.ticketsPerOrder;
 
@@ -195,6 +212,37 @@ function takeNextTicketBlock(state, options, orderIndex) {
 
     state.nextTicketIndex = end;
     return state.availableTickets.slice(start, end);
+}
+
+function shouldRecycleTickets(result) {
+    const status = Number(result?.status || 0);
+    return status === 0 || status === 408 || status === 409 || status === 425 || status === 429 || status >= 500;
+}
+
+function recycleTicketBlock(state, tickets) {
+    if (!Array.isArray(tickets) || tickets.length === 0) {
+        return;
+    }
+
+    state.recycledTicketBlocks.push(tickets);
+}
+
+function resolveRetryDelayMs(result, options) {
+    if (!options.respectRetryAfter) {
+        return Math.max(0, Number(options.delayMs) || 0);
+    }
+
+    const retryAfterSeconds = Number(
+        result?.body?.retryAfterSeconds
+        || result?.responseHeaders?.get?.('retry-after')
+        || 0
+    );
+
+    if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
+        return retryAfterSeconds * 1000;
+    }
+
+    return Math.max(0, Number(options.delayMs) || 0);
 }
 
 async function createOrder(baseUrl, options, orderIndex, tickets) {
@@ -231,7 +279,8 @@ async function createOrder(baseUrl, options, orderIndex, tickets) {
         status: orderResult.response.status,
         orderId: orderResult.json?.ordenId || orderResult.json?.data?.ordenId || '',
         tickets,
-        body: orderResult.json
+        body: orderResult.json,
+        responseHeaders: orderResult.response.headers
     };
 }
 
@@ -261,6 +310,9 @@ async function runWorker(state, baseUrl, options, stopAt, workerIndex) {
 
             if (!result.ok) {
                 state.failures += 1;
+                if (shouldRecycleTickets(result)) {
+                    recycleTicketBlock(state, tickets);
+                }
                 state.failureSamples.push({
                     workerIndex,
                     orderIndex,
@@ -268,12 +320,25 @@ async function runWorker(state, baseUrl, options, stopAt, workerIndex) {
                     stage: result.stage,
                     body: result.body
                 });
+
+                const retryDelayMs = resolveRetryDelayMs(result, options);
+                if (retryDelayMs > 0) {
+                    await sleep(retryDelayMs);
+                    continue;
+                }
+            } else if (options.delayMs > 0) {
+                await sleep(options.delayMs);
             }
         } catch (error) {
             state.total += 1;
             state.failures += 1;
             state.errors[error.message] = (state.errors[error.message] || 0) + 1;
             state.durations.push(Date.now() - startedAt);
+            recycleTicketBlock(state, tickets);
+
+            if (options.delayMs > 0) {
+                await sleep(options.delayMs);
+            }
         }
     }
 }
@@ -299,6 +364,7 @@ async function main() {
         nextOrderIndex: 0,
         failureSamples: [],
         availableTickets,
+        recycledTicketBlocks: [],
         nextTicketIndex: 0,
         stopRequested: false,
         stopReason: '',
@@ -311,6 +377,8 @@ async function main() {
     console.log(`Boletos por orden -> ${options.ticketsPerOrder}`);
     console.log(`Ticket inicial -> ${options.ticketStart}`);
     console.log(`Modo pool disponible -> ${options.useAvailablePool ? 'sí' : 'no'}`);
+    console.log(`Delay entre intentos -> ${options.delayMs}ms`);
+    console.log(`Respeta Retry-After -> ${options.respectRetryAfter ? 'sí' : 'no'}`);
     if (options.useAvailablePool) console.log(`Boletos precargados -> ${availableTickets.length}`);
     if (options.allowRemote) console.log('Modo remoto -> habilitado');
     if (options.allowProduction) console.log('Modo producción -> habilitado');
