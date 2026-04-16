@@ -2641,7 +2641,22 @@
                     body: JSON.stringify({ username: usuarioInput, password: contrasenaInput })
                 });
 
-                const datosLogin = await respuestaLogin.json();
+                const contenidoLogin = await respuestaLogin.text();
+                let datosLogin = null;
+                try {
+                    datosLogin = contenidoLogin ? JSON.parse(contenidoLogin) : {};
+                } catch (parseError) {
+                    datosLogin = { success: false, message: contenidoLogin || 'Respuesta inválida del servidor' };
+                }
+
+                if (respuestaLogin.status === 429) {
+                    const retryAfter = Number(respuestaLogin.headers.get('retry-after') || datosLogin?.retryAfterSeconds || 0);
+                    const detalleEspera = Number.isFinite(retryAfter) && retryAfter > 0
+                        ? ` Intenta de nuevo en ${retryAfter}s.`
+                        : '';
+                    throw new Error((datosLogin && datosLogin.message) || (`Demasiados intentos de login.${detalleEspera}`));
+                }
+
                 if (!datosLogin.success) throw new Error(datosLogin.message || 'Error al autenticar');
 
                 tokenAutenticacion = datosLogin.token;

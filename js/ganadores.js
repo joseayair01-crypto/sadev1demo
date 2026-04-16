@@ -160,9 +160,20 @@ const GanadoresManager = {
     },
 
     async obtenerGanadoresServidor(limit = 500) {
+        const leerCacheServidor = () => {
+            try {
+                const cached = sessionStorage.getItem(this.SERVER_CACHE_KEY);
+                return cached ? JSON.parse(cached) : [];
+            } catch (e) {
+                return [];
+            }
+        };
+
         try {
             const resp = await fetch(`${this.getApiBase()}/api/ganadores?limit=${limit}`);
-            if (!resp.ok) return [];
+            if (!resp.ok) {
+                return leerCacheServidor();
+            }
             const payload = await resp.json().catch(() => ({}));
             const rows = Array.isArray(payload?.data) ? payload.data : [];
             try {
@@ -172,12 +183,7 @@ const GanadoresManager = {
             }
             return rows;
         } catch (error) {
-            try {
-                const cached = sessionStorage.getItem(this.SERVER_CACHE_KEY);
-                return cached ? JSON.parse(cached) : [];
-            } catch (e) {
-                return [];
-            }
+            return leerCacheServidor();
         }
     },
 

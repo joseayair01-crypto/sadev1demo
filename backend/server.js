@@ -39,8 +39,10 @@ const { obtenerConfigExpiracion } = require('./config-loader'); // Fallback/base
 const dbUtils = require('./db-utils');
 const { calcularDescuentoCompartido, auditarConsistenciaPrecios, calcularTotalesServidor } = require('./calculo-precios-server'); // ✅ Cálculo sincronizado
 const { resolverConfigOportunidades } = require('./oportunidades-config');
-const PUBLIC_READ_ESSENTIAL_PATHS = new Set([
+const PUBLIC_READ_RATE_LIMIT_PATHS = new Set([
     '/api/health',
+    '/api/cliente',
+    '/api/ganadores',
     '/api/public/config',
     '/api/public/ordenes-stats',
     '/api/public/boletos',
@@ -372,7 +374,54 @@ function esRutaLecturaPublicaEsencial(req) {
         return false;
     }
 
-    return PUBLIC_READ_ESSENTIAL_PATHS.has(req.path);
+    return PUBLIC_READ_RATE_LIMIT_PATHS.has(req.path);
+}
+
+function esRutaConRateLimitDedicado(req) {
+    if (!req) {
+        return false;
+    }
+
+    const method = String(req.method || '').toUpperCase();
+    const routePath = String(req.path || '').trim();
+
+    if (!routePath) {
+        return false;
+    }
+
+    if (method === 'POST' && (routePath === '/api/admin/login' || routePath === '/api/ordenes')) {
+        return true;
+    }
+
+    if (routePath === '/api/public/order-counter/next' && method === 'POST') {
+        return true;
+    }
+
+    if (routePath.startsWith('/api/ordenes/por-cliente/') && method === 'GET') {
+        return true;
+    }
+
+    if (routePath === '/api/public/boletos/busqueda' && method === 'GET') {
+        return true;
+    }
+
+    if (/^\/api\/public\/boletos\/[^/]+\/oportunidades$/i.test(routePath) && method === 'GET') {
+        return true;
+    }
+
+    if (routePath === '/api/public/boletos/oportunidades/batch' && method === 'POST') {
+        return true;
+    }
+
+    if (routePath === '/api/public/oportunidades/disponibles' && method === 'GET') {
+        return true;
+    }
+
+    if (routePath === '/api/public/oportunidades/validar' && method === 'POST') {
+        return true;
+    }
+
+    return false;
 }
 
 function obtenerRateLimitsEntornoActual() {
@@ -435,7 +484,7 @@ const limiterGeneral = rateLimit({
             return true;
         }
 
-        return esRutaLecturaPublicaEsencial(req);
+        return esRutaLecturaPublicaEsencial(req) || esRutaConRateLimitDedicado(req);
     }
 });
 
@@ -8909,6 +8958,7 @@ app.get('/api/ganadores', async (req, res) => {
             };
         });
 
+        setHttpCacheHeaders(res, 15, true);
         return res.json({ success: true, data });
     } catch (error) {
         console.error('GET /api/ganadores error:', error);
@@ -9398,6 +9448,7 @@ app.get('/api/cliente', (req, res) => {
     try {
         const cacheAge = Date.now() - serverCache.clienteConfigCachedTime;
         if (serverCache.clienteConfigCached && cacheAge >= 0 && cacheAge < 10000) {
+            setHttpCacheHeaders(res, 10, true);
             return res.json(serverCache.clienteConfigCached);
         }
 
@@ -9441,11 +9492,13 @@ app.get('/api/cliente', (req, res) => {
         serverCache.clienteConfigCached = payload;
         serverCache.clienteConfigCachedTime = Date.now();
 
+        setHttpCacheHeaders(res, 10, true);
         res.json(payload);
     } catch (error) {
         console.error('GET /api/cliente error:', error);
         // Fallback a cliente-config.js si falla lectura de configuración actual
         try {
+            setHttpCacheHeaders(res, 10, true);
             res.json({
                 success: true,
                 data: clienteConfig
