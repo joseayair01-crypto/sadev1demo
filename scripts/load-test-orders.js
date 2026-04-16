@@ -12,7 +12,8 @@ const DEFAULTS = {
     allowProduction: false,
     useAvailablePool: true,
     delayMs: 0,
-    respectRetryAfter: true
+    respectRetryAfter: true,
+    refreshTicketsOnConflict: true
 };
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
@@ -46,6 +47,7 @@ function parseArgs(argv) {
         if (key === 'useAvailablePool') config.useAvailablePool = value !== 'false';
         if (key === 'delayMs' && value) config.delayMs = Number(value);
         if (key === 'respectRetryAfter') config.respectRetryAfter = value !== 'false';
+        if (key === 'refreshTicketsOnConflict') config.refreshTicketsOnConflict = value !== 'false';
     });
 
     return config;
@@ -216,7 +218,7 @@ function takeNextTicketBlock(state, options, orderIndex) {
 
 function shouldRecycleTickets(result) {
     const status = Number(result?.status || 0);
-    return status === 0 || status === 408 || status === 409 || status === 425 || status === 429 || status >= 500;
+    return status === 0 || status === 408 || status === 425 || status === 429 || status >= 500;
 }
 
 function recycleTicketBlock(state, tickets) {
@@ -225,6 +227,30 @@ function recycleTicketBlock(state, tickets) {
     }
 
     state.recycledTicketBlocks.push(tickets);
+}
+
+async function fetchFreshTicketBlock(baseUrl, options, excludeNumbers = []) {
+    if (!options.useAvailablePool || !options.refreshTicketsOnConflict) {
+        return [];
+    }
+
+    const result = await fetchJson(`${baseUrl}/api/boletos/disponibles-aleatorios`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            accept: 'application/json'
+        },
+        body: JSON.stringify({
+            cantidad: options.ticketsPerOrder,
+            excludeNumbers
+        })
+    });
+
+    if (!result.response.ok || result.json?.success !== true) {
+        return [];
+    }
+
+    return normalizeTicketList(result.json?.boletos);
 }
 
 function resolveRetryDelayMs(result, options) {
@@ -310,7 +336,12 @@ async function runWorker(state, baseUrl, options, stopAt, workerIndex) {
 
             if (!result.ok) {
                 state.failures += 1;
-                if (shouldRecycleTickets(result)) {
+                if (result.status === 409 && options.refreshTicketsOnConflict) {
+                    const freshTickets = await fetchFreshTicketBlock(baseUrl, options, tickets);
+                    if (freshTickets.length === options.ticketsPerOrder) {
+                        recycleTicketBlock(state, freshTickets);
+                    }
+                } else if (shouldRecycleTickets(result)) {
                     recycleTicketBlock(state, tickets);
                 }
                 state.failureSamples.push({
@@ -379,6 +410,7 @@ async function main() {
     console.log(`Modo pool disponible -> ${options.useAvailablePool ? 'sí' : 'no'}`);
     console.log(`Delay entre intentos -> ${options.delayMs}ms`);
     console.log(`Respeta Retry-After -> ${options.respectRetryAfter ? 'sí' : 'no'}`);
+    console.log(`Refresca boletos en conflicto -> ${options.refreshTicketsOnConflict ? 'sí' : 'no'}`);
     if (options.useAvailablePool) console.log(`Boletos precargados -> ${availableTickets.length}`);
     if (options.allowRemote) console.log('Modo remoto -> habilitado');
     if (options.allowProduction) console.log('Modo producción -> habilitado');

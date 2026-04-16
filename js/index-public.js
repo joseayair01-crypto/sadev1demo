@@ -982,14 +982,12 @@
         bonosSection.style.display = 'block';
         bonosGrid.innerHTML = '';
 
-        const esBonoCanalWhatsappCincoMil = (bono) => {
-            const texto = `${bono?.titulo || ''} ${bono?.descripcion || ''}`.toLowerCase().replace(/\s+/g, ' ');
-            const textoCompacto = texto.replace(/[^\d]/g, '');
-            const mencionaCincoMil = texto.includes('5,000')
-                || texto.includes('$5,000')
-                || texto.includes('5000')
-                || textoCompacto.includes('5000');
-            return mencionaCincoMil && (texto.includes('adicional') || texto.includes('adicionales'));
+        const esBonoCanalWhatsappPrimario = (bono) => {
+            const texto = `${bono?.titulo || ''} ${bono?.descripcion || ''}`.toLowerCase();
+            const color = String(bono?.color || 'primary').trim().toLowerCase();
+            const mencionaWhatsapp = texto.includes('whatsapp');
+            const mencionaCanal = texto.includes('canal');
+            return color === 'primary' && mencionaWhatsapp && mencionaCanal;
         };
 
         if (Array.isArray(config.items)) {
@@ -1013,17 +1011,15 @@
                 `;
 
                 const whatsappUrl = normalizarUrlExterna(obtenerClientePublico()?.redesSociales?.canalWhatsapp);
-                const mostrarBotonCanalWhatsapp = Boolean(whatsappUrl) && (
-                    bono.accion === 'unirseWhatsapp'
-                    || esBonoCanalWhatsappCincoMil(bono)
-                );
+                const esBonoWhatsappPrimario = esBonoCanalWhatsappPrimario(bono);
+                const mostrarBotonCanalWhatsapp = Boolean(whatsappUrl) && esBonoWhatsappPrimario;
 
                 if (mostrarBotonCanalWhatsapp) {
                     contenido += `
                         <div class="bono-accion">
-                            <a href="${whatsappUrl}" target="_blank" rel="noopener noreferrer" class="bono-btn-whatsapp">
+                            <a href="${whatsappUrl}" target="_blank" rel="noopener noreferrer" class="bono-btn-whatsapp bono-btn-whatsapp--compact">
                                 <i class="fab fa-whatsapp"></i>
-                                Unirme al canal
+                                Unirse
                             </a>
                         </div>
                     `;
