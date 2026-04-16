@@ -87,6 +87,8 @@ class ConfigManager {
             windowMs: 60000,
             normalMax: 1000,
             peakMax: 1000,
+            normalBurstCapacity: 2000,
+            peakBurstCapacity: 2000,
             peakStartHour: 20,
             peakEndHour: 23
           }
@@ -106,6 +108,8 @@ class ConfigManager {
             windowMs: 60000,
             normalMax: 120,
             peakMax: 300,
+            normalBurstCapacity: 240,
+            peakBurstCapacity: 480,
             peakStartHour: 20,
             peakEndHour: 23
           }

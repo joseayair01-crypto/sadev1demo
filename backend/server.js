@@ -543,6 +543,8 @@ function obtenerConfiguracionRateLimitOrdenes() {
         windowMs: 60 * 1000,
         normalMax: isProduction ? 120 : 10000,
         peakMax: isProduction ? 300 : 10000,
+        normalBurstCapacity: isProduction ? 240 : 20000,
+        peakBurstCapacity: isProduction ? 480 : 20000,
         peakStartHour: 20,
         peakEndHour: 23
     };
@@ -578,6 +580,14 @@ function obtenerConfiguracionRateLimitOrdenes() {
         rawOrdersConfig.peakMax ?? rawEnvConfig.ordenesPico,
         Math.max(normalMax, defaults.peakMax)
     );
+    const normalBurstCapacity = normalizarEnteroPositivo(
+        rawOrdersConfig.normalBurstCapacity ?? rawOrdersConfig.burstCapacityNormal,
+        Math.max(normalMax, defaults.normalBurstCapacity)
+    );
+    const peakBurstCapacity = normalizarEnteroPositivo(
+        rawOrdersConfig.peakBurstCapacity ?? rawOrdersConfig.burstCapacityPeak,
+        Math.max(peakMax, defaults.peakBurstCapacity)
+    );
     const peakStartHour = normalizarHoraDelDia(
         rawOrdersConfig.peakStartHour ?? rawEnvConfig.horaPicoInicio,
         defaults.peakStartHour
@@ -593,6 +603,8 @@ function obtenerConfiguracionRateLimitOrdenes() {
         windowMs,
         normalMax,
         peakMax: Math.max(peakMax, normalMax),
+        normalBurstCapacity: Math.max(normalBurstCapacity, normalMax),
+        peakBurstCapacity: Math.max(peakBurstCapacity, peakMax, normalBurstCapacity),
         peakStartHour,
         peakEndHour,
         timeZone
@@ -610,7 +622,14 @@ function limpiarRateLimitOrdenes(now = Date.now()) {
     orderRateLimitLastCleanupAt = now;
 
     for (const [key, entry] of orderRateLimitStore.entries()) {
-        if (!entry || entry.resetAt <= now) {
+        if (!entry) {
+            orderRateLimitStore.delete(key);
+            continue;
+        }
+
+        const idleForMs = now - Number(entry.lastRefillAt || 0);
+        const staleThresholdMs = Math.max(Number(entry.windowMs || 0) * 3, 5 * 60 * 1000);
+        if (idleForMs >= staleThresholdMs) {
             orderRateLimitStore.delete(key);
         }
     }
@@ -639,16 +658,49 @@ function obtenerKeyRateLimitOrdenes(req) {
     return ip || 'unknown';
 }
 
-function establecerHeadersRateLimitOrdenes(res, { limit, remaining, resetAt, windowMs }) {
-    const now = Date.now();
-    const resetSeconds = Math.max(1, Math.ceil((resetAt - now) / 1000));
+function calcularResetSegundosTokenBucket(entry, now = Date.now()) {
+    if (!entry || !Number.isFinite(entry.refillPerMs) || entry.refillPerMs <= 0) {
+        return 1;
+    }
+
+    if (Number(entry.tokens) >= 1) {
+        return 1;
+    }
+
+    const missingTokens = Math.max(0, 1 - Number(entry.tokens || 0));
+    return Math.max(1, Math.ceil(missingTokens / entry.refillPerMs / 1000));
+}
+
+function establecerHeadersRateLimitOrdenes(res, { policyLimit, remaining, resetSeconds, windowMs }) {
     const policyWindow = Math.max(1, Math.ceil(windowMs / 1000));
 
-    res.setHeader('RateLimit-Policy', `${limit};w=${policyWindow}`);
-    res.setHeader('RateLimit-Limit', String(limit));
+    res.setHeader('RateLimit-Policy', `${policyLimit};w=${policyWindow}`);
+    res.setHeader('RateLimit-Limit', String(policyLimit));
     res.setHeader('RateLimit-Remaining', String(Math.max(0, remaining)));
     res.setHeader('RateLimit-Reset', String(resetSeconds));
     res.setHeader('Retry-After', String(resetSeconds));
+}
+
+function refillOrderRateLimitEntry(entry, now) {
+    if (!entry) {
+        return null;
+    }
+
+    const lastRefillAt = Number(entry.lastRefillAt || now);
+    const elapsedMs = Math.max(0, now - lastRefillAt);
+    const refillPerMs = Number(entry.refillPerMs || 0);
+    const capacity = Number(entry.capacity || 0);
+    const currentTokens = Number(entry.tokens || 0);
+
+    if (elapsedMs > 0 && refillPerMs > 0 && capacity > 0) {
+        entry.tokens = Math.min(capacity, currentTokens + (elapsedMs * refillPerMs));
+    } else {
+        entry.tokens = Math.min(capacity, currentTokens);
+    }
+
+    entry.lastRefillAt = now;
+    entry.lastSeenAt = now;
+    return entry;
 }
 
 const publicReadRateLimitStore = new Map();
@@ -746,27 +798,38 @@ function limiterOrdenes(req, res, next) {
     limpiarRateLimitOrdenes(now);
 
     const hour = resolverHoraActualEnZona(configOrdenes.timeZone);
-    const limit = horaEstaEnVentanaPico(hour, configOrdenes.peakStartHour, configOrdenes.peakEndHour)
+    const isPeakWindow = horaEstaEnVentanaPico(hour, configOrdenes.peakStartHour, configOrdenes.peakEndHour);
+    const sustainedLimit = isPeakWindow
         ? configOrdenes.peakMax
         : configOrdenes.normalMax;
+    const burstCapacity = isPeakWindow
+        ? configOrdenes.peakBurstCapacity
+        : configOrdenes.normalBurstCapacity;
     const windowMs = configOrdenes.windowMs;
     const key = obtenerKeyRateLimitOrdenes(req);
+    const refillPerMs = sustainedLimit / windowMs;
 
     let entry = orderRateLimitStore.get(key);
-    if (!entry || entry.resetAt <= now || entry.windowMs !== windowMs) {
+    if (!entry || entry.windowMs !== windowMs || entry.capacity !== burstCapacity || entry.refillPerMs !== refillPerMs) {
         entry = {
-            count: 0,
-            resetAt: now + windowMs,
+            tokens: burstCapacity,
+            capacity: burstCapacity,
+            refillPerMs,
+            lastRefillAt: now,
+            lastSeenAt: now,
             windowMs
         };
     }
 
-    if (entry.count >= limit) {
+    refillOrderRateLimitEntry(entry, now);
+
+    if (entry.tokens < 1) {
+        const resetSeconds = calcularResetSegundosTokenBucket(entry, now);
         orderRateLimitStore.set(key, entry);
         establecerHeadersRateLimitOrdenes(res, {
-            limit,
+            policyLimit: burstCapacity,
             remaining: 0,
-            resetAt: entry.resetAt,
+            resetSeconds,
             windowMs
         });
 
@@ -774,18 +837,19 @@ function limiterOrdenes(req, res, next) {
             success: false,
             message: 'Demasiadas solicitudes. Por favor espera e intenta nuevamente',
             code: 'RATE_LIMIT_ORDENES',
-            retryAfterSeconds: Math.max(1, Math.ceil((entry.resetAt - now) / 1000)),
-            limit
+            retryAfterSeconds: resetSeconds,
+            limit: sustainedLimit,
+            burstCapacity
         });
     }
 
-    entry.count += 1;
+    entry.tokens = Math.max(0, entry.tokens - 1);
     orderRateLimitStore.set(key, entry);
 
     establecerHeadersRateLimitOrdenes(res, {
-        limit,
-        remaining: limit - entry.count,
-        resetAt: entry.resetAt,
+        policyLimit: burstCapacity,
+        remaining: Math.floor(entry.tokens),
+        resetSeconds: calcularResetSegundosTokenBucket(entry, now),
         windowMs
     });
 
