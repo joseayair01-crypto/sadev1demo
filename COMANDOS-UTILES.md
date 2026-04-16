@@ -65,7 +65,6 @@ npm run e2e:headed          # Con interfaz visual
 
 ### Pruebas de Carga
 ```bash
-cd backend
 npm run health-check         # Verificar salud del API
 
 npm run load:public -- \
@@ -81,7 +80,23 @@ npm run load:orders -- \
   --ticketStart=200000 \
   --ticketsPerOrder=3 \
   --pricePerTicket=6
+
+# Escenario estable para validar producción sin castigar el rate limit
+npm run load:orders:c5:b2:m2 -- \
+  --baseUrl=https://tu-backend.up.railway.app \
+  --allowRemote=true \
+  --allowProduction=true
+
+# Pico controlado para medir capacidad real con pacing
+npm run load:orders:peak-controlled -- \
+  --baseUrl=https://tu-backend.up.railway.app \
+  --allowRemote=true \
+  --allowProduction=true
 ```
+
+Notas:
+`load:orders:c5:b2:m2` ya respeta `Retry-After` y mete pausa entre intentos.
+`load:orders:peak-controlled` sirve para estrés controlado sin convertir la prueba en bombardeo artificial desde un solo IP.
 
 ---
 
@@ -478,4 +493,3 @@ Al agregar cambios:
 ---
 
 **Última actualización:** 11 de Abril de 2026
-
