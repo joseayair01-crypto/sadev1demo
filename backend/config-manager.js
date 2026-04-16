@@ -72,8 +72,34 @@ class ConfigManager {
         ttlSeconds: 300
       },
       rate_limits: {
-        development: { general: 10000, login: 1000, ordenes: 1000, windowMs: 900000 },
-        production: { general: 100, login: 5, ordenes: 10, windowMs: 900000 }
+        development: {
+          general: 10000,
+          login: 1000,
+          ordenes: 1000,
+          windowMs: 900000,
+          ordenesConfig: {
+            enabled: false,
+            windowMs: 60000,
+            normalMax: 1000,
+            peakMax: 1000,
+            peakStartHour: 20,
+            peakEndHour: 23
+          }
+        },
+        production: {
+          general: 100,
+          login: 5,
+          ordenes: 120,
+          windowMs: 900000,
+          ordenesConfig: {
+            enabled: true,
+            windowMs: 60000,
+            normalMax: 120,
+            peakMax: 300,
+            peakStartHour: 20,
+            peakEndHour: 23
+          }
+        }
       },
       database: {
         pool: { min: 5, max: 50 },  // ✅ AUMENTADO: 10 → 50 para escala

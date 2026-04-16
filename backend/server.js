@@ -388,25 +388,197 @@ const limiterLogin = rateLimit({
     }
 });
 
-const limiterOrdenes = rateLimit({
-    windowMs: 1 * 60 * 1000, // 1 minuto
-    max: (req, res) => {
-        if (process.env.NODE_ENV !== 'production') {
-            return 10000; // Desarrollo: sin límite para testing
-        }
-        
-        // Producción: Dinámico según hora
-        const hour = new Date().getHours();
-        if (hour >= 20 && hour < 24) {
-            return 120; // Picos: max 120/min = ~2000 boletos/hora
-        }
-        return 60; // Normal: max 60/min = ~1000 boletos/hora
-    },
-    message: 'Demasiadas solicitudes. Por favor espera e intenta nuevamente',
-    skip: (req, res) => {
-        return process.env.NODE_ENV !== 'production';
+function normalizarEnteroPositivo(valor, fallback) {
+    const numero = Number(valor);
+    return Number.isInteger(numero) && numero > 0 ? numero : fallback;
+}
+
+function normalizarHoraDelDia(valor, fallback) {
+    const numero = Number(valor);
+    return Number.isInteger(numero) && numero >= 0 && numero <= 23 ? numero : fallback;
+}
+
+function resolverHoraActualEnZona(timeZone) {
+    const zona = String(timeZone || '').trim() || 'America/Mexico_City';
+
+    try {
+        const formatter = new Intl.DateTimeFormat('en-US', {
+            timeZone: zona,
+            hour: '2-digit',
+            hour12: false
+        });
+        const hourPart = formatter.formatToParts(new Date()).find((part) => part.type === 'hour')?.value;
+        return normalizarHoraDelDia(Number(hourPart), new Date().getHours());
+    } catch (error) {
+        return new Date().getHours();
     }
-});
+}
+
+function horaEstaEnVentanaPico(hour, startHour, endHour) {
+    if (startHour === endHour) {
+        return true;
+    }
+
+    if (startHour < endHour) {
+        return hour >= startHour && hour < endHour;
+    }
+
+    return hour >= startHour || hour < endHour;
+}
+
+function obtenerConfiguracionRateLimitOrdenes() {
+    const isProduction = process.env.NODE_ENV === 'production';
+    const defaults = {
+        enabled: isProduction,
+        windowMs: 60 * 1000,
+        normalMax: isProduction ? 120 : 10000,
+        peakMax: isProduction ? 300 : 10000,
+        peakStartHour: 20,
+        peakEndHour: 23
+    };
+
+    let configActual = null;
+    try {
+        configActual = typeof obtenerConfigActual === 'function' ? obtenerConfigActual() : null;
+    } catch (error) {
+        configActual = null;
+    }
+
+    const envKey = isProduction ? 'production' : 'development';
+    const rawEnvConfig = configActual?.rate_limits?.[envKey]
+        || configManager?.config?.rate_limits?.[envKey]
+        || configManager?.getDefaultConfig?.().rate_limits?.[envKey]
+        || {};
+
+    const rawOrdersConfig = rawEnvConfig?.ordenesConfig || rawEnvConfig?.ordenesRateLimit || {};
+
+    const enabled = rawOrdersConfig.enabled !== undefined
+        ? rawOrdersConfig.enabled === true
+        : defaults.enabled;
+
+    const windowMs = normalizarEnteroPositivo(
+        rawOrdersConfig.windowMs ?? rawEnvConfig.ordenesWindowMs,
+        defaults.windowMs
+    );
+    const normalMax = normalizarEnteroPositivo(
+        rawOrdersConfig.normalMax ?? rawEnvConfig.ordenesNormal,
+        defaults.normalMax
+    );
+    const peakMax = normalizarEnteroPositivo(
+        rawOrdersConfig.peakMax ?? rawEnvConfig.ordenesPico,
+        Math.max(normalMax, defaults.peakMax)
+    );
+    const peakStartHour = normalizarHoraDelDia(
+        rawOrdersConfig.peakStartHour ?? rawEnvConfig.horaPicoInicio,
+        defaults.peakStartHour
+    );
+    const peakEndHour = normalizarHoraDelDia(
+        rawOrdersConfig.peakEndHour ?? rawEnvConfig.horaPicoFin,
+        defaults.peakEndHour
+    );
+    const timeZone = configActual?.rifa?.timeZone || configActual?.rifa?.zonaHoraria || 'America/Mexico_City';
+
+    return {
+        enabled,
+        windowMs,
+        normalMax,
+        peakMax: Math.max(peakMax, normalMax),
+        peakStartHour,
+        peakEndHour,
+        timeZone
+    };
+}
+
+const orderRateLimitStore = new Map();
+let orderRateLimitLastCleanupAt = 0;
+
+function limpiarRateLimitOrdenes(now = Date.now()) {
+    if (now - orderRateLimitLastCleanupAt < 60 * 1000) {
+        return;
+    }
+
+    orderRateLimitLastCleanupAt = now;
+
+    for (const [key, entry] of orderRateLimitStore.entries()) {
+        if (!entry || entry.resetAt <= now) {
+            orderRateLimitStore.delete(key);
+        }
+    }
+}
+
+function obtenerKeyRateLimitOrdenes(req) {
+    const ip = String(req.ip || req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').trim();
+    return ip || 'unknown';
+}
+
+function establecerHeadersRateLimitOrdenes(res, { limit, remaining, resetAt, windowMs }) {
+    const now = Date.now();
+    const resetSeconds = Math.max(1, Math.ceil((resetAt - now) / 1000));
+    const policyWindow = Math.max(1, Math.ceil(windowMs / 1000));
+
+    res.setHeader('RateLimit-Policy', `${limit};w=${policyWindow}`);
+    res.setHeader('RateLimit-Limit', String(limit));
+    res.setHeader('RateLimit-Remaining', String(Math.max(0, remaining)));
+    res.setHeader('RateLimit-Reset', String(resetSeconds));
+    res.setHeader('Retry-After', String(resetSeconds));
+}
+
+function limiterOrdenes(req, res, next) {
+    const configOrdenes = obtenerConfiguracionRateLimitOrdenes();
+
+    if (!configOrdenes.enabled) {
+        return next();
+    }
+
+    const now = Date.now();
+    limpiarRateLimitOrdenes(now);
+
+    const hour = resolverHoraActualEnZona(configOrdenes.timeZone);
+    const limit = horaEstaEnVentanaPico(hour, configOrdenes.peakStartHour, configOrdenes.peakEndHour)
+        ? configOrdenes.peakMax
+        : configOrdenes.normalMax;
+    const windowMs = configOrdenes.windowMs;
+    const key = obtenerKeyRateLimitOrdenes(req);
+
+    let entry = orderRateLimitStore.get(key);
+    if (!entry || entry.resetAt <= now || entry.windowMs !== windowMs) {
+        entry = {
+            count: 0,
+            resetAt: now + windowMs,
+            windowMs
+        };
+    }
+
+    if (entry.count >= limit) {
+        orderRateLimitStore.set(key, entry);
+        establecerHeadersRateLimitOrdenes(res, {
+            limit,
+            remaining: 0,
+            resetAt: entry.resetAt,
+            windowMs
+        });
+
+        return res.status(429).json({
+            success: false,
+            message: 'Demasiadas solicitudes. Por favor espera e intenta nuevamente',
+            code: 'RATE_LIMIT_ORDENES',
+            retryAfterSeconds: Math.max(1, Math.ceil((entry.resetAt - now) / 1000)),
+            limit
+        });
+    }
+
+    entry.count += 1;
+    orderRateLimitStore.set(key, entry);
+
+    establecerHeadersRateLimitOrdenes(res, {
+        limit,
+        remaining: limit - entry.count,
+        resetAt: entry.resetAt,
+        windowMs
+    });
+
+    return next();
+}
 
 const limiterRecuperacionOrdenes = rateLimit({
     windowMs: 10 * 60 * 1000, // 10 minutos

@@ -28,6 +28,7 @@
     "load:public": "node scripts/load-test-public.js",
     "load:orders": "node scripts/load-test-orders.js",
     "load:orders:c20:b2": "node scripts/load-test-orders.js --duration=30 --concurrency=20 --ticketsPerOrder=2 --pricePerTicket=6",
+    "load:orders:c5:b2:m2": "node scripts/load-test-orders.js --duration=120 --concurrency=5 --ticketsPerOrder=2 --pricePerTicket=6",
     "load:orders:c20:b2:remote": "node scripts/load-test-orders.js --baseUrl=$BASE_URL --allowRemote=true --duration=30 --concurrency=20 --ticketsPerOrder=2 --pricePerTicket=6",
     "load:orders:c20:b2:production": "node scripts/load-test-orders.js --baseUrl=$BASE_URL --allowRemote=true --allowProduction=true --duration=30 --concurrency=20 --ticketsPerOrder=2 --pricePerTicket=6",
     "validate": "node -r dotenv/config backend/validate-db.js",
