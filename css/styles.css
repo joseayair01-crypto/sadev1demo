@@ -2012,14 +2012,13 @@ body.rifaplus-logo-ready .logo-circle img[data-dynamic-logo="true"] {
 }
 
 .btn-urgency {
-    --urgency-bg-start: var(--secondary);
-    --urgency-bg-end: var(--secondary-dark);
-    --urgency-bg-hover-start: color-mix(in srgb, var(--secondary-dark) 82%, var(--primary) 18%);
-    --urgency-bg-hover-end: color-mix(in srgb, var(--primary) 72%, var(--secondary) 28%);
+    --urgency-bg: var(--secondary);
+    --urgency-bg-hover: var(--secondary-dark);
+    --urgency-bg-active: color-mix(in srgb, var(--secondary-dark) 84%, black 16%);
     --urgency-shadow: 0 12px 28px rgba(var(--secondary-rgb), 0.22);
     --urgency-shadow-hover: 0 16px 34px rgba(var(--primary-rgb), 0.20), 0 10px 24px rgba(var(--secondary-rgb), 0.18);
     --urgency-shadow-active: 0 8px 18px rgba(var(--primary-rgb), 0.16);
-    background: linear-gradient(135deg, var(--urgency-bg-start) 0%, var(--urgency-bg-end) 100%);
+    background: var(--urgency-bg);
     color: var(--ink-inverse);
     padding: 0.875rem 2.5rem;
     font-size: 1rem;
@@ -2042,14 +2041,14 @@ body.rifaplus-logo-ready .logo-circle img[data-dynamic-logo="true"] {
 }
 
 .btn-urgency:hover {
-    background: linear-gradient(135deg, var(--urgency-bg-hover-start) 0%, var(--urgency-bg-hover-end) 100%);
+    background: var(--urgency-bg-hover);
     box-shadow: var(--urgency-shadow-hover);
     transform: translateY(-2px);
     filter: saturate(1.04);
 }
 
 .btn-urgency:active {
-    background: linear-gradient(135deg, var(--secondary-dark) 0%, color-mix(in srgb, var(--primary) 58%, var(--secondary-dark) 42%) 100%);
+    background: var(--urgency-bg-active);
     box-shadow: var(--urgency-shadow-active);
     transform: translateY(0);
     filter: saturate(0.98);
@@ -2065,9 +2064,9 @@ body.rifaplus-logo-ready .logo-circle img[data-dynamic-logo="true"] {
     position: absolute;
     inset: 0;
     z-index: -1;
-    background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.20) 45%, transparent 100%);
+    background: none;
     transform: translateX(-140%);
-    animation: urgencyShine 3.2s ease-in-out infinite;
+    animation: none;
     pointer-events: none;
 }
 
@@ -6009,7 +6008,7 @@ footer {
 .numero-btn.reserved {
     background: var(--apartado);
     color: var(--secondary-dark);
-    border: 1.5px solid rgba(var(--secondary-rgb), 0.42);
+    border: 2px dashed #000;
     cursor: not-allowed;
     opacity: 1;
     position: relative;
@@ -6018,8 +6017,8 @@ footer {
 .numero-btn.reserved::after {
     content: '⏳';
     position: absolute;
-    top: 1px;
-    right: 1px;
+    top: 3px;
+    right: 3px;
     font-size: 0.38rem;
     background: var(--primary-dark);
     color: white;
