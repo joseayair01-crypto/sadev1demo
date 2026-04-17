@@ -62,6 +62,19 @@
             overflow-y: visible;
         }
 
+        body.page-cuentas-pago {
+            padding-top: 125px;
+        }
+
+        body.page-cuentas-pago .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            width: 100%;
+            z-index: 1200;
+        }
+
         main.container {
             max-width: 100%;
             padding: 2rem 1rem;
@@ -222,6 +235,10 @@
         
         /* Mobile: max 480px */
         @media (max-width: 480px) {
+            body.page-cuentas-pago {
+                padding-top: 100px;
+            }
+
             .cuentas-grid,
             .efectivo-grid {
                 gap: 1.5rem;
@@ -476,7 +493,7 @@
         }
     </style>
 </head>
-<body>
+<body class="page-cuentas-pago">
     <!-- HEADER CON MENÚ (igual que en otras páginas) -->
     <header class="header">
         <div class="container">
