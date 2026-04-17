@@ -9998,6 +9998,47 @@
                 : '';
         }
 
+        function leerGanadoresDesdeLista(containerSelector) {
+            const items = document.querySelectorAll(`${containerSelector} .premio-item`);
+            return Array.from(items).map((item) => extraerDatosGanador(item));
+        }
+
+        function sincronizarPremiosDesdeDOM() {
+            try {
+                const sorteoItems = leerGanadoresDesdeLista('#sorteo-premios-lista');
+                if (sorteoItems.length > 0) {
+                    premiosData.sorteo = sorteoItems;
+                }
+
+                const togglePresorteo = document.getElementById('toggle-presorteo');
+                if (togglePresorteo?.classList.contains('active')) {
+                    premiosData.presorteo = leerGanadoresDesdeLista('#presorteo-premios-lista');
+                }
+
+                const toggleRuletazo = document.getElementById('toggle-ruletazo');
+                if (toggleRuletazo?.classList.contains('active')) {
+                    const cantidadSolicitada = Math.max(
+                        1,
+                        parseInt(document.getElementById('input-cantidad-ruletazos')?.value, 10) || premiosData.ruletazos.length || 1
+                    );
+                    const premioBase = document.getElementById('ruletazo-premio-base')?.value?.trim() || '';
+                    const descripcionBase = document.getElementById('ruletazo-descripcion-base')?.value?.trim() || '';
+                    const iconoBase = document.getElementById('ruletazo-icono-base')?.value?.trim() || '🎰';
+
+                    sincronizarCantidadRuletazos(cantidadSolicitada);
+                    premiosData.ruletazos = Array.from({ length: cantidadSolicitada }, (_, idx) => ({
+                        posicion: idx + 1,
+                        nombre: `Ruletazo ${idx + 1}`,
+                        premio: premioBase,
+                        descripcion: descripcionBase,
+                        icono: iconoBase
+                    }));
+                }
+            } catch (error) {
+                console.warn('⚠️ No se pudieron sincronizar los premios desde el DOM:', error.message);
+            }
+        }
+
         /** Renderiza los premios en HTML */
         function renderizarPremios() {
             // Sorteo (siempre visible)
@@ -10116,6 +10157,8 @@
 
         /** Agregar nuevo ganador a una sección */
         function agregarGanador(tipo) {
+            sincronizarPremiosDesdeDOM();
+
             // Normalizar el tipo (ruletazo -> ruletazos)
             const tipoNormalizado = tipo === 'ruletazo' ? 'ruletazos' : tipo;
 
@@ -10143,6 +10186,7 @@
         /** Eliminar ganador */
         function eliminarGanador(tipo, idx) {
             if (confirm('¿Estás seguro de que quieres eliminar este ganador?')) {
+                sincronizarPremiosDesdeDOM();
                 premiosData[tipo].splice(idx, 1);
                 renderizarPremios();
             }
@@ -10169,51 +10213,54 @@
             }
             
             // Event listeners para cambiar estado manualmente
-            togglePresorteo?.addEventListener('click', () => {
-                togglePresorteo.classList.toggle('active');
-                
-                if (togglePresorteo.classList.contains('active')) {
-                    // Activar: agregar un ganador por defecto si no hay
-                    if (premiosData.presorteo.length === 0) {
-                        agregarGanador('presorteo');
+            if (togglePresorteo && togglePresorteo.dataset.bound !== '1') {
+                togglePresorteo.dataset.bound = '1';
+                togglePresorteo.addEventListener('click', () => {
+                    sincronizarPremiosDesdeDOM();
+                    togglePresorteo.classList.toggle('active');
+                    
+                    if (togglePresorteo.classList.contains('active')) {
+                        // Activar: agregar un ganador por defecto si no hay
+                        if (premiosData.presorteo.length === 0) {
+                            premiosData.presorteo.push({
+                                posicion: 1,
+                                nombre: '',
+                                premio: '',
+                                descripcion: '',
+                                icono: '🎁'
+                            });
+                        }
                     }
-                } else {
-                    // Desactivar: limpiar datos locales
-                    premiosData.presorteo = [];
-                    const inputFechaPresorteo = document.getElementById('sorteo-fecha-presorteo');
-                    const inputHoraPresorteo = document.getElementById('sorteo-hora-presorteo');
-                    if (inputFechaPresorteo) inputFechaPresorteo.value = '';
-                    if (inputHoraPresorteo) inputHoraPresorteo.value = '';
-                }
-                
-                // Solo re-renderizar, NO guardar automáticamente
-                renderizarPremios();
-            });
-            
-            toggleRuletazo?.addEventListener('click', () => {
-                toggleRuletazo.classList.toggle('active');
-                
-                if (toggleRuletazo.classList.contains('active')) {
-                    // Activar: agregar un ganador por defecto si no hay
-                    if (premiosData.ruletazos.length === 0) {
-                        sincronizarCantidadRuletazos(1);
+                    
+                    // Solo re-renderizar, NO guardar automáticamente
+                    renderizarPremios();
+                });
+            }
+
+            if (toggleRuletazo && toggleRuletazo.dataset.bound !== '1') {
+                toggleRuletazo.dataset.bound = '1';
+                toggleRuletazo.addEventListener('click', () => {
+                    sincronizarPremiosDesdeDOM();
+                    toggleRuletazo.classList.toggle('active');
+                    
+                    if (toggleRuletazo.classList.contains('active')) {
+                        // Activar: agregar un ganador por defecto si no hay
+                        if (premiosData.ruletazos.length === 0) {
+                            sincronizarCantidadRuletazos(1);
+                        }
                     }
-                } else {
-                    // Desactivar: limpiar datos locales
-                    premiosData.ruletazos = [];
-                    const inputCantidad = document.getElementById('input-cantidad-ruletazos');
-                    if (inputCantidad) inputCantidad.value = '';
-                }
-                
-                // Solo re-renderizar, NO guardar automáticamente
-                renderizarPremios();
-            });
+                    
+                    // Solo re-renderizar, NO guardar automáticamente
+                    renderizarPremios();
+                });
+            }
 
             const inputCantidadRuletazos = document.getElementById('input-cantidad-ruletazos');
             if (inputCantidadRuletazos && !inputCantidadRuletazos.dataset.bound) {
                 inputCantidadRuletazos.dataset.bound = '1';
                 inputCantidadRuletazos.addEventListener('input', () => {
                     if (!toggleRuletazo?.classList.contains('active')) return;
+                    sincronizarPremiosDesdeDOM();
                     sincronizarCantidadRuletazos(inputCantidadRuletazos.value);
                     renderizarPremios();
                 });
@@ -11793,6 +11840,8 @@
             
             guardandoPremios = true;
             const btn = document.getElementById('btn-guardar-premios');
+
+            sincronizarPremiosDesdeDOM();
             
             // 💾 PASO 1: Guardar backup de los datos actuales ANTES de intentar guardar
             const backupPremios = JSON.parse(JSON.stringify(premiosData));

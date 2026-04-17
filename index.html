@@ -138,7 +138,18 @@
             const hasHero = Boolean(String(hero.nombre || '').trim() && String(hero.descripcion || '').trim());
             const hasGallery = Boolean(String(gallery[0]?.url || '').trim());
             const hasLogo = Boolean(String(window.__RIFAPLUS_CACHED_LOGO__ || '').trim());
-            const shouldBoot = !(hasHero && hasGallery && hasLogo);
+            const referrer = String(document.referrer || '').trim();
+            let referrerInterno = false;
+
+            if (referrer) {
+                try {
+                    referrerInterno = new URL(referrer).origin === window.location.origin;
+                } catch (error) {
+                    referrerInterno = false;
+                }
+            }
+
+            const shouldBoot = !referrerInterno;
 
             window.__RIFAPLUS_PUBLIC_SHELL_BOOT__ = {
                 page: 'index',
@@ -313,6 +324,7 @@
             <div class="rifaplus-shell-logo-frame">
                 <img id="rifaplusShellLogo" class="rifaplus-shell-logo" src="images/placeholder-logo.svg" alt="Logo del organizador" width="112" height="112">
             </div>
+            <p id="rifaplusShellCopy" class="rifaplus-shell-copy rifaplus-shell-copy--tagline">Preparando tu experiencia digital</p>
         </div>
     </div>
     <!-- HEADER CON MENÚ -->

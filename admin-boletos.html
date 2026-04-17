@@ -34,6 +34,8 @@
             --ticket-card-public-primary-dark: #153e5c;
             --ticket-card-public-primary-tint: rgba(11, 34, 56, 0.08);
             --ticket-card-public-primary-border: rgba(11, 34, 56, 0.18);
+            --ticket-card-public-body-bg: #f6f9fc;
+            --ticket-card-public-body-bg-strong: #eef4f8;
             --success: #31A24C;
             --danger: #E4163A;
             --warning: #B4740C;
@@ -760,10 +762,12 @@
             max-width: none;
             min-width: 0;
             position: relative;
-            border: 1px solid var(--ticket-card-public-primary-border);
+            border: 1px solid rgba(11, 34, 56, 0.24);
             border-radius: 1.1rem;
-            background: linear-gradient(180deg, #ffffff 0%, var(--ticket-card-public-primary-tint) 100%);
-            box-shadow: 0 22px 44px rgba(33, 35, 38, 0.12);
+            background: linear-gradient(180deg, #ffffff 0%, var(--ticket-card-public-body-bg-strong) 100%);
+            box-shadow:
+                0 22px 44px rgba(33, 35, 38, 0.12),
+                0 0 0 1px rgba(255, 255, 255, 0.65) inset;
             overflow: hidden;
         }
 
@@ -840,13 +844,13 @@
             font-weight: 700;
             text-align: center;
             color: var(--ticket-card-public-primary-dark);
-            background: linear-gradient(180deg, var(--ticket-card-public-primary-tint) 0%, #ffffff 100%);
+            background: linear-gradient(180deg, var(--ticket-card-public-body-bg-strong) 0%, #ffffff 100%);
             border-bottom: 1px solid var(--ticket-card-public-primary-border);
         }
 
         .orden-imagen-principal {
             padding: 1rem 1rem 0.85rem;
-            background: #fffdf7;
+            background: linear-gradient(180deg, var(--ticket-card-public-body-bg) 0%, #ffffff 100%);
             border-bottom: 1px solid var(--ticket-card-public-primary-border);
         }
 
@@ -858,7 +862,7 @@
             padding: 0.7rem 1rem 0.9rem;
             text-align: center;
             border-bottom: 1px solid var(--ticket-card-public-primary-border);
-            background: linear-gradient(180deg, #ffffff 0%, var(--ticket-card-public-primary-tint) 100%);
+            background: linear-gradient(180deg, #ffffff 0%, var(--ticket-card-public-body-bg) 100%);
         }
 
         .orden-imagen-fecha-sorteo-label {
@@ -881,7 +885,7 @@
         .ticket-perforacion {
             position: relative;
             padding: 0.8rem 1.1rem;
-            background: linear-gradient(180deg, var(--ticket-card-public-primary-tint) 0%, #ffffff 100%);
+            background: linear-gradient(180deg, var(--ticket-card-public-body-bg-strong) 0%, #ffffff 100%);
             text-align: center;
         }
 
@@ -903,12 +907,13 @@
             letter-spacing: 0.08em;
             text-transform: uppercase;
             color: var(--ticket-card-public-primary-dark);
-            background: #ffffff;
+            background: var(--ticket-card-public-body-bg);
         }
 
         .orden-seccion {
             margin-bottom: 0;
             padding: 1rem 1.1rem;
+            background: linear-gradient(180deg, var(--ticket-card-public-body-bg) 0%, #ffffff 100%);
             border-bottom: 1px solid var(--ticket-card-public-primary-border);
         }
 
@@ -1006,11 +1011,11 @@
         }
 
         .btn-ganador {
-            background: linear-gradient(180deg, #1f6feb 0%, #1b63d2 100%);
+            background: linear-gradient(180deg, #16a34a 0%, #15803d 100%);
         }
 
         .btn-ganador:hover {
-            background: linear-gradient(180deg, #1c68dd 0%, #1758b9 100%);
+            background: linear-gradient(180deg, #15803d 0%, #166534 100%);
         }
 
         .btn-liberar {
@@ -2718,7 +2723,7 @@
                 ? ''
                 : `
                     <button class="btn btn-liberar" onclick="try{window.releaseTicket(${numero})}catch(e){alert('Error: ' + e.message)}" type="button">
-                        🔓 Liberar ${etiquetaNumero}
+                        Liberar ${etiquetaNumero}
                     </button>
                 `;
 
@@ -2729,21 +2734,21 @@
                 if (ganador) {
                     btnContainer.innerHTML = `
                         <button class="btn btn-ganador" style="background-color: #10b981;" onclick="try{window.unmarkAsWinner(${numero})}catch(e){alert('Error: ' + e.message)}" type="button">
-                            ✅ Desmarcar Ganador (${ganador.tipo})
+                            Desmarcar Ganador (${ganador.tipo})
                         </button>
                         ${botonLiberar}
                     `;
                 } else if (estadoActual.esApartado) {
                     btnContainer.innerHTML = `
                         <button class="btn btn-ganador" onclick="try{window.markAsWinner(${numero})}catch(e){alert('Error: ' + e.message)}" type="button">
-                            ⭐ Marcar como Ganador
+                            Marcar como Ganador
                         </button>
                         ${botonLiberar}
                     `;
                 } else {
                     btnContainer.innerHTML = `
                         <button class="btn btn-ganador" onclick="try{window.markAsWinner(${numero})}catch(e){alert('Error: ' + e.message)}" type="button">
-                            ⭐ Marcar como Ganador
+                            Marcar como Ganador
                         </button>
                         ${botonLiberar}
                     `;

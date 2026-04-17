@@ -44,6 +44,27 @@
         return imageDelivery?.resolverUrlImagen(logo, 'logoPreload') || logo;
     }
 
+    function leerConfigCacheada() {
+        try {
+            const raw = localStorage.getItem('rifaplus_config_actual_v2');
+            return raw ? JSON.parse(raw) : {};
+        } catch (error) {
+            return {};
+        }
+    }
+
+    function resolverEsloganShell() {
+        const configActual = window.rifaplusConfig || {};
+        const configCacheada = leerConfigCacheada();
+        const eslogan = String(
+            configActual?.cliente?.eslogan
+            || configCacheada?.cliente?.eslogan
+            || 'Preparando tu experiencia digital'
+        ).trim();
+
+        return eslogan || 'Preparando tu experiencia digital';
+    }
+
     function tieneConfigMinima() {
         const config = window.rifaplusConfig || {};
         const cliente = config.cliente || {};
@@ -66,6 +87,13 @@
         if (siguienteSrc && logo.getAttribute('src') !== siguienteSrc) {
             logo.setAttribute('src', siguienteSrc);
         }
+    }
+
+    function actualizarEsloganShell() {
+        const copy = document.getElementById('rifaplusShellCopy');
+        if (!copy) return;
+
+        copy.textContent = resolverEsloganShell();
     }
 
     function normalizarRutaLogo(valor) {
@@ -332,6 +360,7 @@
             limpiarTimers();
             limpiarEventos();
             actualizarLogoShell();
+            actualizarEsloganShell();
 
             const restante = Math.max(0, MIN_VISIBLE_MS - (performance.now() - estado.mostradoEn));
             window.setTimeout(() => {
@@ -350,6 +379,7 @@
             if (estado.cerrado) return true;
 
             actualizarLogoShell();
+            actualizarEsloganShell();
             actualizarEstadoLogoHeader(body);
             const readiness = obtenerReadiness();
 
@@ -378,6 +408,7 @@
         };
 
         actualizarLogoShell();
+        actualizarEsloganShell();
         actualizarEstadoLogoHeader(body);
 
         estado.softFallbackId = window.setTimeout(() => {
