@@ -2723,23 +2723,23 @@
                     for (let i = 0; i < boletosOrdenados.length; i += 5) {
                         lineasBoletos.push(boletosOrdenados.slice(i, i + 5).join(', '));
                     }
-                    boletosFormato = '\n📌 *Tus boletos:*\n' + lineasBoletos.map(linea => '• ' + linea).join('\n');
+                    boletosFormato = '\n\u{1F4CC} *Tus boletos:*\n' + lineasBoletos.map(linea => '\u2022 ' + linea).join('\n');
                 }
 
                 // Construir mensaje
-                const mensaje = `Hola ${nombreCliente}! 🔥
+                const mensaje = `Hola ${nombreCliente}! \u{1F525}
 
-Tu pago ha sido confirmado ✓
+Tu pago ha sido confirmado \u2713
 
-📋 *Orden:* ${ordenId}
-🎫 *Boletos comprados:* ${cantidadBoletos}${boletosFormato}
-🏆 *Fecha del Sorteo:* ${fechaHoraFormato}
+\u{1F4CB} *Orden:* ${ordenId}
+\u{1F3AB} *Boletos comprados:* ${cantidadBoletos}${boletosFormato}
+\u{1F3C6} *Fecha del Sorteo:* ${fechaHoraFormato}
 
 Puedes revisar el estado de tu orden aquí:
 ${window.location.origin}/mis-boletos.html
 
-¡Muchas gracias por participar! 😎
-¡Mucha suerte! 🎱`;
+¡Muchas gracias por participar! \u{1F60E}
+¡Mucha suerte! \u{1F3B1}`;
 
                 // Crear URL de WhatsApp con mensaje
                 const urlWhatsapp = construirWhatsappUrl(telefonoCliente, estadoCliente, mensaje);
