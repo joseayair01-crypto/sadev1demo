@@ -35,7 +35,7 @@
                       localStorage.getItem('token');
         
         if (!token) {
-            console.warn('[AdminHeader] No hay token en localStorage');
+            debugAdminHeader('No hay token en localStorage');
             return null;
         }
 
@@ -109,7 +109,7 @@
             if (!nombreDisplay || !rolDisplay) {
                 // Si los elementos no existen aún, reintentar en 100ms
                 if (!usuario) {
-                    console.warn('[AdminHeader] No se pudo decodificar usuario');
+                    debugAdminHeader('No se pudo decodificar usuario porque el usuario no esta autenticado');
                     return;
                 }
                 setTimeout(tryFill, 100);
@@ -117,7 +117,6 @@
             }
 
             if (!usuario) {
-                console.warn('[AdminHeader] No se pudo decodificar usuario');
                 if (nombreDisplay) nombreDisplay.textContent = 'No autenticado';
                 if (rolDisplay) rolDisplay.textContent = 'Sin rol';
                 return;

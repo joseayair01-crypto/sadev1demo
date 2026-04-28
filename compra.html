@@ -29,6 +29,44 @@
             const fallbackLogo = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 96'%3E%3Crect width='240' height='96' rx='20' fill='%230b2235'/%3E%3Ctext x='120' y='58' font-size='28' text-anchor='middle' fill='%23ffffff' font-family='Arial,sans-serif'%3ESorteo%3C/text%3E%3C/svg%3E";
             let configLocal = {};
 
+            function resolverVisibilidadLogoVerificado() {
+                const clavesSnapshot = ['rifaplus_public_snapshot_v1'];
+                const clavesConfig = ['rifaplus_config_actual_v2'];
+
+                for (const clave of clavesSnapshot) {
+                    try {
+                        const raw = localStorage.getItem(clave);
+                        if (!raw) continue;
+
+                        const parsed = JSON.parse(raw);
+                        const data = parsed?.data && typeof parsed.data === 'object' ? parsed.data : parsed;
+                        const valor = data?.rifa?.publicacion?.logoVerificadoHeader;
+                        if (valor !== undefined) {
+                            return valor !== false;
+                        }
+                    } catch (error) {}
+                }
+
+                for (const clave of clavesConfig) {
+                    try {
+                        const raw = localStorage.getItem(clave);
+                        if (!raw) continue;
+
+                        const parsed = JSON.parse(raw);
+                        const valor = parsed?.rifa?.publicacion?.logoVerificadoHeader;
+                        if (valor !== undefined) {
+                            return valor !== false;
+                        }
+                    } catch (error) {}
+                }
+
+                return true;
+            }
+
+            if (resolverVisibilidadLogoVerificado() === false) {
+                document.documentElement.classList.add('rifaplus-logo-verified-off');
+            }
+
             try {
                 configLocal = JSON.parse(localStorage.getItem('rifaplus_config_actual_v2') || '{}');
             } catch (error) {
@@ -252,6 +290,7 @@
     <script defer src="js/config.js?v=20260410.1"></script>
     <script defer src="js/config-sync.js"></script>
     <script defer src="js/meta-inyector.js"></script>
+    <script defer src="js/meta-pixel.js"></script>
     <script>
         // Limpieza de caché de localStorage - elimina datos obsoletos
         (function() {
@@ -338,6 +377,7 @@
                     </script>
                     <noscript><img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 96'%3E%3Crect width='240' height='96' rx='20' fill='%230b2235'/%3E%3Ctext x='120' y='58' font-size='28' text-anchor='middle' fill='%23ffffff' font-family='Arial,sans-serif'%3ESorteo%3C/text%3E%3C/svg%3E" alt="Logo del organizador" class="logo-image dynamic-logo" data-dynamic-logo="true" fetchpriority="high" loading="eager" decoding="sync" width="320" height="137"></noscript>
                 </div>
+                <span class="logo-verified-badge" aria-hidden="true">✓</span>
             </a>
 
             <nav class="nav" aria-label="Navegación principal">
@@ -396,8 +436,12 @@
     <section class="compra-pricing-section">
         <div class="container">
             <div class="precio-card-main loading" id="precioCardCompra" aria-busy="true" data-shell-critical="true">
+                <div class="precio-card-badge-corner" id="precioBadgeCompra" style="display: none;">
+                    <span id="precioBadgeCompraText">2x1</span>
+                </div>
                 <!-- PRECIO NORMAL (cuando no hay promoción) -->
                 <div id="precioNormalCompra" class="precio-normal-mode">
+                    <div class="precio-super-badge" id="precioSuperBadgeCompra" style="display: none;">Super promocion</div>
                     <p class="precio-kicker">Precio por boleto</p>
                     <div class="precio-big"><span id="precioDinamico"><script>document.write((function(){const precio=Number(window.__RIFAPLUS_COMPRA_PRICE_SNAPSHOT__?.precioVisible);return Number.isFinite(precio)&&precio>0?`$${precio.toFixed(2)}`:'';})());</script></span></div>
                     <p class="precio-caption">Tu entrada directa al sorteo</p>
@@ -485,6 +529,7 @@
                 <div class="maquina-controls-mejorada">
                     <div class="cantidad-control">
                         <label for="cantidadNumeros">¿Cuántos números quieres?</label>
+                        <div class="maquina-quick-picks" id="maquinaQuickPicks" aria-label="Cantidades rápidas"></div>
                         <div class="number-selector">
                             <button type="button" class="number-btn" id="disminuirCantidad">-</button>
                             <input type="number" id="cantidadNumeros" placeholder="0" min="0" max="500" step="1" inputmode="numeric" class="number-input">

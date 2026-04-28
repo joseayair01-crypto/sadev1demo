@@ -11,6 +11,209 @@ function redondearMoneda(valor) {
     return Math.round((Number(valor) || 0) * 100) / 100;
 }
 
+function normalizarReglasCombo(reglas = []) {
+    return (Array.isArray(reglas) ? reglas : [])
+        .map((regla) => {
+            const cantidadRecibe = parseInt(
+                regla?.cantidadRecibe
+                ?? regla?.cantidadEntrega
+                ?? regla?.cantidad
+                ?? regla?.boletos
+                ?? 0,
+                10
+            );
+            const cantidadPaga = parseInt(
+                regla?.cantidadPaga
+                ?? regla?.paga
+                ?? regla?.compra
+                ?? 0,
+                10
+            );
+
+            if (
+                !Number.isInteger(cantidadRecibe) ||
+                !Number.isInteger(cantidadPaga) ||
+                cantidadRecibe <= 1 ||
+                cantidadPaga <= 0 ||
+                cantidadPaga >= cantidadRecibe
+            ) {
+                return null;
+            }
+
+            return {
+                cantidadRecibe,
+                cantidadPaga,
+                boletosBonificados: cantidadRecibe - cantidadPaga,
+                etiqueta: String(
+                    regla?.etiqueta
+                    || regla?.label
+                    || `${cantidadRecibe}x${cantidadPaga}`
+                ).trim() || `${cantidadRecibe}x${cantidadPaga}`
+            };
+        })
+        .filter(Boolean)
+        .sort((a, b) => {
+            if (a.cantidadRecibe !== b.cantidadRecibe) {
+                return a.cantidadRecibe - b.cantidadRecibe;
+            }
+            return a.cantidadPaga - b.cantidadPaga;
+        });
+}
+
+function calcularPromocionCombo(cantidadBoletos, precioUnitario, reglas = []) {
+    const reglasNormalizadas = normalizarReglasCombo(reglas);
+    const cantidad = Number.parseInt(cantidadBoletos, 10);
+    const precio = Number(precioUnitario);
+
+    if (!Number.isInteger(cantidad) || cantidad <= 0 || !Number.isFinite(precio) || precio <= 0 || reglasNormalizadas.length === 0) {
+        const subtotalBase = redondearMoneda((Number.isInteger(cantidad) ? cantidad : 0) * (Number.isFinite(precio) ? precio : 0));
+        return {
+            comboAplicado: false,
+            subtotalBase,
+            total: subtotalBase,
+            descuento: 0,
+            boletosEntregados: Math.max(0, cantidad || 0),
+            boletosPagados: Math.max(0, cantidad || 0),
+            boletosBonificados: 0,
+            desglose: [],
+            reglaPrincipal: null,
+            mensaje: 'Sin combo aplicable'
+        };
+    }
+
+    const subtotalBase = redondearMoneda(cantidad * precio);
+    const dp = Array(cantidad + 1).fill(Infinity);
+    const ruta = Array(cantidad + 1).fill(null);
+    dp[0] = 0;
+
+    const debePreferirNuevaRuta = (costoNuevo, costoActual, rutaActual, nuevaRegla) => {
+        if (costoNuevo < costoActual - 0.000001) return true;
+        if (Math.abs(costoNuevo - costoActual) > 0.000001) return false;
+        if (!rutaActual) return true;
+        if (rutaActual.tipo !== 'combo') return true;
+        if ((nuevaRegla?.cantidadRecibe || 0) !== (rutaActual.regla?.cantidadRecibe || 0)) {
+            return (nuevaRegla?.cantidadRecibe || 0) > (rutaActual.regla?.cantidadRecibe || 0);
+        }
+        return (nuevaRegla?.cantidadPaga || 0) < (rutaActual.regla?.cantidadPaga || 0);
+    };
+
+    for (let boletos = 1; boletos <= cantidad; boletos += 1) {
+        const costoRegular = dp[boletos - 1] + precio;
+        dp[boletos] = costoRegular;
+        ruta[boletos] = {
+            previo: boletos - 1,
+            tipo: 'regular',
+            cantidadRecibe: 1,
+            cantidadPaga: 1,
+            total: precio
+        };
+
+        for (const regla of reglasNormalizadas) {
+            if (boletos < regla.cantidadRecibe) continue;
+
+            const costoConCombo = dp[boletos - regla.cantidadRecibe] + (regla.cantidadPaga * precio);
+            if (debePreferirNuevaRuta(costoConCombo, dp[boletos], ruta[boletos], regla)) {
+                dp[boletos] = costoConCombo;
+                ruta[boletos] = {
+                    previo: boletos - regla.cantidadRecibe,
+                    tipo: 'combo',
+                    cantidadRecibe: regla.cantidadRecibe,
+                    cantidadPaga: regla.cantidadPaga,
+                    total: regla.cantidadPaga * precio,
+                    regla
+                };
+            }
+        }
+    }
+
+    const total = redondearMoneda(dp[cantidad]);
+    const descuento = redondearMoneda(subtotalBase - total);
+
+    if (descuento <= 0) {
+        return {
+            comboAplicado: false,
+            subtotalBase,
+            total: subtotalBase,
+            descuento: 0,
+            boletosEntregados: cantidad,
+            boletosPagados: cantidad,
+            boletosBonificados: 0,
+            desglose: [],
+            reglaPrincipal: null,
+            mensaje: 'Sin combo aplicable'
+        };
+    }
+
+    const desglose = [];
+    let cursor = cantidad;
+    let boletosPagados = 0;
+
+    while (cursor > 0 && ruta[cursor]) {
+        const paso = ruta[cursor];
+        boletosPagados += Number(paso.cantidadPaga || 0);
+
+        if (paso.tipo === 'combo' && paso.regla) {
+            const existente = desglose.find((item) =>
+                item.tipo === 'combo'
+                && item.cantidadRecibe === paso.regla.cantidadRecibe
+                && item.cantidadPaga === paso.regla.cantidadPaga
+            );
+            if (existente) {
+                existente.veces += 1;
+            } else {
+                desglose.push({
+                    tipo: 'combo',
+                    etiqueta: paso.regla.etiqueta,
+                    cantidadRecibe: paso.regla.cantidadRecibe,
+                    cantidadPaga: paso.regla.cantidadPaga,
+                    boletosBonificados: paso.regla.boletosBonificados,
+                    veces: 1
+                });
+            }
+        } else {
+            const existente = desglose.find((item) => item.tipo === 'regular');
+            if (existente) {
+                existente.veces += 1;
+                existente.cantidadRecibe += 1;
+                existente.cantidadPaga += 1;
+            } else {
+                desglose.push({
+                    tipo: 'regular',
+                    etiqueta: 'Boleto regular',
+                    cantidadRecibe: 1,
+                    cantidadPaga: 1,
+                    boletosBonificados: 0,
+                    veces: 1
+                });
+            }
+        }
+
+        cursor = paso.previo;
+    }
+
+    const combosUsados = desglose
+        .filter((item) => item.tipo === 'combo')
+        .sort((a, b) => b.cantidadRecibe - a.cantidadRecibe);
+    const reglaPrincipal = combosUsados[0] || null;
+    const boletosBonificados = Math.max(0, cantidad - boletosPagados);
+    const mensaje = combosUsados.length > 0
+        ? combosUsados.map((item) => `${item.veces}x ${item.cantidadRecibe}x${item.cantidadPaga}`).join(' + ')
+        : 'Combo aplicado';
+
+    return {
+        comboAplicado: true,
+        subtotalBase,
+        total,
+        descuento,
+        boletosEntregados: cantidad,
+        boletosPagados,
+        boletosBonificados,
+        desglose,
+        reglaPrincipal,
+        mensaje
+    };
+}
+
 const RIFAPLUS_PROMO_TIMEZONE = 'America/Mexico_City';
 
 function obtenerOffsetMinutosEnZona(fecha, timeZone = RIFAPLUS_PROMO_TIMEZONE) {
@@ -326,16 +529,23 @@ function calcularDescuentoCompartido(cantidadBoletos, precioUnitario = null, reg
 function calcularTotalesServidor(cantidadBoletos, config = {}, ahora = new Date()) {
     const rifa = config?.rifa || {};
     const precioInfo = obtenerPrecioUnitarioVigente(config, ahora);
+    const promoComboConfig = rifa?.promocionesCombo || {};
 
     const precioNormal = precioInfo.precioNormal;
     const precioUnitario = precioInfo.precioUnitario;
     const subtotal = redondearMoneda(cantidadBoletos * precioNormal);
     const descuentoPromocion = redondearMoneda(cantidadBoletos * precioInfo.descuentoPorBoleto);
 
+    const comboInfo = promoComboConfig?.enabled === true
+        ? calcularPromocionCombo(cantidadBoletos, precioUnitario, promoComboConfig?.reglas)
+        : calcularPromocionCombo(cantidadBoletos, precioUnitario, []);
+
+    const descuentoCombo = redondearMoneda(comboInfo?.descuento || 0);
+
     let descuentoCantidad = 0;
     let reglaCantidad = null;
 
-    if (descuentoPromocion === 0) {
+    if (descuentoPromocion === 0 && !comboInfo.comboAplicado) {
         const resultadoCantidad = calcularDescuentoCompartido(
             cantidadBoletos,
             precioNormal,
@@ -346,8 +556,13 @@ function calcularTotalesServidor(cantidadBoletos, config = {}, ahora = new Date(
         reglaCantidad = resultadoCantidad.regla || null;
     }
 
-    const descuentoTotal = redondearMoneda(descuentoPromocion + descuentoCantidad);
+    const descuentoTotal = redondearMoneda(descuentoPromocion + descuentoCombo + descuentoCantidad);
     const totalFinal = redondearMoneda(Math.max(0, subtotal - descuentoTotal));
+    const promocionesAplicadas = [
+        precioInfo.origenDescuento,
+        comboInfo.comboAplicado ? 'promocion_combo' : null,
+        reglaCantidad ? 'descuento_volumen' : null
+    ].filter(Boolean);
 
     return {
         cantidadBoletos,
@@ -356,10 +571,22 @@ function calcularTotalesServidor(cantidadBoletos, config = {}, ahora = new Date(
         subtotal,
         descuento: descuentoTotal,
         descuentoPromocion,
+        descuentoCombo,
         descuentoCantidad,
         totalFinal,
-        promocionAplicada: precioInfo.origenDescuento,
-        reglaCantidad
+        promocionAplicada: promocionesAplicadas.join('+') || null,
+        promocionesAplicadas,
+        reglaCantidad,
+        combo: {
+            enabled: promoComboConfig?.enabled === true,
+            applied: comboInfo.comboAplicado === true,
+            boletosEntregados: comboInfo.boletosEntregados || cantidadBoletos,
+            boletosPagados: comboInfo.boletosPagados || cantidadBoletos,
+            boletosBonificados: comboInfo.boletosBonificados || 0,
+            reglaPrincipal: comboInfo.reglaPrincipal || null,
+            desglose: comboInfo.desglose || [],
+            mensaje: comboInfo.mensaje || 'Sin combo aplicable'
+        }
     };
 }
 
@@ -404,7 +631,9 @@ function auditarConsistenciaPrecios(cantidadBoletos, precioUnitario, datosClient
 
 module.exports = {
     calcularDescuentoCompartido,
+    calcularPromocionCombo,
     auditarConsistenciaPrecios,
+    normalizarReglasCombo,
     obtenerPrecioUnitarioVigente,
     calcularTotalesServidor
 };

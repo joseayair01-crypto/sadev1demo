@@ -464,6 +464,15 @@ function renderizarOrdenFormal(orden) {
     const descuentoBase = Number(descuentoSource ?? 0);
     const descuento = descuentoBase > 0 ? descuentoBase : Math.max(0, subtotal - totalBase);
     const total = totalSource !== null && totalSource !== undefined ? totalBase : Math.max(0, subtotal - descuento);
+    const comboInfo = orden.totales?.combo || null;
+    const comboHtml = comboInfo?.applied ? `
+        <div class="orden-boletos">
+            <div class="orden-field-label">Promoción Combo Aplicada</div>
+            <div class="orden-field-value">
+                Recibes ${Number(comboInfo.boletosEntregados || boletosArray.length)} boleto(s), pagas ${Number(comboInfo.boletosPagados || boletosArray.length)} y se bonifican ${Number(comboInfo.boletosBonificados || 0)}.
+            </div>
+        </div>
+    ` : '';
     const html = `
         <div class="orden-documento" id="documentoPDF">
             
@@ -507,6 +516,7 @@ function renderizarOrdenFormal(orden) {
                         <div class="orden-field-label">Boletos Adquiridos (${boletosArray.length})</div>
                         <div class="orden-boletos-list">${boletosStr}</div>
                     </div>
+                    ${comboHtml}
                     ${oportunidadesHtml}
                     <div class="orden-totales">
                         <div class="orden-subtotal">
@@ -893,7 +903,8 @@ async function guardarOrden() {
             totales: {
                 subtotal: Math.round(subtotal * 100) / 100,
                 descuento: Math.max(0, Math.round((parseFloat(ordenActual.totales?.descuento) || 0) * 100) / 100),
-                totalFinal: Math.round(totalFinal * 100) / 100
+                totalFinal: Math.round(totalFinal * 100) / 100,
+                combo: ordenActual.totales?.combo || null
             },
             cuenta: ordenActual.cuenta || {},
             precioUnitario: (function(){
@@ -1198,7 +1209,8 @@ async function guardarOrden() {
                         subtotal: Number(totalesOficiales.subtotal || 0),
                         descuento: Number(totalesOficiales.descuento || 0),
                         totalFinal: Number(totalesOficiales.totalFinal || 0),
-                        precioUnitario: Number(totalesOficiales.precioUnitario || payload.precioUnitario || 0)
+                        precioUnitario: Number(totalesOficiales.precioUnitario || payload.precioUnitario || 0),
+                        combo: totalesOficiales.combo || payload.totales?.combo || null
                     };
                     payload.precioUnitario = Number(totalesOficiales.precioUnitario || payload.precioUnitario || 0);
                     logOrdenFormalDebug('[Orden-Formal] Totales oficiales aplicados al cliente:', payload.totales);
@@ -1259,6 +1271,18 @@ async function guardarOrden() {
                 setItemSafeOrden('rifaplus_orden_confirmada', 'true');
                 setItemSafeOrden('rifaplus_orden_url', respuestaExitosa.url || '');
                 logOrdenFormalDebug('[Orden-Formal] Orden guardada para confirmación:', datosFinalesOrden);
+
+                window.RifaPlusMetaPixel?.trackPurchase?.({
+                    content_name: window.rifaplusConfig?.rifa?.nombreSorteo || 'Sorteo',
+                    content_category: 'rifa',
+                    content_type: 'product',
+                    content_ids: Array.isArray(datosFinalesOrden.boletos)
+                        ? datosFinalesOrden.boletos.map((numero) => String(numero))
+                        : [],
+                    num_items: Number(datosFinalesOrden.cantidad_boletos || 0),
+                    value: Number(datosFinalesOrden?.totales?.totalFinal || 0),
+                    currency: 'MXN'
+                });
                 
                 // ⭐ MOSTRAR MODAL Y AUTO-REDIRIGIR A MIS BOLETOS
                 logOrdenFormalDebug('[Orden-Formal] Mostrando modal de orden confirmada');
@@ -1285,7 +1309,13 @@ async function guardarOrden() {
                     } catch (error) {
                         // Ignorar errores de storage para no bloquear la navegación.
                     }
-                    window.location.href = `mis-boletos.html?ordenId=${encodeURIComponent(datosFinalesOrden.ordenId)}&autoOpen=true`;
+                    const destinoMisBoletos = typeof window.rifaplusConfig?.construirUrlMisBoletos === 'function'
+                        ? window.rifaplusConfig.construirUrlMisBoletos({
+                            ordenId: datosFinalesOrden.ordenId,
+                            autoOpen: true
+                        })
+                        : `mis-boletos.html?ordenId=${encodeURIComponent(datosFinalesOrden.ordenId)}&autoOpen=true`;
+                    window.location.href = destinoMisBoletos;
                 }
                 
                 return;  // ÉXITO - salir del loop de reintentos
@@ -1334,7 +1364,13 @@ async function guardarOrden() {
                                         } catch (error) {
                                             // Ignorar errores de storage para no bloquear la navegación.
                                         }
-                                        window.location.href = `mis-boletos.html?ordenId=${encodeURIComponent(ordenReciente.numero_orden)}&autoOpen=true`;
+                                        const destinoMisBoletos = typeof window.rifaplusConfig?.construirUrlMisBoletos === 'function'
+                                            ? window.rifaplusConfig.construirUrlMisBoletos({
+                                                ordenId: ordenReciente.numero_orden,
+                                                autoOpen: true
+                                            })
+                                            : `mis-boletos.html?ordenId=${encodeURIComponent(ordenReciente.numero_orden)}&autoOpen=true`;
+                                        window.location.href = destinoMisBoletos;
                                         return;
                                     }
                                 }
@@ -1351,7 +1387,13 @@ async function guardarOrden() {
                             } catch (error) {
                                 // Ignorar errores de storage para no bloquear la navegación.
                             }
-                            window.location.href = `mis-boletos.html?ordenId=${encodeURIComponent(ordenId)}&autoOpen=true`;
+                            const destinoMisBoletos = typeof window.rifaplusConfig?.construirUrlMisBoletos === 'function'
+                                ? window.rifaplusConfig.construirUrlMisBoletos({
+                                    ordenId,
+                                    autoOpen: true
+                                })
+                                : `mis-boletos.html?ordenId=${encodeURIComponent(ordenId)}&autoOpen=true`;
+                            window.location.href = destinoMisBoletos;
                             return;
                         }
                     }

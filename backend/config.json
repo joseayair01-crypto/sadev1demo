@@ -51,6 +51,10 @@
       "enabled": false,
       "reglas": []
     },
+    "promocionesCombo": {
+      "enabled": false,
+      "reglas": []
+    },
     "promocionesOportunidades": {
       "enabled": true,
       "ejemplos": []

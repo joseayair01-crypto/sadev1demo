@@ -21,6 +21,59 @@ const RIFAPLUS_EVENT_OPTS = Object.freeze({
     passiveOnce: { passive: true, once: true }
 });
 
+function esPaginaPublicaRifaPlus() {
+    const pathname = String(window.location.pathname || '').toLowerCase();
+    const filename = pathname.split('/').pop() || '';
+    return !filename.startsWith('admin-') && !pathname.includes('/admin');
+}
+
+function asegurarModalSorteoFinalizadoDisponible() {
+    if (!esPaginaPublicaRifaPlus()) {
+        return Promise.resolve(null);
+    }
+
+    if (window.modalSorteoFinalizado) {
+        return Promise.resolve(window.modalSorteoFinalizado);
+    }
+
+    if (window.__RIFAPLUS_MODAL_FINALIZADO_LOADING__) {
+        return window.__RIFAPLUS_MODAL_FINALIZADO_LOADING__;
+    }
+
+    const scriptExistente = document.querySelector('script[src*="js/modal-sorteo-finalizado.js"]');
+    if (scriptExistente) {
+        window.__RIFAPLUS_MODAL_FINALIZADO_LOADING__ = new Promise((resolve) => {
+            if (window.modalSorteoFinalizado) {
+                resolve(window.modalSorteoFinalizado);
+                return;
+            }
+
+            scriptExistente.addEventListener('load', () => resolve(window.modalSorteoFinalizado || null), { once: true });
+            scriptExistente.addEventListener('error', () => resolve(null), { once: true });
+        }).finally(() => {
+            window.__RIFAPLUS_MODAL_FINALIZADO_LOADING__ = null;
+        });
+
+        return window.__RIFAPLUS_MODAL_FINALIZADO_LOADING__;
+    }
+
+    window.__RIFAPLUS_MODAL_FINALIZADO_LOADING__ = new Promise((resolve) => {
+        const script = document.createElement('script');
+        script.src = 'js/modal-sorteo-finalizado.js?v=20260408.1';
+        script.defer = true;
+        script.onload = () => resolve(window.modalSorteoFinalizado || null);
+        script.onerror = () => {
+            console.warn('⚠️ No se pudo cargar js/modal-sorteo-finalizado.js');
+            resolve(null);
+        };
+        document.head.appendChild(script);
+    }).finally(() => {
+        window.__RIFAPLUS_MODAL_FINALIZADO_LOADING__ = null;
+    });
+
+    return window.__RIFAPLUS_MODAL_FINALIZADO_LOADING__;
+}
+
 function addPassiveListener(target, eventName, handler, extraOptions) {
     if (!target || typeof target.addEventListener !== 'function') {
         return;
@@ -227,12 +280,17 @@ function addPassiveListener(target, eventName, handler, extraOptions) {
         const fechaRifa = new Date(timestampRifa);
 
         const fechaSorteoActivo = new Date(sorteo.fechaCierre);
+        const descriptorFechaCierre = Object.getOwnPropertyDescriptor(sorteo, 'fechaCierre')
+            || Object.getOwnPropertyDescriptor(Object.getPrototypeOf(sorteo) || {}, 'fechaCierre');
+        const puedeAsignarFechaCierre = !descriptorFechaCierre || descriptorFechaCierre.writable || descriptorFechaCierre.set;
 
         // Si hay diferencia mayor a 1s o el valor actual no es válido, sincronizamos
         if (isNaN(fechaSorteoActivo.getTime()) || Math.abs(fechaSorteoActivo.getTime() - fechaRifa.getTime()) > 1000) {
-            sorteo.fechaCierre = fechaRifa.toISOString();
+            if (puedeAsignarFechaCierre) {
+                sorteo.fechaCierre = fechaRifa.toISOString();
+            }
             sorteo.fechaCierreFormato = window.rifaplusConfig?.obtenerFechaSorteoFormato?.() || window.rifaplusConfig?.rifa?.fechaSorteoFormato || fechaRifa.toLocaleString('es-MX');
-            console.log('🔄 Sincronizado sorteoActivo.fechaCierre desde rifa.fechaSorteo ->', sorteo.fechaCierre);
+            console.log('🔄 Sincronizado sorteoActivo desde rifa.fechaSorteo ->', sorteo.fechaCierre);
         }
     } catch (err) {
         console.warn('⚠️ Error sincronizando sorteoActivo con rifa:', err && err.message);
@@ -529,10 +587,11 @@ function inyectarLogoDinamico() {
  * Ejecutar cuando el DOM esté completamente cargado
  * Inicializa todos los módulos disponibles
  */
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     console.log('🚀 Inicializando SaDev...');
 
     // 🎉 Inicializar modal de sorteo finalizado (SI aplica)
+    await asegurarModalSorteoFinalizadoDisponible();
     if (window.modalSorteoFinalizado) {
         window.modalSorteoFinalizado.inicializar();
     }
@@ -1247,7 +1306,44 @@ function inicializarMenuMovil() {
  * Útil para debugging en producción
  */
 window.addEventListener('error', function(evento) {
-    console.error('❌ Error no capturado:', evento.error);
+    const target = evento?.target;
+    const recurso = target && target !== window
+        ? (target.currentSrc || target.src || target.href || target.id || target.tagName || 'desconocido')
+        : '';
+
+    if (evento?.error) {
+        console.error('❌ Error no capturado:', evento.error);
+        return;
+    }
+
+    if (evento?.message) {
+        if (String(evento.message).includes('ResizeObserver loop completed with undelivered notifications')) {
+            console.warn('⚠️ ResizeObserver reportó notificaciones pendientes; se reintentará en el siguiente frame');
+            return;
+        }
+
+        console.error('❌ Error global detectado:', {
+            mensaje: evento.message,
+            archivo: evento.filename || 'desconocido',
+            linea: evento.lineno || 0,
+            columna: evento.colno || 0
+        });
+        return;
+    }
+
+    if (recurso) {
+        console.error('❌ Error cargando recurso:', {
+            etiqueta: target?.tagName?.toLowerCase?.() || 'desconocida',
+            recurso
+        });
+        return;
+    }
+
+    console.error('❌ Error global sin detalle:', evento);
+});
+
+window.addEventListener('unhandledrejection', function(evento) {
+    console.error('❌ Promesa rechazada sin manejar:', evento?.reason);
 });
 
 /**
@@ -1273,6 +1369,27 @@ function debeMostrarProgressBar() {
 
 function debeMostrarProgressStats() {
     return window.rifaplusConfig?.rifa?.publicacion?.progressStats !== false;
+}
+
+function debeMostrarLogoVerificadoHeader() {
+    return window.rifaplusConfig?.rifa?.publicacion?.logoVerificadoHeader !== false;
+}
+
+function aplicarVisibilidadLogoVerificadoHeader() {
+    const badges = document.querySelectorAll('.logo-verified-badge');
+    const mostrarBadge = debeMostrarLogoVerificadoHeader();
+    if (typeof window.__RIFAPLUS_SET_LOGO_VERIFIED_VISIBILITY__ === 'function') {
+        window.__RIFAPLUS_SET_LOGO_VERIFIED_VISIBILITY__(mostrarBadge);
+    } else {
+        document.documentElement.classList.toggle('rifaplus-logo-verified-off', !mostrarBadge);
+    }
+
+    if (!badges.length) return;
+
+    badges.forEach((badge) => {
+        badge.classList.toggle('is-hidden', !mostrarBadge);
+        badge.setAttribute('aria-hidden', 'true');
+    });
 }
 
 function aplicarVisibilidadProgressStats() {
@@ -1487,8 +1604,16 @@ function actualizarTotalBoletosEnUI() {
     }
 }
 
+window.addEventListener('configSyncCompleto', aplicarVisibilidadLogoVerificadoHeader);
+window.addEventListener('configuracionActualizada', aplicarVisibilidadLogoVerificadoHeader);
 window.addEventListener('configSyncCompleto', aplicarVisibilidadProgressStats);
 window.addEventListener('configuracionActualizada', aplicarVisibilidadProgressStats);
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', aplicarVisibilidadLogoVerificadoHeader, { once: true });
+} else {
+    aplicarVisibilidadLogoVerificadoHeader();
+}
 
 /**
  * Inicializa completamente el countdown y progreso

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Sincroniza backend/config.json -> sorteo_configuracion.valor
+ * Sincroniza backend/config.json -> rifas.configuracion
  *
  * Uso:
  *   cd backend
@@ -16,7 +16,6 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 const db = require('./db');
 const ConfigManagerV2 = require('./config-manager-v2');
 
-const CONFIG_KEY = 'config_principal';
 const CONFIG_PATH = path.join(__dirname, 'config.json');
 const BACKUP_DIR = path.join(__dirname, 'backups');
 
@@ -42,6 +41,26 @@ function asegurarDirectorio(dirPath) {
 function leerConfigJson() {
   const raw = fs.readFileSync(CONFIG_PATH, 'utf8');
   return JSON.parse(raw);
+}
+
+async function obtenerRifaDestino() {
+  const hasRifas = await db.schema.hasTable('rifas');
+  if (!hasRifas) return null;
+
+  return await db('rifas')
+    .whereNull('depurada_at')
+    .where('activa_publica', true)
+    .orderBy('id', 'asc')
+    .first()
+    || await db('rifas')
+      .whereNull('depurada_at')
+      .where('es_predeterminada', true)
+      .orderBy('id', 'asc')
+      .first()
+    || await db('rifas')
+      .whereNull('depurada_at')
+      .orderBy('id', 'asc')
+      .first();
 }
 
 function validarConfigMinima(config) {
@@ -87,12 +106,11 @@ async function respaldarConfigActualEnArchivo(configActualBD) {
 }
 
 async function obtenerConfigActualBD() {
-  const row = await db('sorteo_configuracion')
-    .where('clave', CONFIG_KEY)
-    .first();
-
-  if (!row) return null;
-  return typeof row.valor === 'string' ? JSON.parse(row.valor) : row.valor;
+  const rifa = await obtenerRifaDestino();
+  if (rifa?.configuracion && typeof rifa.configuracion === 'object') {
+    return rifa.configuracion;
+  }
+  return null;
 }
 
 async function ejecutar() {
@@ -102,11 +120,11 @@ async function ejecutar() {
 
   try {
     log(colors.blue, '1. Verificando tabla de configuración...');
-    const tableExists = await db.schema.hasTable('sorteo_configuracion');
-    if (!tableExists) {
-      throw new Error('La tabla sorteo_configuracion no existe. Ejecuta primero la inicialización de persistencia.');
+    const rifaDestino = await obtenerRifaDestino();
+    if (!rifaDestino) {
+      throw new Error('No existe una rifa activa o predeterminada en la tabla rifas.');
     }
-    log(colors.green, '   ✅ Tabla sorteo_configuracion disponible');
+    log(colors.green, `   ✅ Destino principal: rifas.configuracion (rifa ${rifaDestino.id})`);
 
     log(colors.blue, '\n2. Leyendo backend/config.json...');
     const configJson = leerConfigJson();

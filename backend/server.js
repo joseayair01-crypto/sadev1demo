@@ -17,6 +17,7 @@ const helmet = require('helmet');
 const sanitizeHtml = require('sanitize-html');
 const compression = require('compression');
 const crypto = require('crypto');  // ⭐ FASE 1: Para calcular ETags en HTTP caching
+const { AsyncLocalStorage } = require('async_hooks');
 const lockfile = require('proper-lockfile');  // 🔒 File locking para race conditions
 const socketIO = require('socket.io');  // 🔌 WebSocket para actualizaciones en tiempo real
 // ⚠️ CRÍTICO: cargar .env desde el directorio backend para DATABASE_URL
@@ -31,10 +32,32 @@ const OportunidadesOrdenService = require('./services/oportunidadesOrdenService'
 const OportunidadesInventoryService = require('./services/oportunidadesInventoryService');
 const NuevaRifaService = require('./services/nuevaRifaService');
 const BoletoService = require('./services/boletoService'); // Servicio de boletos para estadísticas y limpieza
+const RifaService = require('./services/rifaService');
+const RifaArchiveService = require('./services/rifaArchiveService');
+const { applyRifaScope, getRifaIdFromRequest } = require('./services/rifaScope');
 const comprobanteService = require('./services/comprobanteService'); // ✅ Servicio de comprobantes
 const { subirBufferACloudinary, normalizarAssetType } = require('./services/cloudinaryUploadService');
 const SorteoFinalizadoSnapshotService = require('./services/sorteoFinalizadoSnapshotService');
 const { inicializarEventosWebSocket } = require('./services/websocket-events'); // 🔌 Eventos de WebSocket
+const {
+    obtenerConfigPush,
+    construirMetadatosOrdenPushPublica,
+    verificarTokenOrdenPush,
+    upsertSuscripcionPush,
+    desactivarSuscripcionPush,
+    upsertSuscripcionCampanaPush,
+    desactivarSuscripcionCampanaPush,
+    resolverOrganizerKeyPush,
+    enviarPushOrdenConfirmada,
+    enviarPushOrdenCancelada,
+    enviarPushOrdenPorVencer,
+    backfillSuscripcionesCampanaDesdeOrdenes,
+    PUSH_CAMPAIGN_EVENT_TYPE_NUEVA_RIFA,
+    PUSH_CAMPAIGN_EVENT_TYPE_PRESORTEO_PROXIMO,
+    PUSH_CAMPAIGN_EVENT_TYPE_SORTEO_PROXIMO,
+    PUSH_CAMPAIGN_EVENT_TYPE_RESULTADOS_DISPONIBLES
+} = require('./services/pushNotificationsService');
+const { PushCampaignQueueService } = require('./services/pushCampaignQueueService');
 const { obtenerConfigExpiracion } = require('./config-loader'); // Fallback/base de arranque
 const dbUtils = require('./db-utils');
 const { calcularDescuentoCompartido, auditarConsistenciaPrecios, calcularTotalesServidor } = require('./calculo-precios-server'); // ✅ Cálculo sincronizado
@@ -48,6 +71,21 @@ const PUBLIC_READ_RATE_LIMIT_PATHS = new Set([
     '/api/public/boletos',
     '/api/public/boletos/stats'
 ]);
+
+const limiterPushPublico = rateLimit({
+    windowMs: 10 * 60 * 1000,
+    max: 40,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        success: false,
+        message: 'Demasiadas solicitudes de notificaciones. Intenta de nuevo en unos minutos.'
+    }
+});
+
+let recordatoriosEventoInterval = null;
+let recordatoriosEventoEnEjecucion = false;
+let pushCampaignQueueService = null;
 
 // ===== VALIDACIÓN CRÍTICA DE CONFIGURACIÓN =====
 // Verificar que variables de entorno REQUERIDAS existan y sean válidas
@@ -149,39 +187,64 @@ function obtenerPrecioDinamico() {
 const configExpiracion = obtenerConfigExpiracion();
 const TIEMPO_APARTADO_HORAS = configExpiracion.tiempoApartadoHoras;
 const INTERVALO_LIMPIEZA_MINUTOS = configExpiracion.intervaloLimpiezaMinutos;
+
+function normalizarPushOrderWarningMinutesConfig(rawValue) {
+    if (rawValue === undefined || rawValue === null || rawValue === '') {
+        return null;
+    }
+
+    const values = Array.isArray(rawValue)
+        ? rawValue
+        : String(rawValue)
+            .split(',')
+            .map((value) => value.trim())
+            .filter(Boolean);
+
+    return [...new Set(
+        values
+            .map((value) => Number.parseInt(String(value).replace(/[^0-9]/g, ''), 10))
+            .filter((value) => Number.isInteger(value) && value > 0)
+    )].sort((a, b) => b - a);
+}
 const PRECIO_BOLETO_DEFAULT = configExpiracion.precioBoleto;
 
 // ⭐ CACHE GLOBAL EN SERVIDOR (en lugar de window.* que no existe en Node.js)
 const serverCache = {
     boletosPublicosCached: null,
     boletosPublicosCachedTime: 0,
+    boletosStatsCached: {},
+    boletosStatsCachedTime: {},
     boletosPublicosByRange: new Map(),
-    ordenesStatsCached: null,
-    ordenesStatsCachedTime: 0,
+    ordenesStatsCached: {},
+    ordenesStatsCachedTime: {},
     publicConfigCached: null,
+    publicConfigCachedKey: '',
     publicConfigCachedTime: 0,
     clienteConfigCached: null,
+    clienteConfigCachedKey: '',
     clienteConfigCachedTime: 0,
     publicRequestFlights: new Map()
 };
 
 function limpiarCacheConfiguracionPublica() {
     serverCache.publicConfigCached = null;
+    serverCache.publicConfigCachedKey = '';
     serverCache.publicConfigCachedTime = 0;
     serverCache.clienteConfigCached = null;
+    serverCache.clienteConfigCachedKey = '';
     serverCache.clienteConfigCachedTime = 0;
 }
 
 function limpiarCacheBoletosPublicos() {
-    global.boletosStatsCache = null;
-    global.boletosStatsCacheTime = null;
     global.boletosPublicRangeStatsCache = null;
     global.boletosPublicRangeStatsCacheTime = null;
+    serverCache.boletosStatsCached = {};
+    serverCache.boletosStatsCachedTime = {};
     serverCache.boletosPublicosCached = null;
     serverCache.boletosPublicosCachedTime = 0;
     serverCache.boletosPublicosByRange.clear();
-    serverCache.ordenesStatsCached = null;
-    serverCache.ordenesStatsCachedTime = 0;
+    serverCache.ordenesStatsCached = {};
+    serverCache.ordenesStatsCachedTime = {};
 }
 
 function refrescarCachesTrasCambioInventario() {
@@ -225,6 +288,9 @@ async function resolverSingleFlightPublico(cacheKey, taskFactory) {
 
 // 🔌 VARIABLE GLOBAL: Instancia de eventos WebSocket (se inicializa al arrancar el servidor)
 let wsEvents = null;
+const requestRifaStorage = new AsyncLocalStorage();
+let rifaService = null;
+let rifaArchiveService = null;
 
 // Log de configuración cargada
 console.log(`⚙️  Configuración base de arranque cargada:`);
@@ -298,6 +364,14 @@ const getCorsOrigins = () => {
 };
 
 const allowedCorsOrigins = getCorsOrigins();
+const DEFAULT_CORS_ALLOWED_HEADERS = [
+    'Content-Type',
+    'Authorization',
+    'Accept',
+    'x-rifaplus-rifa-id',
+    'x-rifa-id',
+    'x-rifaplus-rifa-slug'
+];
 
 // Configurar CORS con whitelist
 app.use(cors({
@@ -324,9 +398,18 @@ app.use(cors({
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    allowedHeaders: DEFAULT_CORS_ALLOWED_HEADERS,
     maxAge: 86400 // Cache CORS por 24 horas para reducir preflight requests
 }));
+
+app.use((req, res, next) => {
+    const requestHeaders = String(req.headers['access-control-request-headers'] || '').trim();
+    res.setHeader(
+        'Access-Control-Allow-Headers',
+        requestHeaders || DEFAULT_CORS_ALLOWED_HEADERS.join(', ')
+    );
+    next();
+});
 
 // 🔐 HEADERS DE SEGURIDAD ADICIONALES
 // Headers custom que mejoran seguridad más allá de helmet
@@ -362,6 +445,36 @@ app.use(fileUpload({
     abortOnLimit: true,
     responseOnLimit: 'El archivo es demasiado grande. Máximo 50MB.'
 }));
+
+app.use(async (req, res, next) => {
+    try {
+        if (!rifaService?.enabled) {
+            const contextoFallback = construirContextoRifaFallback();
+            req.rifaContext = contextoFallback;
+            return requestRifaStorage.run(contextoFallback, next);
+        }
+
+        const { rifaId, slug } = obtenerHeadersRifaRequest(req);
+        const contexto = await rifaService.resolverContexto({
+            rifaId,
+            slug,
+            fallbackActive: true
+        }) || construirContextoRifaFallback();
+
+        req.rifaContext = contexto;
+        res.setHeader('X-RifaPlus-Rifa-Slug', String(contexto?.slug || ''));
+        if (contexto?.id) {
+            res.setHeader('X-RifaPlus-Rifa-Id', String(contexto.id));
+        }
+
+        return requestRifaStorage.run(contexto, next);
+    } catch (error) {
+        console.warn('[rifa-context] No se pudo resolver el contexto de rifa:', error.message);
+        const contextoFallback = construirContextoRifaFallback();
+        req.rifaContext = contextoFallback;
+        return requestRifaStorage.run(contextoFallback, next);
+    }
+});
 
 // 🔒 RATE LIMITING: Protegiendo contra ataques de fuerza bruta y DoS
 
@@ -948,6 +1061,498 @@ const configManager = require('./config-manager').getInstance();
 const ConfigManagerV2 = require('./config-manager-v2'); // 🟦 NUEVO: Para persistencia en BD
 let configManagerV2 = null; // Se inicializa en setImmediate
 
+function obtenerHeadersRifaRequest(req) {
+    return {
+        rifaId: req?.headers?.['x-rifaplus-rifa-id'] || req?.headers?.['x-rifa-id'] || req?.query?.rifa_id || null,
+        slug: req?.headers?.['x-rifaplus-rifa-slug'] || req?.query?.rifa || req?.query?.slug || null
+    };
+}
+
+function obtenerContextoRifaActual() {
+    return requestRifaStorage.getStore() || null;
+}
+
+function obtenerRifaIdActual() {
+    const contexto = obtenerContextoRifaActual();
+    const rifaId = Number.parseInt(contexto?.id, 10);
+    return Number.isInteger(rifaId) && rifaId > 0 ? rifaId : null;
+}
+
+function obtenerRifaIdRequest(req) {
+    return getRifaIdFromRequest(req);
+}
+
+function aplicarFiltroRifa(query, rifaId, column = 'rifa_id') {
+    return applyRifaScope(query, { rifaId }, column);
+}
+
+function construirContextoRifaFallback() {
+    const config = configManagerV2?.getConfig?.() || configManager?.getAll?.() || {};
+    return {
+        id: null,
+        slug: '',
+        nombre: String(config?.rifa?.nombreSorteo || config?.rifa?.edicionNombre || 'Rifa principal').trim(),
+        estado: String(config?.rifa?.estado || 'activa').trim() || 'activa',
+        configuracion: clonarConfigSeguro(config),
+        snapshotFinal: config?.rifa?.modalFinalizadoSnapshot || null,
+        finalizadaAt: null,
+        depuracionProgramadaAt: null,
+        depuradaAt: null,
+        raw: null
+    };
+}
+
+function construirUrlPublicaRifaServidor(rifa = {}) {
+    const slug = String(rifa?.slug || '').trim();
+    const basePath = '/';
+    return slug ? `${basePath}?rifa=${encodeURIComponent(slug)}` : basePath;
+}
+
+function obtenerMetadatosCampanaDesdeContextoRifa(contexto = {}) {
+    const config = contexto?.configuracion || {};
+    return {
+        organizerKey: resolverOrganizerKeyPush({
+            configuracion: config
+        }),
+        organizerName: String(config?.cliente?.nombre || 'tu organizador').trim() || 'tu organizador',
+        organizerLogo: String(config?.cliente?.logo || '').trim() || '/images/placeholder-logo.svg'
+    };
+}
+
+function normalizarTextoConfigCampana(valor, maxLength, fallback = '') {
+    const normalized = String(valor || '').replace(/\s+/g, ' ').trim();
+    const fallbackNormalized = String(fallback || '').trim();
+    return (normalized || fallbackNormalized).slice(0, maxLength);
+}
+
+function normalizarUrlConfigCampana(valor) {
+    const raw = String(valor || '').trim();
+    if (!raw) return '';
+
+    if (raw.startsWith('/')) {
+        return raw.slice(0, 500);
+    }
+
+    try {
+        const parsed = new URL(raw);
+        if (!['http:', 'https:'].includes(parsed.protocol)) {
+            return '';
+        }
+        return parsed.toString().slice(0, 500);
+    } catch (error) {
+        return '';
+    }
+}
+
+function normalizarListaMinutosCampana(rawValue, fallback = []) {
+    const source = rawValue === undefined ? fallback : rawValue;
+    if (source === null || source === '') {
+        return [];
+    }
+
+    const values = Array.isArray(source)
+        ? source
+        : String(source)
+            .split(',')
+            .map((value) => value.trim())
+            .filter(Boolean);
+
+    const normalized = values
+        .map((value) => Number.parseInt(String(value).replace(/[^0-9]/g, ''), 10))
+        .filter((value) => Number.isInteger(value) && value > 0);
+
+    return [...new Set(normalized)].sort((a, b) => b - a);
+}
+
+function obtenerConfigCampanasPush(config = null) {
+    const source = config || obtenerConfigActual() || {};
+    const rawCampaigns = source?.marketing?.pushCampaigns || {};
+    const rawNuevaRifa = rawCampaigns?.nuevaRifa || {};
+    const rawEventReminders = rawCampaigns?.eventReminders || {};
+    const rawResultsAvailable = rawCampaigns?.resultsAvailable || {};
+    const rawAudience = rawCampaigns?.audience || {};
+    const defaultTitle = 'Nuevo sorteo disponible';
+    const defaultBody = '{organizerName} ya abrió {rifaNombre}. Entra ahora y aparta tus boletos.';
+    const defaultResultsTitle = 'Resultados disponibles';
+    const defaultResultsBody = '{organizerName} ya publicó los resultados de {rifaNombre}. Entra a revisar si ganaste.';
+    const customUrl = normalizarUrlConfigCampana(rawNuevaRifa.customUrl);
+    const customResultsUrl = normalizarUrlConfigCampana(rawResultsAvailable.customUrl);
+
+    return {
+        nuevaRifa: {
+            enabled: rawNuevaRifa.enabled !== false,
+            autoSendOnPublicActivation: rawNuevaRifa.autoSendOnPublicActivation !== false,
+            title: normalizarTextoConfigCampana(rawNuevaRifa.title, 120, defaultTitle),
+            body: normalizarTextoConfigCampana(rawNuevaRifa.body, 240, defaultBody),
+            useCustomUrl: rawNuevaRifa.useCustomUrl === true && Boolean(customUrl),
+            customUrl
+        },
+        resultsAvailable: {
+            enabled: rawResultsAvailable.enabled !== false,
+            autoSendOnFirstPublication: rawResultsAvailable.autoSendOnFirstPublication !== false,
+            title: normalizarTextoConfigCampana(rawResultsAvailable.title, 120, defaultResultsTitle),
+            body: normalizarTextoConfigCampana(rawResultsAvailable.body, 240, defaultResultsBody),
+            useCustomUrl: rawResultsAvailable.useCustomUrl === true && Boolean(customResultsUrl),
+            customUrl: customResultsUrl
+        },
+        eventReminders: {
+            enabled: rawEventReminders.enabled === true,
+            presorteoMinutes: normalizarListaMinutosCampana(rawEventReminders.presorteoMinutes, []),
+            sorteoMinutes: normalizarListaMinutosCampana(rawEventReminders.sorteoMinutes, [])
+        },
+        audience: {
+            marketingRecencyDays: Math.max(30, Math.min(3650, Number.parseInt(rawAudience.marketingRecencyDays, 10) || 120))
+        }
+    };
+}
+
+function normalizarConfigCampanasPushAdmin(rawConfig = {}, baseConfig = null) {
+    const normalized = obtenerConfigCampanasPush({
+        marketing: {
+            pushCampaigns: {
+                ...(baseConfig || {}),
+                ...(rawConfig || {})
+            }
+        }
+    });
+
+    return normalized;
+}
+
+function construirCampanaNuevaRifaDesdeContexto(contexto = {}, options = {}) {
+    const settings = obtenerConfigCampanasPush(contexto?.configuracion || {}).nuevaRifa;
+    const campaignMeta = obtenerMetadatosCampanaDesdeContextoRifa(contexto);
+    const publicUrl = settings.useCustomUrl && settings.customUrl
+        ? settings.customUrl
+        : construirUrlPublicaRifaServidor(contexto);
+
+    return {
+        ...campaignMeta,
+        enabled: settings.enabled,
+        autoSendOnPublicActivation: settings.autoSendOnPublicActivation,
+        audiencePolicy: obtenerConfigCampanasPush(contexto?.configuracion || {}).audience,
+        title: settings.title,
+        body: settings.body,
+        customUrl: settings.useCustomUrl ? settings.customUrl : '',
+        publicUrl,
+        rifaId: Number.parseInt(options.rifaId || contexto?.id, 10) || null,
+        rifaSlug: String(options.rifaSlug || contexto?.slug || '').trim(),
+        rifaNombre: String(options.rifaNombre || contexto?.nombre || '').trim() || 'un nuevo sorteo'
+    };
+}
+
+function construirCampanaResultadosDisponiblesDesdeContexto(contexto = {}, options = {}) {
+    const settings = obtenerConfigCampanasPush(contexto?.configuracion || {}).resultsAvailable;
+    const campaignMeta = obtenerMetadatosCampanaDesdeContextoRifa(contexto);
+    const publicUrl = settings.useCustomUrl && settings.customUrl
+        ? settings.customUrl
+        : construirUrlPublicaRifaServidor(contexto);
+
+    return {
+        ...campaignMeta,
+        enabled: settings.enabled,
+        autoSendOnFirstPublication: settings.autoSendOnFirstPublication,
+        audiencePolicy: obtenerConfigCampanasPush(contexto?.configuracion || {}).audience,
+        title: settings.title,
+        body: settings.body,
+        customUrl: settings.useCustomUrl ? settings.customUrl : '',
+        publicUrl,
+        rifaId: Number.parseInt(options.rifaId || contexto?.id, 10) || null,
+        rifaSlug: String(options.rifaSlug || contexto?.slug || '').trim(),
+        rifaNombre: String(options.rifaNombre || contexto?.nombre || '').trim() || 'tu sorteo',
+        resultsCount: Math.max(0, Number.parseInt(options.resultsCount, 10) || 0),
+        eventType: PUSH_CAMPAIGN_EVENT_TYPE_RESULTADOS_DISPONIBLES,
+        eventKey: `${PUSH_CAMPAIGN_EVENT_TYPE_RESULTADOS_DISPONIBLES}:rifa:${Number.parseInt(options.rifaId || contexto?.id, 10) || 'sin-id'}`
+    };
+}
+
+function resolverUmbralRecordatorioEvento(minuteList = [], eventDateRaw) {
+    const eventDate = eventDateRaw ? new Date(eventDateRaw) : null;
+    if (!(eventDate instanceof Date) || Number.isNaN(eventDate.getTime())) {
+        return null;
+    }
+
+    const remainingMs = eventDate.getTime() - Date.now();
+    if (!(remainingMs > 0)) {
+        return null;
+    }
+
+    const remainingMinutes = remainingMs / 60000;
+    const thresholds = normalizarListaMinutosCampana(minuteList, []).sort((a, b) => a - b);
+    return thresholds.find((threshold) => remainingMinutes <= threshold) || null;
+}
+
+function construirCampanaRecordatorioEventoDesdeContexto(contexto = {}, options = {}) {
+    const settings = obtenerConfigCampanasPush(contexto?.configuracion || {});
+    const eventType = String(options.eventType || '').trim();
+    const campaignMeta = obtenerMetadatosCampanaDesdeContextoRifa(contexto);
+    const publicUrl = construirUrlPublicaRifaServidor(contexto);
+    const warningMinutes = Math.max(1, Number.parseInt(options.warningMinutes, 10) || 0);
+    const eventDate = String(options.eventDate || '').trim();
+    const eventKey = `${eventType}:rifa:${Number.parseInt(contexto?.id, 10) || 'sin-id'}:${eventDate}:m${warningMinutes}`;
+
+    return {
+        ...campaignMeta,
+        enabled: settings?.eventReminders?.enabled === true,
+        audiencePolicy: settings?.audience || { marketingRecencyDays: 120 },
+        publicUrl,
+        rifaId: Number.parseInt(options.rifaId || contexto?.id, 10) || null,
+        rifaSlug: String(options.rifaSlug || contexto?.slug || '').trim(),
+        rifaNombre: String(options.rifaNombre || contexto?.nombre || '').trim() || 'tu sorteo',
+        eventType,
+        eventDate,
+        warningMinutes,
+        eventKey
+    };
+}
+
+async function encolarCampanaPushDesdeServidor(campaign, options = {}) {
+    if (!pushCampaignQueueService) {
+        return {
+            queued: false,
+            skipped: true,
+            reason: 'queue_service_unavailable',
+            job: null
+        };
+    }
+
+    return pushCampaignQueueService.enqueueCampaign(campaign, options);
+}
+
+async function procesarRecordatoriosEventoProgramados() {
+    const contexto = rifaService?.enabled
+        ? await rifaService.obtenerRifaActivaPublica(true)
+        : construirContextoRifaFallback();
+    if (!contexto) {
+        return [];
+    }
+
+    const configCampanas = obtenerConfigCampanasPush(contexto?.configuracion || {});
+    if (configCampanas?.eventReminders?.enabled !== true) {
+        return [];
+    }
+
+    const rifa = contexto?.configuracion?.rifa || {};
+    const candidatos = [
+        {
+            eventType: 'presorteo_proximo',
+            eventDate: rifa.fechaPresorteo,
+            minuteList: configCampanas.eventReminders.presorteoMinutes
+        },
+        {
+            eventType: 'sorteo_proximo',
+            eventDate: rifa.fechaSorteo,
+            minuteList: configCampanas.eventReminders.sorteoMinutes
+        }
+    ];
+
+    const resultados = [];
+    for (const candidato of candidatos) {
+        const warningMinutes = resolverUmbralRecordatorioEvento(candidato.minuteList, candidato.eventDate);
+        if (!warningMinutes) {
+            continue;
+        }
+
+        const campaign = construirCampanaRecordatorioEventoDesdeContexto(contexto, {
+            ...candidato,
+            warningMinutes,
+            rifaId: contexto.id,
+            rifaSlug: contexto.slug,
+            rifaNombre: contexto.nombre
+        });
+
+        if (!campaign.enabled) {
+            continue;
+        }
+
+        const result = await encolarCampanaPushDesdeServidor(campaign, {
+            priority: 160
+        });
+        resultados.push({
+            eventType: candidato.eventType,
+            warningMinutes,
+            result
+        });
+    }
+
+    return resultados;
+}
+
+async function ejecutarRecordatoriosEventoProgramados() {
+    if (recordatoriosEventoEnEjecucion) {
+        return;
+    }
+
+    recordatoriosEventoEnEjecucion = true;
+    try {
+        const resultados = await procesarRecordatoriosEventoProgramados();
+        resultados.forEach((item) => {
+            if (item?.result?.skipped !== true && Number(item?.result?.delivered || 0) > 0) {
+                console.log(`🔔 Recordatorio ${item.eventType} enviado (${item.warningMinutes} min antes): ${item.result.delivered} entregadas`);
+            }
+        });
+    } catch (error) {
+        console.warn('⚠️  Error procesando recordatorios programados de presorteo/sorteo:', error.message);
+    } finally {
+        recordatoriosEventoEnEjecucion = false;
+    }
+}
+
+function iniciarRecordatoriosEventoProgramados() {
+    if (recordatoriosEventoInterval) {
+        clearInterval(recordatoriosEventoInterval);
+    }
+
+    ejecutarRecordatoriosEventoProgramados().catch(() => {});
+    recordatoriosEventoInterval = setInterval(() => {
+        ejecutarRecordatoriosEventoProgramados().catch(() => {});
+    }, 60 * 1000);
+}
+
+async function construirResumenCampanasPushAdmin(options = {}) {
+    const contexto = options.contexto || construirContextoRifaFallback();
+    const organizerKey = resolverOrganizerKeyPush({
+        configuracion: contexto?.configuracion || {}
+    });
+    const selectedRifa = {
+        id: Number.parseInt(contexto?.id, 10) || null,
+        slug: String(contexto?.slug || '').trim(),
+        nombre: String(contexto?.nombre || '').trim() || 'Rifa activa'
+    };
+    const fallback = {
+        organizerKey,
+        pushReady: obtenerConfigPush().enabled === true,
+        config: obtenerConfigCampanasPush(contexto?.configuracion || {}),
+        audience: {
+            total: 0,
+            active: 0,
+            optedIn: 0,
+            eligibleMarketing: 0,
+            inactive: 0,
+            optedOut: 0,
+            expired: 0,
+            lastSentAt: null
+        },
+        jobs: {
+            pending: 0,
+            running: 0,
+            failed: 0,
+            recent: []
+        },
+        selectedRifa,
+        publicRifa: null,
+        preview: construirCampanaNuevaRifaDesdeContexto(contexto, selectedRifa),
+        recentEvents: []
+    };
+
+    try {
+        const hasSubscriptionsTable = await db.schema.hasTable('push_campaign_subscriptions');
+        const hasEventsTable = await db.schema.hasTable('push_campaign_events');
+        const hasJobsTable = await db.schema.hasTable('push_campaign_jobs');
+
+        if (!hasSubscriptionsTable || !hasEventsTable) {
+            return fallback;
+        }
+
+        const [
+            totalRows,
+            activeRows,
+            optedInRows,
+            eligibleMarketingRows,
+            inactiveAudienceRows,
+            optedOutRows,
+            expiredRows,
+            latestEventRows,
+            recentEvents,
+            pendingJobsRows,
+            runningJobsRows,
+            failedJobsRows,
+            recentJobs
+        ] = await Promise.all([
+            db('push_campaign_subscriptions').where({ organizer_key: organizerKey }).count('* as total'),
+            db('push_campaign_subscriptions').where({ organizer_key: organizerKey, status: 'active' }).count('* as total'),
+            db('push_campaign_subscriptions').where({ organizer_key: organizerKey, status: 'active', marketing_opt_in: true }).count('* as total'),
+            db('push_campaign_subscriptions').where({ organizer_key: organizerKey, status: 'active', marketing_opt_in: true, audience_status: 'active' }).count('* as total'),
+            db('push_campaign_subscriptions').where({ organizer_key: organizerKey, audience_status: 'inactive' }).count('* as total'),
+            db('push_campaign_subscriptions').where({ organizer_key: organizerKey, marketing_opt_in: false }).count('* as total'),
+            db('push_campaign_subscriptions').where({ organizer_key: organizerKey, status: 'expired' }).count('* as total'),
+            db('push_campaign_events').where({ organizer_key: organizerKey }).max('sent_at as sent_at'),
+            db('push_campaign_events')
+                .where({ organizer_key: organizerKey })
+                .orderBy('sent_at', 'desc')
+                .limit(8)
+                .select('id', 'event_type', 'event_key', 'target_rifa_id', 'target_rifa_slug', 'delivered_count', 'failed_count', 'expired_count', 'sent_at'),
+            hasJobsTable
+                ? db('push_campaign_jobs').where({ organizer_key: organizerKey, status: 'pending' }).count('* as total')
+                : Promise.resolve([{ total: 0 }]),
+            hasJobsTable
+                ? db('push_campaign_jobs').where({ organizer_key: organizerKey, status: 'running' }).count('* as total')
+                : Promise.resolve([{ total: 0 }]),
+            hasJobsTable
+                ? db('push_campaign_jobs').where({ organizer_key: organizerKey, status: 'failed' }).count('* as total')
+                : Promise.resolve([{ total: 0 }]),
+            hasJobsTable
+                ? db('push_campaign_jobs')
+                    .where({ organizer_key: organizerKey })
+                    .orderBy('created_at', 'desc')
+                    .limit(8)
+                    .select('id', 'event_type', 'event_key', 'status', 'total_targets', 'processed_count', 'delivered_count', 'failed_count', 'expired_count', 'created_at', 'started_at', 'completed_at', 'last_error')
+                : Promise.resolve([])
+        ]);
+
+        const activePublicRifa = rifaService?.enabled
+            ? await rifaService.obtenerRifaActivaPublica(true)
+            : null;
+
+        return {
+            ...fallback,
+            audience: {
+                total: Number.parseInt(totalRows?.[0]?.total, 10) || 0,
+                active: Number.parseInt(activeRows?.[0]?.total, 10) || 0,
+                optedIn: Number.parseInt(optedInRows?.[0]?.total, 10) || 0,
+                eligibleMarketing: Number.parseInt(eligibleMarketingRows?.[0]?.total, 10) || 0,
+                inactive: Number.parseInt(inactiveAudienceRows?.[0]?.total, 10) || 0,
+                optedOut: Number.parseInt(optedOutRows?.[0]?.total, 10) || 0,
+                expired: Number.parseInt(expiredRows?.[0]?.total, 10) || 0,
+                lastSentAt: latestEventRows?.[0]?.sent_at || null
+            },
+            jobs: {
+                pending: Number.parseInt(pendingJobsRows?.[0]?.total, 10) || 0,
+                running: Number.parseInt(runningJobsRows?.[0]?.total, 10) || 0,
+                failed: Number.parseInt(failedJobsRows?.[0]?.total, 10) || 0,
+                recent: Array.isArray(recentJobs) ? recentJobs : []
+            },
+            publicRifa: activePublicRifa ? {
+                id: Number.parseInt(activePublicRifa?.id, 10) || null,
+                slug: String(activePublicRifa?.slug || '').trim(),
+                nombre: String(activePublicRifa?.nombre || '').trim() || 'Rifa pública',
+                estado: String(activePublicRifa?.estado || '').trim() || 'activa'
+            } : null,
+            recentEvents
+        };
+    } catch (error) {
+        console.warn('⚠️  construirResumenCampanasPushAdmin degradado:', error.message);
+        return fallback;
+    }
+}
+
+function resolverErrorContextoAdminRifa(req) {
+    if (!rifaService?.enabled) {
+        return null;
+    }
+
+    const rifaIdActual = Number.parseInt(req?.rifaContext?.id, 10);
+    if (Number.isInteger(rifaIdActual) && rifaIdActual > 0) {
+        return null;
+    }
+
+    return {
+        success: false,
+        code: 'ADMIN_RIFA_CONTEXT_REQUIRED',
+        message: 'Selecciona una rifa activa válida antes de continuar en el panel.'
+    };
+}
+
 function clonarConfigSeguro(config) {
     return JSON.parse(JSON.stringify(config || {}));
 }
@@ -967,6 +1572,15 @@ function sincronizarConfigLegacyEnMemoria(config) {
 async function persistirConfigActualizada(config, usuarioAdmin = 'SYSTEM') {
     const configPath = path.join(__dirname, 'config.json');
     let guardadoEnBD = false;
+    const contextoRifa = obtenerContextoRifaActual();
+    const rifaIdActual = Number.parseInt(contextoRifa?.id, 10);
+
+    if (rifaService?.enabled && Number.isInteger(rifaIdActual) && rifaIdActual > 0) {
+        await rifaService.guardarConfiguracion(rifaIdActual, config, usuarioAdmin);
+        sincronizarConfigLegacyEnMemoria(config);
+        limpiarCacheConfiguracionPublica();
+        return true;
+    }
 
     if (configManagerV2) {
         try {
@@ -986,7 +1600,13 @@ async function persistirConfigActualizada(config, usuarioAdmin = 'SYSTEM') {
 }
 
 async function obtenerGanadoresPersistidos(runner = db) {
-    return runner('ganadores')
+    const rifaIdActual = obtenerRifaIdActual();
+    const query = runner('ganadores');
+    if (rifaIdActual) {
+        query.where('rifa_id', rifaIdActual);
+    }
+
+    return query
         .select('*')
         .orderBy([{ column: 'tipo_ganador', order: 'asc' }, { column: 'posicion', order: 'asc' }, { column: 'id', order: 'asc' }]);
 }
@@ -994,6 +1614,7 @@ async function obtenerGanadoresPersistidos(runner = db) {
 async function asegurarSnapshotModalFinalizado(config, options = {}) {
     const usuarioAdmin = options.usuarioAdmin || 'SYSTEM';
     const refrescarGanadores = options.refrescarGanadores === true;
+    const contextoRifa = obtenerContextoRifaActual();
 
     if (!SorteoFinalizadoSnapshotService.esRifaFinalizada(config?.rifa || {})) {
         return { persisted: false, snapshot: SorteoFinalizadoSnapshotService.obtenerSnapshot(config) };
@@ -1029,10 +1650,33 @@ async function asegurarSnapshotModalFinalizado(config, options = {}) {
 
     SorteoFinalizadoSnapshotService.aplicarSnapshotEnConfig(config, snapshotFinal);
     await persistirConfigActualizada(config, usuarioAdmin);
+    if (rifaService?.enabled && contextoRifa?.id) {
+        await rifaService.guardarSnapshotFinal(contextoRifa.id, snapshotFinal, {
+            estado: 'finalizado'
+        });
+    }
     return { persisted: true, snapshot: snapshotFinal };
 }
 
 function obtenerConfigActual() {
+    const contextoRifa = obtenerContextoRifaActual();
+    if (contextoRifa?.configuracion && typeof contextoRifa.configuracion === 'object') {
+        const configContextual = clonarConfigSeguro(contextoRifa.configuracion);
+        if (!configContextual.rifa || typeof configContextual.rifa !== 'object') {
+            configContextual.rifa = {};
+        }
+
+        if (contextoRifa?.estado) {
+            configContextual.rifa.estado = String(contextoRifa.estado).trim() || configContextual.rifa.estado || 'activa';
+        }
+
+        if (contextoRifa?.snapshotFinal && typeof contextoRifa.snapshotFinal === 'object') {
+            configContextual.rifa.modalFinalizadoSnapshot = clonarConfigSeguro(contextoRifa.snapshotFinal);
+        }
+
+        return configContextual;
+    }
+
     if (configManagerV2?.getConfig) {
         const configBD = configManagerV2.getConfig();
         if (configBD && typeof configBD === 'object') {
@@ -1059,9 +1703,12 @@ function obtenerConfigActual() {
 
 function cargarConfigSorteo() {
     const configActual = obtenerConfigActual();
+    const rifaIdActual = obtenerRifaIdActual();
     const oportunidadesActuales = configActual?.rifa?.oportunidades || configManager.config?.rifa?.oportunidades || {};
 
     return {
+        rifaId: rifaIdActual,
+        rifaSlug: String(obtenerContextoRifaActual()?.slug || '').trim(),
         totalBoletos: configActual?.rifa?.totalBoletos || configManager.totalBoletos,
         precioBoleta: configActual?.rifa?.precioBoleto || configManager.precioBoleto,
         precioBoleto: configActual?.rifa?.precioBoleto || configManager.precioBoleto,
@@ -1078,6 +1725,7 @@ function cargarConfigSorteo() {
             tiempoApartadoHoras: configActual?.rifa?.tiempoApartadoHoras || configManager.config?.rifa?.tiempoApartadoHoras || TIEMPO_APARTADO_HORAS,
             intervaloLimpiezaMinutos: configActual?.rifa?.intervaloLimpiezaMinutos || configManager.config?.rifa?.intervaloLimpiezaMinutos || INTERVALO_LIMPIEZA_MINUTOS,
             descuentos: configActual?.rifa?.descuentos || configManager.config?.rifa?.descuentos || { enabled: false, reglas: [] },
+            promocionesCombo: configActual?.rifa?.promocionesCombo || configManager.config?.rifa?.promocionesCombo || { enabled: false, reglas: [] },
             promocionPorTiempo: configActual?.rifa?.promocionPorTiempo || configManager.config?.rifa?.promocionPorTiempo || { enabled: false },
             descuentoPorcentaje: configActual?.rifa?.descuentoPorcentaje || configManager.config?.rifa?.descuentoPorcentaje || { enabled: false },
             oportunidades: {
@@ -1106,6 +1754,7 @@ function obtenerTotalBoletosConfigurado(configBase = null) {
 
 async function resolverClasificacionNumeroAdmin(numero, configBase = null) {
     const config = configBase || obtenerConfigActual();
+    const rifaIdActual = obtenerRifaIdActual();
     const oportunidadesConfig = obtenerConfigOportunidadesSistema(config);
     const rangoVisible = oportunidadesConfig.rangoVisible;
     const rangoOculto = oportunidadesConfig.rangoOculto;
@@ -1130,19 +1779,21 @@ async function resolverClasificacionNumeroAdmin(numero, configBase = null) {
             estaEnRangoVisible = true;
             motivoFallback = 'totalBoletos-config';
         } else {
-            const boletoExistente = await db('boletos_estado')
+            const boletoExistenteQuery = db('boletos_estado')
                 .select('numero')
-                .where('numero', numero)
-                .first();
+                .where('numero', numero);
+            if (rifaIdActual) boletoExistenteQuery.where('rifa_id', rifaIdActual);
+            const boletoExistente = await boletoExistenteQuery.first();
 
             if (boletoExistente) {
                 estaEnRangoVisible = true;
                 motivoFallback = 'boletos_estado';
             } else {
-                const oportunidadExistente = await db('orden_oportunidades')
+                const oportunidadExistenteQuery = db('orden_oportunidades')
                     .select('numero_oportunidad')
-                    .where('numero_oportunidad', numero)
-                    .first();
+                    .where('numero_oportunidad', numero);
+                if (rifaIdActual) oportunidadExistenteQuery.where('rifa_id', rifaIdActual);
+                const oportunidadExistente = await oportunidadExistenteQuery.first();
 
                 if (oportunidadExistente) {
                     estaEnRangoOculto = true;
@@ -1217,20 +1868,23 @@ async function buscarOrdenActivaPorBoleto(numero, options = {}) {
 
     const incluirCanceladas = options.incluirCanceladas === true;
     const configActual = options.configActual || obtenerConfigActual();
+    const rifaIdActual = Number.parseInt(options.rifaId, 10) || obtenerRifaIdActual();
     const oportunidadesHabilitadas = obtenerConfigOportunidadesSistema(configActual).enabled === true;
-    const boletoEstado = await db('boletos_estado')
+    const boletoEstadoQuery = db('boletos_estado')
         .select('numero', 'estado', 'numero_orden', 'created_at', 'updated_at')
-        .where('numero', numeroBoleto)
-        .first();
+        .where('numero', numeroBoleto);
+    if (rifaIdActual) boletoEstadoQuery.where('rifa_id', rifaIdActual);
+    const boletoEstado = await boletoEstadoQuery.first();
 
     if (boletoEstado?.numero_orden) {
-        const ordenPorEstado = await db('ordenes')
+        const ordenPorEstadoQuery = db('ordenes')
             .select('*')
             .where('numero_orden', boletoEstado.numero_orden)
             .modify((qb) => {
                 if (!incluirCanceladas) qb.whereNot('estado', 'cancelada');
-            })
-            .first();
+                if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+            });
+        const ordenPorEstado = await ordenPorEstadoQuery.first();
 
         if (ordenPorEstado) {
             return {
@@ -1245,6 +1899,9 @@ async function buscarOrdenActivaPorBoleto(numero, options = {}) {
         ? await db('orden_oportunidades')
             .select('numero_oportunidad', 'estado', 'numero_orden', 'numero_boleto')
             .where('numero_oportunidad', numeroBoleto)
+            .modify((qb) => {
+                if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+            })
             .first()
         : null;
 
@@ -1254,6 +1911,7 @@ async function buscarOrdenActivaPorBoleto(numero, options = {}) {
             .where('numero_orden', oportunidadEstado.numero_orden)
             .modify((qb) => {
                 if (!incluirCanceladas) qb.whereNot('estado', 'cancelada');
+                if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
             })
             .first();
 
@@ -1367,10 +2025,12 @@ function construirSerieSuffixQuery(valor, maxNumero) {
 }
 
 function construirQueryBusquedaSobreSerie(serieQuery, { availableOnly = false, limite = 100, offset = 0 } = {}) {
+    const rifaIdActual = obtenerRifaIdActual();
     const query = db
         .from(serieQuery)
         .leftJoin('boletos_estado as be', function() {
             this.on('be.numero', '=', 's.numero')
+                .andOn(db.raw('?::int IS NULL OR be.rifa_id = ?::int', [rifaIdActual, rifaIdActual]))
                 .andOn(db.raw("be.estado IN ('vendido', 'apartado')"));
         })
         .select(
@@ -1434,6 +2094,15 @@ app.use((req, res, next) => {
 app.use(express.static(path.join(__dirname, '..')));
 
 // Nota: Frontend se sirve desde un host separado (Vercel, GitHub Pages, etc.)
+
+app.get('/api/public/push/config', (req, res) => {
+    const config = obtenerConfigPush();
+    return res.json({
+        success: true,
+        enabled: config.enabled,
+        publicKey: config.enabled ? config.publicKey : null
+    });
+});
 
 /**
  * Middleware: Verificar JWT
@@ -2946,6 +3615,601 @@ app.delete('/api/admin/users/:id', verificarToken, async (req, res) => {
  * GET /api/admin/config
  * Obtiene la configuración del sistema
  */
+app.get('/api/admin/rifas', verificarToken, async (req, res) => {
+    try {
+        if (!rifaService?.enabled) {
+            return res.json({ success: true, data: [] });
+        }
+
+        const rifas = await rifaService.listarRifas();
+        return res.json({
+            success: true,
+            data: rifas,
+            activeRifaId: req.rifaContext?.id || null
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'No se pudieron cargar las rifas',
+            error: error.message
+        });
+    }
+});
+
+app.post('/api/admin/rifas', verificarToken, async (req, res) => {
+    try {
+        if (req.usuario?.rol !== 'administrador') {
+            return res.status(403).json({
+                success: false,
+                message: 'Solo administradores pueden crear rifas'
+            });
+        }
+
+        if (!rifaService?.enabled) {
+            return res.status(503).json({
+                success: false,
+                message: 'El modo multi-rifa todavía no está disponible'
+            });
+        }
+
+        const creada = await rifaService.crearRifa(req.body || {}, req.usuario?.username || 'SYSTEM');
+        return res.status(201).json({ success: true, data: creada });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'No se pudo crear la rifa',
+            error: error.message
+        });
+    }
+});
+
+app.post('/api/admin/rifas/:id/activar-publica', verificarToken, async (req, res) => {
+    try {
+        if (req.usuario?.rol !== 'administrador') {
+            return res.status(403).json({
+                success: false,
+                message: 'Solo administradores pueden cambiar la rifa pública'
+            });
+        }
+
+        if (!rifaService?.enabled) {
+            return res.status(503).json({
+                success: false,
+                message: 'El modo multi-rifa todavía no está disponible'
+            });
+        }
+
+        const rifaId = Number.parseInt(req.params.id, 10);
+        await rifaService.activarPublica(rifaId);
+        limpiarCacheConfiguracionPublica();
+
+        let pushCampaign = null;
+        try {
+            const rifaPublica = await rifaService.resolverContexto({ rifaId, fallbackActive: false });
+            if (rifaPublica) {
+                const campaign = construirCampanaNuevaRifaDesdeContexto(rifaPublica, {
+                    rifaId: rifaPublica.id,
+                    rifaSlug: rifaPublica.slug,
+                    rifaNombre: rifaPublica.nombre
+                });
+                if (campaign.enabled && campaign.autoSendOnPublicActivation) {
+                    pushCampaign = await encolarCampanaPushDesdeServidor(campaign, {
+                        priority: 200
+                    });
+                } else {
+                    pushCampaign = {
+                        skipped: true,
+                        reason: campaign.enabled ? 'auto_send_disabled' : 'campaign_disabled'
+                    };
+                }
+            }
+        } catch (pushError) {
+            console.warn(`⚠️  Error enviando campaña de nueva rifa para ${rifaId}:`, pushError.message);
+        }
+
+        return res.json({ success: true, pushCampaign });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'No se pudo activar la rifa pública',
+            error: error.message
+        });
+    }
+});
+
+app.get('/api/admin/push-campaigns/overview', verificarToken, async (req, res) => {
+    try {
+        const resumen = await construirResumenCampanasPushAdmin({
+            contexto: req.rifaContext || construirContextoRifaFallback()
+        });
+        return res.json({ success: true, data: resumen });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'No se pudo cargar el panel de campañas push',
+            error: error.message
+        });
+    }
+});
+
+app.post('/api/admin/push-campaigns/sync-audience', verificarToken, async (req, res) => {
+    try {
+        if (req.usuario?.rol !== 'administrador') {
+            return res.status(403).json({
+                success: false,
+                message: 'Solo administradores pueden sincronizar la audiencia'
+            });
+        }
+
+        const resultado = await backfillSuscripcionesCampanaDesdeOrdenes(db);
+        const resumen = await construirResumenCampanasPushAdmin({
+            contexto: req.rifaContext || construirContextoRifaFallback()
+        });
+
+        return res.json({
+            success: true,
+            message: 'Audiencia sincronizada correctamente',
+            data: {
+                sync: resultado,
+                overview: resumen
+            }
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'No se pudo sincronizar la audiencia push',
+            error: error.message
+        });
+    }
+});
+
+app.post('/api/admin/push-campaigns/send', verificarToken, async (req, res) => {
+    try {
+        if (req.usuario?.rol !== 'administrador') {
+            return res.status(403).json({
+                success: false,
+                message: 'Solo administradores pueden enviar campañas'
+            });
+        }
+
+        const requestedRifaId = Number.parseInt(req.body?.rifaId || req.rifaContext?.id, 10) || null;
+        const contexto = requestedRifaId && rifaService?.enabled
+            ? await rifaService.resolverContexto({ rifaId: requestedRifaId, fallbackActive: false })
+            : (req.rifaContext || construirContextoRifaFallback());
+
+        if (!contexto) {
+            return res.status(404).json({
+                success: false,
+                message: 'No se encontró la rifa para enviar la campaña'
+            });
+        }
+
+        const campaignType = String(req.body?.campaignType || PUSH_CAMPAIGN_EVENT_TYPE_NUEVA_RIFA).trim().toLowerCase();
+        const campaign = campaignType === PUSH_CAMPAIGN_EVENT_TYPE_RESULTADOS_DISPONIBLES
+            ? construirCampanaResultadosDisponiblesDesdeContexto(contexto, {
+                rifaId: contexto.id,
+                rifaSlug: contexto.slug,
+                rifaNombre: contexto.nombre,
+                resultsCount: Number.parseInt(req.body?.resultsCount, 10) || 0
+            })
+            : (campaignType === PUSH_CAMPAIGN_EVENT_TYPE_PRESORTEO_PROXIMO || campaignType === PUSH_CAMPAIGN_EVENT_TYPE_SORTEO_PROXIMO)
+                ? construirCampanaRecordatorioEventoDesdeContexto(contexto, {
+                    rifaId: contexto.id,
+                    rifaSlug: contexto.slug,
+                    rifaNombre: contexto.nombre,
+                    eventType: campaignType,
+                    eventDate: campaignType === PUSH_CAMPAIGN_EVENT_TYPE_PRESORTEO_PROXIMO
+                        ? contexto?.configuracion?.rifa?.fechaPresorteo
+                        : contexto?.configuracion?.rifa?.fechaSorteo,
+                    warningMinutes: Math.max(1, Number.parseInt(req.body?.warningMinutes, 10) || 30)
+                })
+                : construirCampanaNuevaRifaDesdeContexto(contexto, {
+                rifaId: contexto.id,
+                rifaSlug: contexto.slug,
+                rifaNombre: contexto.nombre
+                });
+
+        if (!campaign.enabled) {
+            return res.status(409).json({
+                success: false,
+                message: 'Las campañas push están desactivadas para esta rifa.'
+            });
+        }
+
+        const resultado = await encolarCampanaPushDesdeServidor(campaign, {
+            createdByUserId: req.usuario?.id,
+            createdByEmail: req.usuario?.email,
+            priority: 180
+        });
+        const resumen = await construirResumenCampanasPushAdmin({
+            contexto
+        });
+
+        return res.json({
+            success: true,
+            message: resultado?.queued === false && resultado?.existing === true
+                ? 'La campaña push ya existía y no se duplicó'
+                : 'Campaña push encolada',
+            data: {
+                result: resultado,
+                campaignType,
+                overview: resumen
+            }
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'No se pudo enviar la campaña push',
+            error: error.message
+        });
+    }
+});
+
+app.get('/api/admin/push-campaigns/jobs/:id', verificarToken, async (req, res) => {
+    try {
+        if (req.usuario?.rol !== 'administrador') {
+            return res.status(403).json({
+                success: false,
+                message: 'Solo administradores pueden consultar campañas'
+            });
+        }
+
+        const job = await pushCampaignQueueService?.getJobById?.(req.params.id);
+        if (!job) {
+            return res.status(404).json({
+                success: false,
+                message: 'No se encontró la campaña solicitada'
+            });
+        }
+
+        return res.json({
+            success: true,
+            data: job
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'No se pudo consultar el estado de la campaña push',
+            error: error.message
+        });
+    }
+});
+
+app.get('/api/admin/push-orders/diagnostic', verificarToken, async (req, res) => {
+    try {
+        const numeroOrden = String(req.query?.numero_orden || req.query?.numeroOrden || '')
+            .trim()
+            .toUpperCase()
+            .replace(/[^A-Z0-9_-]/g, '');
+        const rifaIdActual = Number.parseInt(req.rifaContext?.id, 10) || null;
+
+        if (!numeroOrden) {
+            return res.status(400).json({
+                success: false,
+                message: 'Debes indicar numero_orden'
+            });
+        }
+
+        const [hasSubscriptionsTable, hasEventsTable] = await Promise.all([
+            db.schema.hasTable('push_subscriptions'),
+            db.schema.hasTable('push_notification_events')
+        ]);
+
+        const orden = await db('ordenes')
+            .modify((qb) => {
+                if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+            })
+            .where('numero_orden', numeroOrden)
+            .first();
+
+        if (!orden) {
+            return res.status(404).json({
+                success: false,
+                message: 'Orden no encontrada'
+            });
+        }
+
+        const pushConfig = obtenerConfigPush();
+        const pushMeta = construirMetadatosOrdenPushPublica(orden);
+        const warningMinutesConfigured = normalizarPushOrderWarningMinutesConfig(
+            obtenerConfigActual()?.rifa?.pushOrderWarningMinutes
+        ) || [];
+
+        const [subscriptionRows, eventRows] = await Promise.all([
+            hasSubscriptionsTable
+                ? db('push_subscriptions')
+                    .select(
+                        'id',
+                        'status',
+                        'endpoint',
+                        'permission_estado',
+                        'created_at',
+                        'updated_at',
+                        'revoked_at',
+                        'last_notified_at',
+                        'last_error',
+                        'last_error_at'
+                    )
+                    .where({
+                        rifa_id: orden.rifa_id,
+                        numero_orden: numeroOrden
+                    })
+                    .orderBy([{ column: 'updated_at', order: 'desc' }, { column: 'id', order: 'desc' }])
+                : [],
+            hasEventsTable
+                ? db('push_notification_events')
+                    .select(
+                        'id',
+                        'event_type',
+                        'event_key',
+                        'total_targets',
+                        'delivered_count',
+                        'failed_count',
+                        'expired_count',
+                        'sent_at',
+                        'created_at',
+                        'updated_at',
+                        'payload'
+                    )
+                    .where({
+                        rifa_id: orden.rifa_id,
+                        numero_orden: numeroOrden
+                    })
+                    .orderBy('sent_at', 'desc')
+                    .limit(10)
+                : []
+        ]);
+
+        const resumenSuscripciones = subscriptionRows.reduce((acc, row) => {
+            const status = String(row?.status || '').trim().toLowerCase();
+            acc.total += 1;
+            if (status === 'active') acc.active += 1;
+            else if (status === 'revoked') acc.revoked += 1;
+            else if (status === 'expired') acc.expired += 1;
+            else acc.other += 1;
+
+            if (row?.last_error) {
+                acc.withErrors += 1;
+            }
+
+            return acc;
+        }, {
+            total: 0,
+            active: 0,
+            revoked: 0,
+            expired: 0,
+            other: 0,
+            withErrors: 0
+        });
+
+        const ultimoIntento = subscriptionRows.find((row) => row?.last_notified_at || row?.last_error_at) || null;
+
+        return res.json({
+            success: true,
+            data: {
+                pushReady: pushConfig.enabled === true,
+                tables: {
+                    pushSubscriptions: hasSubscriptionsTable,
+                    pushNotificationEvents: hasEventsTable
+                },
+                order: {
+                    id: orden.id,
+                    numeroOrden: orden.numero_orden,
+                    rifaId: orden.rifa_id,
+                    estado: orden.estado,
+                    telefonoCliente: orden.telefono_cliente || '',
+                    createdAt: orden.created_at,
+                    updatedAt: orden.updated_at,
+                    comprobanteRecibido: Boolean(orden.comprobante_path),
+                    pushMeta
+                },
+                config: {
+                    warningMinutes: warningMinutesConfigured,
+                    tokenSecretConfigured: Boolean(pushConfig.tokenSecret),
+                    vapidConfigured: Boolean(pushConfig.publicKey && pushConfig.privateKey),
+                    subjectConfigured: Boolean(pushConfig.subject)
+                },
+                subscriptions: {
+                    summary: resumenSuscripciones,
+                    lastAttemptAt: ultimoIntento?.last_notified_at || ultimoIntento?.last_error_at || null,
+                    rows: subscriptionRows.map((row) => ({
+                        id: row.id,
+                        status: row.status,
+                        endpoint: row.endpoint,
+                        permission: row.permission_estado,
+                        createdAt: row.created_at,
+                        updatedAt: row.updated_at,
+                        revokedAt: row.revoked_at,
+                        lastNotifiedAt: row.last_notified_at,
+                        lastError: row.last_error,
+                        lastErrorAt: row.last_error_at
+                    }))
+                },
+                recentEvents: eventRows.map((row) => ({
+                    id: row.id,
+                    eventType: row.event_type,
+                    eventKey: row.event_key,
+                    totalTargets: Number(row.total_targets || 0),
+                    deliveredCount: Number(row.delivered_count || 0),
+                    failedCount: Number(row.failed_count || 0),
+                    expiredCount: Number(row.expired_count || 0),
+                    sentAt: row.sent_at,
+                    createdAt: row.created_at,
+                    updatedAt: row.updated_at,
+                    payload: row.payload || null
+                }))
+            }
+        });
+    } catch (error) {
+        console.error('GET /api/admin/push-orders/diagnostic error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'No se pudo obtener el diagnóstico push de la orden'
+        });
+    }
+});
+
+app.post('/api/admin/push-orders/test-send', verificarToken, async (req, res) => {
+    try {
+        if (req.usuario?.rol !== 'administrador') {
+            return res.status(403).json({
+                success: false,
+                message: 'Solo administradores pueden enviar pruebas push'
+            });
+        }
+
+        const numeroOrden = String(req.body?.numero_orden || req.body?.numeroOrden || '')
+            .trim()
+            .toUpperCase()
+            .replace(/[^A-Z0-9_-]/g, '');
+        const eventType = String(req.body?.eventType || 'orden_por_vencer').trim().toLowerCase();
+        const warningMinutes = Math.max(1, Number.parseInt(req.body?.warningMinutes, 10) || 5);
+        const rifaIdActual = Number.parseInt(req.rifaContext?.id, 10) || null;
+
+        if (!numeroOrden) {
+            return res.status(400).json({
+                success: false,
+                message: 'Debes indicar numero_orden'
+            });
+        }
+
+        const orden = await db('ordenes')
+            .modify((qb) => {
+                if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+            })
+            .where('numero_orden', numeroOrden)
+            .first();
+
+        if (!orden) {
+            return res.status(404).json({
+                success: false,
+                message: 'Orden no encontrada'
+            });
+        }
+
+        let result;
+        if (eventType === 'orden_confirmada') {
+            result = await enviarPushOrdenConfirmada(db, orden, {
+                testMode: true,
+                eventAt: new Date().toISOString()
+            });
+        } else if (eventType === 'orden_cancelada') {
+            result = await enviarPushOrdenCancelada(db, orden, {
+                reason: 'manual',
+                testMode: true,
+                eventAt: new Date().toISOString()
+            });
+        } else if (eventType === 'orden_por_vencer') {
+            result = await enviarPushOrdenPorVencer(db, orden, {
+                warningMinutes,
+                testMode: true
+            });
+        } else {
+            return res.status(400).json({
+                success: false,
+                message: 'eventType inválido. Usa orden_por_vencer, orden_confirmada u orden_cancelada'
+            });
+        }
+
+        return res.json({
+            success: true,
+            message: 'Prueba push procesada',
+            data: {
+                numeroOrden,
+                eventType,
+                warningMinutes: eventType === 'orden_por_vencer' ? warningMinutes : null,
+                result
+            }
+        });
+    } catch (error) {
+        console.error('POST /api/admin/push-orders/test-send error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'No se pudo enviar la prueba push'
+        });
+    }
+});
+
+app.post('/api/admin/rifas/:id/depurar', verificarToken, async (req, res) => {
+    try {
+        if (req.usuario?.rol !== 'administrador') {
+            return res.status(403).json({
+                success: false,
+                message: 'Solo administradores pueden depurar rifas'
+            });
+        }
+
+        if (!rifaService?.enabled || !rifaArchiveService) {
+            return res.status(503).json({
+                success: false,
+                message: 'El modo multi-rifa todavía no está disponible'
+            });
+        }
+
+        const rifaId = Number.parseInt(req.params.id, 10);
+        if (!Number.isInteger(rifaId) || rifaId <= 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'ID de rifa inválido'
+            });
+        }
+
+        const confirmacion = String(req.body?.confirmacion || '').trim().toUpperCase();
+        if (confirmacion !== 'ELIMINAR RIFA') {
+            return res.status(400).json({
+                success: false,
+                message: 'Confirmación inválida para depurar la rifa'
+            });
+        }
+
+        const contexto = await rifaService.resolverContexto({ rifaId, fallbackActive: false });
+        if (!contexto) {
+            return res.status(404).json({
+                success: false,
+                message: 'La rifa solicitada no existe'
+            });
+        }
+
+        if (contexto.depuradaAt) {
+            return res.status(409).json({
+                success: false,
+                message: 'La rifa ya fue depurada anteriormente'
+            });
+        }
+
+        if (contexto.raw?.activa_publica === true) {
+            return res.status(409).json({
+                success: false,
+                message: 'No puedes depurar la rifa pública activa. Activa otra rifa primero.'
+            });
+        }
+
+        const estadoRifa = String(contexto.estado || contexto.configuracion?.rifa?.estado || '').trim().toLowerCase();
+        const puedeDepurarse = ['finalizado', 'archivada'].includes(estadoRifa) || Boolean(contexto.snapshotFinal);
+        if (!puedeDepurarse) {
+            return res.status(409).json({
+                success: false,
+                message: 'Solo puedes depurar una rifa finalizada o archivada'
+            });
+        }
+
+        await rifaArchiveService.depurarRifa(rifaId);
+        limpiarCacheConfiguracionPublica();
+        limpiarCacheBoletosPublicos();
+
+        return res.json({
+            success: true,
+            message: 'La rifa fue depurada correctamente y quedó disponible solo para historial.'
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'No se pudo depurar la rifa',
+            error: error.message
+        });
+    }
+});
+
 /**
  * GET /api/public/config
  * Devuelve la configuración pública del sorteo (sin datos sensibles)
@@ -2953,8 +4217,9 @@ app.delete('/api/admin/users/:id', verificarToken, async (req, res) => {
  */
 app.get('/api/public/config', (req, res) => {
     try {
+        const cacheKey = String(req.rifaContext?.slug || req.rifaContext?.id || 'default');
         const cacheAge = Date.now() - serverCache.publicConfigCachedTime;
-        if (serverCache.publicConfigCached && cacheAge >= 0 && cacheAge < 10000) {
+        if (serverCache.publicConfigCached && serverCache.publicConfigCachedKey === cacheKey && cacheAge >= 0 && cacheAge < 10000) {
             return res.json(serverCache.publicConfigCached);
         }
 
@@ -2983,12 +4248,14 @@ app.get('/api/public/config', (req, res) => {
                 intervaloLimpiezaMinutos: config.intervaloLimpiezaMinutos,
                 sistemaPremios: sistemaPremios,
                 rifa: config.rifa,
+                marketing: configActual.marketing || {},
                 // 🏦 Agregar cuentas bancarias a la respuesta pública
                 cuentas: cuentasBancarias
             }
         };
 
         serverCache.publicConfigCached = payload;
+        serverCache.publicConfigCachedKey = cacheKey;
         serverCache.publicConfigCachedTime = Date.now();
 
         res.json(payload);
@@ -2996,6 +4263,56 @@ app.get('/api/public/config', (req, res) => {
         return res.status(500).json({
             success: false,
             message: 'Error obteniendo configuración',
+            error: error.message
+        });
+    }
+});
+
+app.get('/api/public/rifas-pasadas', async (req, res) => {
+    try {
+        if (!rifaService?.enabled) {
+            return res.json({ success: true, data: [] });
+        }
+
+        const rifas = await rifaService.listarSorteosPasados();
+        const data = rifas
+            .filter((rifa) => Boolean(rifa?.snapshot_final))
+            .map((rifa) => ({
+                id: rifa.id,
+                slug: rifa.slug,
+                nombre: rifa.nombre,
+                estado: rifa.estado,
+                finalizadaAt: rifa.finalizada_at,
+                depuradaAt: rifa.depurada_at,
+                snapshot: rifa.snapshot_final
+            }));
+
+        return res.json({ success: true, data });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'No se pudieron cargar los sorteos pasados',
+            error: error.message
+        });
+    }
+});
+
+app.get('/api/public/rifas-pasadas/:slug', async (req, res) => {
+    try {
+        if (!rifaService?.enabled) {
+            return res.status(404).json({ success: false, message: 'Historial no disponible' });
+        }
+
+        const snapshot = await rifaService.obtenerSnapshotPublico(req.params.slug);
+        if (!snapshot) {
+            return res.status(404).json({ success: false, message: 'Sorteo pasado no encontrado' });
+        }
+
+        return res.json({ success: true, data: snapshot });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'No se pudo cargar el sorteo pasado',
             error: error.message
         });
     }
@@ -3062,6 +4379,11 @@ app.get('/api/og-metadata', (req, res) => {
 
 app.get('/api/admin/config', verificarToken, async (req, res) => {
     try {
+        const contextoAdminError = resolverErrorContextoAdminRifa(req);
+        if (contextoAdminError) {
+            return res.status(409).json(contextoAdminError);
+        }
+
         const config = obtenerConfigActual();
         console.log(`[GET /api/admin/config] Leyendo desde ${configManagerV2 ? 'ConfigManagerV2 (BD)' : 'config legacy/fallback'}`);
 
@@ -3082,11 +4404,14 @@ app.get('/api/admin/config', verificarToken, async (req, res) => {
                 seo: config.seo || {},
                 tema: config.tema || {},
                 publicacion: config.rifa?.publicacion || {},
+                marketing: config.marketing || {},
                 // Otros campos necesarios
                 totalBoletos: config.rifa?.totalBoletos,
                 precioBoleto: config.rifa?.precioBoleto,
-                tiempoApartadoHoras: config.rifa?.tiempoApartadoHoras
-            }
+                tiempoApartadoHoras: config.rifa?.tiempoApartadoHoras,
+                rifaContext: req.rifaContext || null
+            },
+            rifaContext: req.rifaContext || null
         });
     } catch (error) {
         log('error', 'GET /api/admin/config error', { error: error.message });
@@ -3239,12 +4564,145 @@ app.delete('/api/admin/cloudinary-image', verificarToken, async (req, res) => {
  * - Transacciones atómicas (o-todo-o-nada)
  */
 const MAQUINA_SUERTE_LIMITE_MAXIMO = 5000;
+const MAQUINA_SUERTE_QUICK_PICKS_MAXIMO = 8;
+const MAQUINA_SUERTE_QUICK_PICKS_DEFAULT = Object.freeze([10, 20, 50, 100]);
+const PROMOCIONES_COMBO_MAXIMO_REGLAS = 24;
+
+function normalizarQuickPicksMaquinaSuerteConfig(valor, limiteMaximo = 500, fallback = MAQUINA_SUERTE_QUICK_PICKS_DEFAULT) {
+    const limiteSeguro = Number.isFinite(Number(limiteMaximo)) && Number(limiteMaximo) > 0
+        ? Math.min(Math.floor(Number(limiteMaximo)), MAQUINA_SUERTE_LIMITE_MAXIMO)
+        : 500;
+
+    const normalizarLista = (entrada) => {
+        let candidatos = [];
+
+        if (Array.isArray(entrada)) {
+            candidatos = entrada;
+        } else if (typeof entrada === 'string') {
+            candidatos = entrada.split(',');
+        } else if (typeof entrada === 'number') {
+            candidatos = [entrada];
+        } else if (entrada != null) {
+            candidatos = [entrada];
+        }
+
+        return Array.from(new Set(
+            candidatos
+                .map((item) => Number.parseInt(String(item).trim(), 10))
+                .filter((numero) => Number.isInteger(numero) && numero > 0 && numero <= limiteSeguro)
+        ))
+            .sort((a, b) => a - b)
+            .slice(0, MAQUINA_SUERTE_QUICK_PICKS_MAXIMO);
+    };
+
+    const quickPicks = normalizarLista(valor);
+    if (quickPicks.length > 0) {
+        return quickPicks;
+    }
+
+    const fallbackNormalizado = normalizarLista(fallback);
+    if (fallbackNormalizado.length > 0) {
+        return fallbackNormalizado;
+    }
+
+    return [Math.max(1, limiteSeguro)];
+}
+
+function normalizarReglasComboConfig(reglas = []) {
+    const reglasNormalizadas = [];
+    const claves = new Set();
+
+    for (const regla of (Array.isArray(reglas) ? reglas : [])) {
+        const cantidadRecibe = parseInt(
+            regla?.cantidadRecibe
+            ?? regla?.cantidadEntrega
+            ?? regla?.cantidad
+            ?? regla?.boletos
+            ?? 0,
+            10
+        );
+        const cantidadPaga = parseInt(
+            regla?.cantidadPaga
+            ?? regla?.paga
+            ?? regla?.compra
+            ?? 0,
+            10
+        );
+
+        if (
+            !Number.isInteger(cantidadRecibe)
+            || !Number.isInteger(cantidadPaga)
+            || cantidadRecibe <= 1
+            || cantidadPaga <= 0
+            || cantidadPaga >= cantidadRecibe
+        ) {
+            continue;
+        }
+
+        const clave = `${cantidadRecibe}:${cantidadPaga}`;
+        if (claves.has(clave)) {
+            continue;
+        }
+
+        claves.add(clave);
+        reglasNormalizadas.push({
+            cantidadRecibe,
+            cantidadPaga,
+            boletosBonificados: cantidadRecibe - cantidadPaga,
+            etiqueta: `${cantidadRecibe}x${cantidadPaga}`
+        });
+
+        if (reglasNormalizadas.length >= PROMOCIONES_COMBO_MAXIMO_REGLAS) {
+            break;
+        }
+    }
+
+    return reglasNormalizadas.sort((a, b) => {
+        if (a.cantidadRecibe !== b.cantidadRecibe) return a.cantidadRecibe - b.cantidadRecibe;
+        return a.cantidadPaga - b.cantidadPaga;
+    });
+}
+
+function obtenerAdvertenciasCompatibilidadPromociones(rifa = {}) {
+    const advertencias = [];
+    const tieneCombo = rifa?.promocionesCombo?.enabled === true && Array.isArray(rifa?.promocionesCombo?.reglas) && rifa.promocionesCombo.reglas.length > 0;
+    const tieneVolumen = rifa?.descuentos?.enabled === true && Array.isArray(rifa?.descuentos?.reglas) && rifa.descuentos.reglas.length > 0;
+    const tienePromoTiempo = rifa?.promocionPorTiempo?.enabled === true;
+    const tienePromoPorcentaje = rifa?.descuentoPorcentaje?.enabled === true;
+
+    if (rifa?.promocionesCombo?.enabled === true && !tieneCombo) {
+        advertencias.push('Las promociones combo están activadas pero no tienen reglas válidas guardadas.');
+    }
+
+    if (rifa?.descuentos?.enabled === true && !tieneVolumen) {
+        advertencias.push('El descuento por volumen está activado pero no tiene reglas válidas guardadas.');
+    }
+
+    if (tieneCombo && tieneVolumen) {
+        advertencias.push('Combo y volumen no se acumulan: si aplica combo, el descuento por volumen no entrará en esa compra.');
+    }
+
+    if (tieneVolumen && (tienePromoTiempo || tienePromoPorcentaje)) {
+        advertencias.push('Los descuentos por volumen no se acumulan con promociones por boleto activo; se usará la mejor lógica vigente.');
+    }
+
+    if (tienePromoTiempo && tienePromoPorcentaje) {
+        advertencias.push('Promoción por tiempo y descuento por porcentaje pueden coincidir; el sistema aplicará el mejor precio por boleto.');
+    }
+
+    return advertencias;
+}
 
 app.patch('/api/admin/config', verificarToken, async (req, res) => {
     const configPath = path.join(__dirname, 'config.json');
     let release = null;
     
     try {
+        const contextoAdminError = resolverErrorContextoAdminRifa(req);
+        if (contextoAdminError) {
+            return res.status(409).json(contextoAdminError);
+        }
+
         // 🔍 DEBUG: Log del body recibido
         console.log('[PATCH /api/admin/config] 📥 Body recibido:', {
             tieneCliente: !!req.body.cliente,
@@ -3287,10 +4745,10 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
         }
         
         // ⚠️ VALIDACIÓN: Debe venir sistemaPremios O tecnica.bankAccounts u otros campos
-        if (!sistemaPremios && !req.body.tecnica?.bankAccounts && !req.body.cliente && !req.body.rifa && !req.body.redesSociales) {
+        if (!sistemaPremios && !req.body.tecnica?.bankAccounts && !req.body.cliente && !req.body.rifa && !req.body.redesSociales && !req.body.marketing && !req.body.tema && !req.body.seo) {
             return res.status(400).json({
                 success: false,
-                message: 'Debe enviar al menos sistemaPremios, bankAccounts, cliente, rifa o redesSociales'
+                message: 'Debe enviar al menos sistemaPremios, bankAccounts, cliente, rifa, redesSociales, marketing, tema o seo'
             });
         }
 
@@ -3540,6 +4998,7 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
         }
 
         // 📝 PASO 6D: Procesar datos de la rifa si vienen
+        let advertenciasPromociones = [];
         if (req.body.rifa) {
             console.log('[PATCH /api/admin/config] 🔍 PROCESANDO RIFA - Datos recibidos:', {
                 tieneRifa: !!req.body.rifa,
@@ -3828,15 +5287,22 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
                 const limiteNormalizado = Number.isFinite(limiteRecibido) && limiteRecibido > 0
                     ? Math.min(Math.floor(limiteRecibido), MAQUINA_SUERTE_LIMITE_MAXIMO)
                     : 500;
+                const quickPicksNormalizados = normalizarQuickPicksMaquinaSuerteConfig(
+                    req.body.rifa.maquinaSuerte?.quickPicks,
+                    limiteNormalizado,
+                    config.rifa.maquinaSuerte?.quickPicks
+                );
 
                 config.rifa.maquinaSuerte = {
                     ...(config.rifa.maquinaSuerte || {}),
                     ...(req.body.rifa.maquinaSuerte || {}),
-                    limiteBoletos: limiteNormalizado
+                    limiteBoletos: limiteNormalizado,
+                    quickPicks: quickPicksNormalizados
                 };
 
                 console.log('[PATCH /api/admin/config] 🎰 Límite máquina de la suerte actualizado:', {
-                    limiteBoletos: config.rifa.maquinaSuerte.limiteBoletos
+                    limiteBoletos: config.rifa.maquinaSuerte.limiteBoletos,
+                    quickPicks: config.rifa.maquinaSuerte.quickPicks
                 });
             }
 
@@ -3907,6 +5373,24 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
                     reglasLength: config.rifa.descuentos.reglas.length
                 });
             }
+
+            if (req.body.rifa.promocionesCombo !== undefined) {
+                const combosRecibidos = req.body.rifa.promocionesCombo || {};
+                const reglasComboNormalizadas = normalizarReglasComboConfig(combosRecibidos.reglas);
+
+                config.rifa.promocionesCombo = {
+                    ...(config.rifa.promocionesCombo || {}),
+                    enabled: Boolean(combosRecibidos.enabled),
+                    reglas: reglasComboNormalizadas
+                };
+
+                console.log('[PATCH /api/admin/config] 🎟️ Promociones combo actualizadas:', {
+                    enabled: config.rifa.promocionesCombo.enabled,
+                    reglasLength: config.rifa.promocionesCombo.reglas.length
+                });
+            }
+
+            advertenciasPromociones = obtenerAdvertenciasCompatibilidadPromociones(config.rifa || {});
 
             // 🎰 AGREGAR SOPORTE PARA PROMOCIONES DE OPORTUNIDADES
             if (req.body.rifa.promocionesOportunidades !== undefined) {
@@ -3990,7 +5474,21 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
                     console.log('[PATCH /api/admin/config] 🔄 Reconfigurando ordenExpirationService con nuevo tiempoApartadoHoras:', config.rifa.tiempoApartadoHoras);
                     ordenExpirationService.configurar(
                         config.rifa.tiempoApartadoHoras,
-                        config.rifa.intervaloLimpiezaMinutos
+                        config.rifa.intervaloLimpiezaMinutos,
+                        config.rifa.pushOrderWarningMinutes
+                    );
+                }
+            }
+
+            if (req.body.rifa.pushOrderWarningMinutes !== undefined) {
+                const warningMinutes = normalizarPushOrderWarningMinutesConfig(req.body.rifa.pushOrderWarningMinutes) || [];
+                config.rifa.pushOrderWarningMinutes = warningMinutes;
+
+                if (ordenExpirationService) {
+                    ordenExpirationService.configurar(
+                        config.rifa.tiempoApartadoHoras,
+                        config.rifa.intervaloLimpiezaMinutos,
+                        config.rifa.pushOrderWarningMinutes
                     );
                 }
             }
@@ -4006,6 +5504,7 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
                 modalidadEnlace: config.rifa.modalidadEnlace,
                 fechaPresorteo: config.rifa.fechaPresorteo,
                 tiempoApartadoHoras: config.rifa.tiempoApartadoHoras,
+                pushOrderWarningMinutes: config.rifa.pushOrderWarningMinutes,
                 maquinaSuerteLimite: config.rifa.maquinaSuerte?.limiteBoletos,
                 imagenesGuardadas: config.rifa.galeria?.imagenes?.length || 0
             });
@@ -4026,6 +5525,60 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
 
         if (req.body.seo) {
             config.seo = normalizarSeoConfigParaPersistencia(req.body.seo, config);
+        }
+
+        if (req.body.marketing) {
+            const marketingRecibido = req.body.marketing || {};
+            const metaPixelRecibido = marketingRecibido.metaPixel || {};
+            const pushCampaignsRecibido = marketingRecibido.pushCampaigns || {};
+            const metaPixelIncluido = Object.prototype.hasOwnProperty.call(marketingRecibido, 'metaPixel');
+            const pushCampaignsIncluido = Object.prototype.hasOwnProperty.call(marketingRecibido, 'pushCampaigns');
+            const pixelIdNormalizado = String(metaPixelRecibido.pixelId || '')
+                .replace(/[^\d]/g, '')
+                .slice(0, 32);
+            const pushCampaignsNormalizado = normalizarConfigCampanasPushAdmin(
+                pushCampaignsRecibido || {},
+                config.marketing?.pushCampaigns || {}
+            );
+
+            config.marketing = {
+                ...(config.marketing || {}),
+                ...marketingRecibido,
+                ...(pushCampaignsIncluido ? {
+                    pushCampaigns: {
+                        ...((config.marketing && config.marketing.pushCampaigns) || {}),
+                        ...pushCampaignsNormalizado
+                    }
+                } : {}),
+                ...(metaPixelIncluido ? {
+                    metaPixel: {
+                        ...((config.marketing && config.marketing.metaPixel) || {}),
+                        ...metaPixelRecibido,
+                        enabled: metaPixelRecibido.enabled === true,
+                        pixelId: pixelIdNormalizado,
+                        trackPageView: metaPixelRecibido.trackPageView !== false,
+                        trackViewContent: metaPixelRecibido.trackViewContent !== false,
+                        trackAddToCart: metaPixelRecibido.trackAddToCart !== false,
+                        trackInitiateCheckout: metaPixelRecibido.trackInitiateCheckout !== false,
+                        trackPurchase: metaPixelRecibido.trackPurchase !== false
+                    }
+                } : {})
+            };
+
+            if (metaPixelIncluido) {
+                console.log('[PATCH /api/admin/config] 📈 Configuración Meta Pixel actualizada:', {
+                    enabled: config.marketing.metaPixel.enabled,
+                    pixelId: config.marketing.metaPixel.pixelId ? `${config.marketing.metaPixel.pixelId.slice(0, 6)}...` : '',
+                    trackPageView: config.marketing.metaPixel.trackPageView,
+                    trackViewContent: config.marketing.metaPixel.trackViewContent,
+                    trackAddToCart: config.marketing.metaPixel.trackAddToCart,
+                    trackInitiateCheckout: config.marketing.metaPixel.trackInitiateCheckout,
+                    trackPurchase: config.marketing.metaPixel.trackPurchase
+                });
+            }
+            if (pushCampaignsIncluido) {
+                console.log('[PATCH /api/admin/config] 📣 Configuración campañas push actualizada:', config.marketing.pushCampaigns || {});
+            }
         }
 
         // 📝 PASO 7: Persistir y sincronizar en memoria
@@ -4050,49 +5603,31 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
                 logo: config.cliente?.logo,
                 logotipo: config.cliente?.logotipo
             },
-            rifaGaleriaImagenes: config.rifa?.galeria?.imagenes?.length || 0
+            rifaGaleriaImagenes: config.rifa?.galeria?.imagenes?.length || 0,
+            rifaContext: {
+                id: req.rifaContext?.id || null,
+                slug: req.rifaContext?.slug || '',
+                nombre: req.rifaContext?.nombre || ''
+            }
         });
         
         try {
-            // 🟦 PASO 7A: Intentar guardar en BD con ConfigManagerV2
-            let guardadoEnBD = false;
-            if (configManagerV2) {
-                try {
-                    const resultado = await configManagerV2.guardarEnBD(config, req.usuario.username);
-                    guardadoEnBD = resultado;
-                    console.log(`[PATCH /api/admin/config] ${guardadoEnBD ? '✅' : '⚠️'} ConfigManagerV2 guardó: ${guardadoEnBD ? 'BD' : 'config.json (fallback)'}`);
-                } catch (bdError) {
-                    console.warn('[PATCH /api/admin/config] ⚠️  ConfigManagerV2 error, usando config.json:', bdError.message);
-                }
-            } else {
-                console.log('[PATCH /api/admin/config] ℹ️  ConfigManagerV2 aún no inicializado, guardando en config.json');
-            }
+            const contextoRifaActual = obtenerContextoRifaActual();
+            const rifaIdActual = Number.parseInt(contextoRifaActual?.id, 10);
+            const persistenciaContextual = Number.isInteger(rifaIdActual) && rifaIdActual > 0;
+            const guardadoEnBD = await persistirConfigActualizada(config, req.usuario.username);
+            const configVerificada = persistenciaContextual
+                ? clonarConfigSeguro(config)
+                : obtenerConfigActual();
 
-            // 🟨 PASO 7B: Fallback a config.json si es necesario
-            if (!guardadoEnBD) {
-                console.log('[PATCH /api/admin/config] 📝 Guardando en config.json...');
-                await new Promise((resolve, reject) => {
-                    const nuevoContenido = JSON.stringify(config, null, 2);
-                    fs.writeFile(configPath, nuevoContenido, 'utf8', (err) => {
-                        if (err) {
-                            console.error('[PATCH /api/admin/config] ❌ Error en writeFile:', err);
-                            reject(err);
-                        } else {
-                            console.log('[PATCH /api/admin/config] ✅ config.json guardado');
-                            resolve();
-                        }
-                    });
-                });
-            }
-
-            sincronizarConfigLegacyEnMemoria(config);
-            const configVerificada = obtenerConfigActual();
             console.log('[PATCH /api/admin/config] ✅ VERIFICACIÓN POST-WRITE:', {
                 imagenPrincipal: configVerificada.cliente?.imagenPrincipal,
                 logo: configVerificada.cliente?.logo,
                 nombreCliente: configVerificada.cliente?.nombre,
+                fechaSorteo: configVerificada.rifa?.fechaSorteo,
                 tiempoApartadoHoras: configVerificada.rifa?.tiempoApartadoHoras,
-                guardadoEnBD: guardadoEnBD ? '🟦 Sí' : '🟨 No (config.json)'
+                guardadoEnBD: guardadoEnBD ? '🟦 Sí' : '🟨 No (config.json)',
+                persistenciaContextual: persistenciaContextual ? `rifa:${rifaIdActual}` : 'global'
             });
         } catch (writeError) {
             console.error('[PATCH /api/admin/config] ❌ writeError:', writeError);
@@ -4105,7 +5640,13 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
         }
 
         try {
-            sincronizarConfigLegacyEnMemoria(configManagerV2?.getConfig?.() || config);
+            const contextoRifaActual = obtenerContextoRifaActual();
+            const rifaIdActual = Number.parseInt(contextoRifaActual?.id, 10);
+            if (Number.isInteger(rifaIdActual) && rifaIdActual > 0) {
+                sincronizarConfigLegacyEnMemoria(config);
+            } else {
+                sincronizarConfigLegacyEnMemoria(configManagerV2?.getConfig?.() || config);
+            }
             console.log('[PATCH /api/admin/config] ✅ Configuración sincronizada en memoria');
         } catch (reloadError) {
             console.error('[PATCH /api/admin/config] ❌ Error recargando ConfigManager:', reloadError);
@@ -4148,13 +5689,17 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
         res.json({
             success: true,
             message: 'Configuración actualizada exitosamente',
+            warnings: advertenciasPromociones,
             data: {
                 ...(requiereSystemaPremios && { sistemaPremios: config.rifa.sistemaPremios }),
                 ...(bankAccountsActualizadas && { 
                     cuentas: bankAccountsActualizadas 
                 }),
                 ...(req.body.cliente && { cliente: config.cliente }),
-                ...(req.body.rifa && { rifa: config.rifa }),
+                ...(req.body.rifa && {
+                    rifa: config.rifa,
+                    advertenciasPromociones
+                }),
                 ...(req.body.redesSociales && { redesSociales: config.cliente.redesSociales })
             }
         });
@@ -4576,12 +6121,13 @@ function normalizarBoletosOrdenParaComparacion(boletos) {
         .sort((a, b) => a - b);
 }
 
-async function obtenerDiagnosticoBoletosOrden(trx, boletosSolicitados) {
+async function obtenerDiagnosticoBoletosOrden(trx, boletosSolicitados, options = {}) {
     const boletosOrdenados = Array.from(new Set(
         (Array.isArray(boletosSolicitados) ? boletosSolicitados : [])
             .map((numero) => Number(numero))
             .filter((numero) => Number.isInteger(numero) && numero >= 0)
     )).sort((a, b) => a - b);
+    const rifaId = Number.parseInt(options?.rifaId, 10) || obtenerRifaIdActual();
 
     if (boletosOrdenados.length === 0) {
         return {
@@ -4592,6 +6138,9 @@ async function obtenerDiagnosticoBoletosOrden(trx, boletosSolicitados) {
     }
 
     const filas = await trx('boletos_estado')
+        .modify((qb) => {
+            if (rifaId) qb.where('rifa_id', rifaId);
+        })
         .whereIn('numero', boletosOrdenados)
         .select('numero', 'estado', 'numero_orden')
         .orderBy('numero', 'asc')
@@ -4629,7 +6178,7 @@ function parseBoletosOrdenSeguro(raw) {
     return parseBoletosOrdenLegacy(raw).sort((a, b) => a - b);
 }
 
-async function obtenerMapaOportunidadesPorBoletos(runner, boletos = []) {
+async function obtenerMapaOportunidadesPorBoletos(runner, boletos = [], options = {}) {
     const boletosValidos = Array.from(new Set(
         (Array.isArray(boletos) ? boletos : [])
             .map((numero) => Number(numero))
@@ -4645,7 +6194,11 @@ async function obtenerMapaOportunidadesPorBoletos(runner, boletos = []) {
         return mapa;
     }
 
+    const rifaId = Number.parseInt(options?.rifaId, 10) || obtenerRifaIdActual();
     const filas = await runner('orden_oportunidades')
+        .modify((qb) => {
+            if (rifaId) qb.where('rifa_id', rifaId);
+        })
         .whereIn('numero_boleto', boletosValidos)
         .select('numero_boleto', 'numero_oportunidad')
         .orderBy('numero_boleto', 'asc')
@@ -4782,6 +6335,7 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
         }
 
         const config = cargarConfigSorteo();
+        const rifaIdActual = Number.parseInt(req.rifaContext?.id, 10) || null;
         const clienteIdActual = String(config?.cliente?.id || '').trim() || 'Sorteos_El_Trebol';
         const prefijoOrdenActual = obtenerPrefijoOrdenCliente(clienteIdActual);
         const ordenIdRecibido = typeof orden.ordenId === 'string'
@@ -4956,6 +6510,7 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
 
             // PASO 2: INSERT orden
             const ordenData = {
+                ...(rifaIdActual ? { rifa_id: rifaIdActual } : {}),
                 numero_orden: ordenId,
                 cantidad_boletos: boletosValidos.length,
                 precio_unitario: Math.round(precioUnitario * 100) / 100,
@@ -4985,6 +6540,9 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
             // El UPDATE adquiere los locks necesarios y evita un SELECT ... FOR UPDATE previo.
             const reserveTicketsStart = Date.now();
             const boletosActualizados = await trx('boletos_estado')
+                .modify((qb) => {
+                    if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+                })
                 .whereIn('numero', boletosOrdenados)
                 .where('estado', 'disponible')
                 .whereNull('numero_orden')
@@ -4998,7 +6556,9 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
 
             if (boletosActualizados !== boletosOrdenados.length) {
                 const conflictQueryStart = Date.now();
-                const diagnosticoBoletos = await obtenerDiagnosticoBoletosOrden(trx, boletosOrdenados);
+                const diagnosticoBoletos = await obtenerDiagnosticoBoletosOrden(trx, boletosOrdenados, {
+                    rifaId: rifaIdActual
+                });
                 perfMarks.conflictQueryMs = (perfMarks.conflictQueryMs || 0) + (Date.now() - conflictQueryStart);
 
                 throw {
@@ -5027,6 +6587,9 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
 
                 const oppReserveStart = Date.now();
                 const oportunidadesActualizadas = await trx('orden_oportunidades')
+                    .modify((qb) => {
+                        if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+                    })
                     .whereIn('numero_boleto', boletosValidos)
                     .where('estado', 'disponible')
                     .whereNull('numero_orden')
@@ -5065,7 +6628,8 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
                     precioUnitario,
                     subtotal,
                     descuento,
-                    totalFinal: total
+                    totalFinal: total,
+                    combo: totalesServidor.combo || null
                 };
             } else {
                 logOrdenesDebug(`✅ Orden ${ordenId} creada: ${boletosValidos.length} boletos (sin oportunidades)`);
@@ -5079,7 +6643,8 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
                     precioUnitario,
                     subtotal,
                     descuento,
-                    totalFinal: total
+                    totalFinal: total,
+                    combo: totalesServidor.combo || null
                 };
             }
         });
@@ -5094,6 +6659,11 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
         // Respuesta
         if (resultado.isDuplicate) {
             const ordenExistente = resultado.ordenExistente;
+            const totalesExistentes = calcularTotalesServidor(
+                Number(ordenExistente?.cantidad_boletos || 0),
+                config,
+                new Date(ordenExistente?.created_at || Date.now())
+            );
 
             if (wsEvents && ordenExistente) {
                 try {
@@ -5107,6 +6677,7 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
                     if (esOrdenReciente) {
                         wsEvents.emitirNuevaOrdenAdmin({
                             numero_orden: ordenExistente.numero_orden,
+                            rifa_id: ordenExistente.rifa_id || rifaIdActual || null,
                             nombre_cliente: ordenExistente.nombre_cliente,
                             telefono_cliente: ordenExistente.telefono_cliente,
                             estado: ordenExistente.estado || 'pendiente',
@@ -5142,7 +6713,8 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
                         precioUnitario: Number(ordenExistente.precio_unitario ?? 0),
                         subtotal: Number(ordenExistente.subtotal ?? 0),
                         descuento: Number(ordenExistente.descuento ?? 0),
-                        totalFinal: Number(ordenExistente.total ?? 0)
+                        totalFinal: Number(ordenExistente.total ?? 0),
+                        combo: totalesExistentes.combo || null
                     },
                     estado: ordenExistente.estado
                 }
@@ -5170,6 +6742,7 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
                 });
                 wsEvents.emitirNuevaOrdenAdmin({
                     numero_orden: resultado.ordenId,
+                    rifa_id: rifaIdActual,
                     nombre_cliente: nombre,
                     telefono_cliente: whatsapp,
                     estado: 'pendiente',
@@ -5200,7 +6773,13 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
                     precioUnitario: resultado.precioUnitario,
                     subtotal: resultado.subtotal,
                     descuento: resultado.descuento,
-                    totalFinal: resultado.totalFinal
+                    totalFinal: resultado.totalFinal,
+                    combo: resultado.combo || {
+                        applied: false,
+                        boletosEntregados: resultado.cantidad,
+                        boletosPagados: resultado.cantidad,
+                        boletosBonificados: 0
+                    }
                 },
                 estado: 'pendiente'
             }
@@ -5594,7 +7173,13 @@ app.get('/api/boletos/sync-full', async (req, res) => {
 app.get('/api/ordenes/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const ordenRow = await db('ordenes').where('numero_orden', id).first();
+        const rifaIdActual = Number.parseInt(req.rifaContext?.id, 10) || null;
+        const ordenRow = await db('ordenes')
+            .modify((qb) => {
+                if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+            })
+            .where('numero_orden', id)
+            .first();
 
         if (!ordenRow) {
             return res.status(404).type('text/html').send(`
@@ -5628,7 +7213,9 @@ app.get('/api/ordenes/:id', async (req, res) => {
         // ✅ Obtener oportunidades de la orden
         let oportunidadesData = { data: [], error: null };
         try {
-            const resultado = await OportunidadesOrdenService.obtenerOportunidades(ordenRow.numero_orden);
+            const resultado = await OportunidadesOrdenService.obtenerOportunidades(ordenRow.numero_orden, {
+                rifaId: rifaIdActual
+            });
             oportunidadesData = resultado;
             console.log(`📊 Oportunidades obtenidas para ${ordenRow.numero_orden}:`, { 
                 cantidad: resultado.data?.length || 0,
@@ -5887,7 +7474,11 @@ app.get('/api/ordenes/:id', async (req, res) => {
 app.get('/api/ordenes/:id/oportunidades', verificarToken, async (req, res) => {
     try {
         const { id } = req.params;
+        const rifaIdActual = Number.parseInt(req.rifaContext?.id, 10) || null;
         const orden = await db('ordenes')
+            .modify((qb) => {
+                if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+            })
             .where('numero_orden', id)
             .select('numero_orden', 'boletos')
             .first();
@@ -5900,7 +7491,9 @@ app.get('/api/ordenes/:id/oportunidades', verificarToken, async (req, res) => {
         }
 
         const boletos = parseBoletosOrdenSeguro(orden.boletos);
-        const mapaOportunidades = await obtenerMapaOportunidadesPorBoletos(db, boletos);
+        const mapaOportunidades = await obtenerMapaOportunidadesPorBoletos(db, boletos, {
+            rifaId: rifaIdActual
+        });
         const oportunidadesArray = combinarOportunidadesPorBoletos(boletos, mapaOportunidades);
 
         return res.json({
@@ -5934,6 +7527,7 @@ app.get('/api/ordenes/:id/oportunidades', verificarToken, async (req, res) => {
 app.get('/api/public/ordenes-cliente', async (req, res) => {
     try {
         const { whatsapp } = req.query;
+        const rifaIdActual = Number.parseInt(req.rifaContext?.id, 10) || null;
 
         // ===== VALIDACIÓN =====
         // WhatsApp es obligatorio
@@ -5962,6 +7556,9 @@ app.get('/api/public/ordenes-cliente', async (req, res) => {
 
         // ✅ Consultar órdenes primero
         const ordenes = await db('ordenes')
+            .modify((qb) => {
+                if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+            })
             .where('telefono_cliente', whatsappSanitizado)
             .orderBy('created_at', 'desc');
 
@@ -5979,7 +7576,9 @@ app.get('/api/public/ordenes-cliente', async (req, res) => {
         });
 
         const boletosConsultados = ordenesPreparadas.flatMap((orden) => orden.boletosNormalizados);
-        const mapaOportunidades = await obtenerMapaOportunidadesPorBoletos(db, boletosConsultados);
+        const mapaOportunidades = await obtenerMapaOportunidadesPorBoletos(db, boletosConsultados, {
+            rifaId: rifaIdActual
+        });
 
         const ordenesFormateadas = ordenesPreparadas.map(orden => {
             const oportunidades = combinarOportunidadesPorBoletos(
@@ -6011,8 +7610,10 @@ app.get('/api/public/ordenes-cliente', async (req, res) => {
                 numero_referencia: orden.numero_referencia || null,
                 nombre_beneficiario: orden.nombre_beneficiario || null,
                 comprobante_path: orden.comprobante_path || null,
+                comprobante_recibido: orden.comprobante_recibido === true || Boolean(orden.comprobante_path),
                 createdAt: orden.created_at,
-                updatedAt: orden.updated_at
+                updatedAt: orden.updated_at,
+                push_notificaciones: construirMetadatosOrdenPushPublica(orden)
             };
         });
 
@@ -6047,6 +7648,7 @@ app.get('/api/public/ordenes-cliente', async (req, res) => {
 app.get('/api/public/ordenes-cliente/orden/:ordenId', async (req, res) => {
     try {
         const ordenId = sanitizar(req.params?.ordenId || '').trim().toUpperCase();
+        const rifaIdActual = Number.parseInt(req.rifaContext?.id, 10) || null;
 
         if (!ordenId) {
             return res.status(400).json({
@@ -6056,6 +7658,9 @@ app.get('/api/public/ordenes-cliente/orden/:ordenId', async (req, res) => {
         }
 
         const orden = await db('ordenes')
+            .modify((qb) => {
+                if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+            })
             .where('numero_orden', ordenId)
             .first();
 
@@ -6067,7 +7672,9 @@ app.get('/api/public/ordenes-cliente/orden/:ordenId', async (req, res) => {
         }
 
         const boletosParsados = parseBoletosOrdenSeguro(orden.boletos);
-        const mapaOportunidades = await obtenerMapaOportunidadesPorBoletos(db, boletosParsados);
+        const mapaOportunidades = await obtenerMapaOportunidadesPorBoletos(db, boletosParsados, {
+            rifaId: rifaIdActual
+        });
         const oportunidades = combinarOportunidadesPorBoletos(boletosParsados, mapaOportunidades);
 
         return res.json({
@@ -6098,8 +7705,10 @@ app.get('/api/public/ordenes-cliente/orden/:ordenId', async (req, res) => {
                 numero_referencia: orden.numero_referencia || null,
                 nombre_beneficiario: orden.nombre_beneficiario || null,
                 comprobante_path: orden.comprobante_path || null,
+                comprobante_recibido: orden.comprobante_recibido === true || Boolean(orden.comprobante_path),
                 createdAt: orden.created_at,
-                updatedAt: orden.updated_at
+                updatedAt: orden.updated_at,
+                push_notificaciones: construirMetadatosOrdenPushPublica(orden)
             }
         });
     } catch (error) {
@@ -6111,6 +7720,190 @@ app.get('/api/public/ordenes-cliente/orden/:ordenId', async (req, res) => {
         return res.status(500).json({
             success: false,
             message: 'Error interno del servidor'
+        });
+    }
+});
+
+app.post('/api/public/push/subscribe', limiterPushPublico, async (req, res) => {
+    try {
+        const pushConfig = obtenerConfigPush();
+        if (!pushConfig.enabled) {
+            return res.status(503).json({
+                success: false,
+                message: 'Las notificaciones push no están configuradas en este momento.'
+            });
+        }
+
+        const numeroOrden = sanitizar(req.body?.numero_orden || req.body?.ordenId || '').trim().toUpperCase();
+        const token = String(req.body?.token || '').trim();
+        const subscription = req.body?.subscription || null;
+        const rifaIdActual = Number.parseInt(req.rifaContext?.id, 10) || null;
+
+        if (!numeroOrden || !token || !subscription) {
+            return res.status(400).json({
+                success: false,
+                message: 'numero_orden, token y subscription son obligatorios'
+            });
+        }
+
+        const resultado = await db.transaction(async (trx) => {
+            const orden = await trx('ordenes')
+                .modify((qb) => {
+                    if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+                })
+                .where('numero_orden', numeroOrden)
+                .forUpdate()
+                .first();
+
+            if (!orden) {
+                return { httpStatus: 404, body: {
+                    success: false,
+                    message: 'Orden no encontrada'
+                } };
+            }
+
+            const verificacion = verificarTokenOrdenPush(token, orden);
+            if (!verificacion.valido) {
+                return { httpStatus: 403, body: {
+                    success: false,
+                    message: 'Token de suscripción inválido'
+                } };
+            }
+
+            const pushMeta = construirMetadatosOrdenPushPublica(orden);
+            if (!pushMeta.canSubscribe) {
+                return { httpStatus: 409, body: {
+                    success: false,
+                    message: 'Esta orden ya no permite activar notificaciones push.'
+                } };
+            }
+
+            const suscripcion = await upsertSuscripcionPush(trx, {
+                rifaId: orden.rifa_id,
+                numeroOrden: orden.numero_orden,
+                telefonoCliente: orden.telefono_cliente,
+                subscription,
+                userAgent: req.headers['user-agent'] || '',
+                permissionState: req.body?.permission || 'granted'
+            });
+
+            const rifa = await trx('rifas')
+                .where('id', orden.rifa_id)
+                .first('id', 'slug', 'configuracion');
+
+            if (rifa) {
+                await upsertSuscripcionCampanaPush(trx, {
+                    organizerKey: resolverOrganizerKeyPush({
+                        configuracion: rifa.configuracion || {}
+                    }),
+                    telefonoCliente: orden.telefono_cliente,
+                    subscription,
+                    userAgent: req.headers['user-agent'] || '',
+                    permissionState: req.body?.permission || 'granted',
+                    sourceRifaId: orden.rifa_id,
+                    sourceRifaSlug: rifa.slug,
+                    sourceNumeroOrden: orden.numero_orden,
+                    lastPurchaseAt: orden.created_at || orden.updated_at,
+                    lastPurchaseRifaId: orden.rifa_id,
+                    lastPurchaseRifaSlug: rifa.slug,
+                    marketingOptIn: true,
+                    preserveOptOut: true
+                });
+            }
+
+            return {
+                httpStatus: 200,
+                body: {
+                    success: true,
+                    created: suscripcion.created,
+                    message: 'Notificaciones activadas para esta orden.'
+                }
+            };
+        });
+
+        return res.status(resultado.httpStatus || 200).json(resultado.body);
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'No fue posible activar las notificaciones',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
+});
+
+app.post('/api/public/push/unsubscribe', limiterPushPublico, async (req, res) => {
+    try {
+        const numeroOrden = sanitizar(req.body?.numero_orden || req.body?.ordenId || '').trim().toUpperCase();
+        const token = String(req.body?.token || '').trim();
+        const subscription = req.body?.subscription || null;
+        const rifaIdActual = Number.parseInt(req.rifaContext?.id, 10) || null;
+
+        if (!numeroOrden || !token || !subscription) {
+            return res.status(400).json({
+                success: false,
+                message: 'numero_orden, token y subscription son obligatorios'
+            });
+        }
+
+        const resultado = await db.transaction(async (trx) => {
+            const orden = await trx('ordenes')
+                .modify((qb) => {
+                    if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+                })
+                .where('numero_orden', numeroOrden)
+                .forUpdate()
+                .first();
+
+            if (!orden) {
+                return { httpStatus: 404, body: {
+                    success: false,
+                    message: 'Orden no encontrada'
+                } };
+            }
+
+            const verificacion = verificarTokenOrdenPush(token, orden);
+            if (!verificacion.valido) {
+                return { httpStatus: 403, body: {
+                    success: false,
+                    message: 'Token de suscripción inválido'
+                } };
+            }
+
+            const suscripcion = await desactivarSuscripcionPush(trx, {
+                rifaId: orden.rifa_id,
+                numeroOrden: orden.numero_orden,
+                subscription
+            });
+
+            const rifa = await trx('rifas')
+                .where('id', orden.rifa_id)
+                .first('id', 'configuracion');
+
+            if (rifa) {
+                await desactivarSuscripcionCampanaPush(trx, {
+                    organizerKey: resolverOrganizerKeyPush({
+                        configuracion: rifa.configuracion || {}
+                    }),
+                    subscription
+                });
+            }
+
+            return {
+                httpStatus: 200,
+                body: {
+                    success: true,
+                    updated: suscripcion.updated,
+                    message: 'Notificaciones desactivadas para esta orden.'
+                }
+            };
+        });
+
+        return res.status(resultado.httpStatus || 200).json(resultado.body);
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'No fue posible desactivar las notificaciones',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 });
@@ -6133,7 +7926,7 @@ app.get('/api/public/ordenes-cliente/orden/:ordenId', async (req, res) => {
  * @returns {JSON} { success, message, numero_orden, url?, error? }
  */
 app.post('/api/public/ordenes-cliente/:numero_orden/comprobante', async (req, res) => {
-    const debugId = `[COMPROBANTE-${Date.now()}]`;
+    const debugId = `[COMPR-${Date.now()}]`;
     const startTime = Date.now();
     
     try {
@@ -6141,23 +7934,37 @@ app.post('/api/public/ordenes-cliente/:numero_orden/comprobante', async (req, re
         const whatsapp = req.body?.whatsapp;
         const archivo = req.files?.comprobante;
 
-        console.log(`\n${debugId} Inicio de carga de comprobante`);
-        console.log(`${debugId} Orden: ${numero_orden}, WhatsApp: ${whatsapp ? 'SI' : 'NO'}, Archivo: ${archivo ? 'SI' : 'NO'}`);
+        console.log(`\n${debugId} ═══════════════════════════════════════════════`);
+        console.log(`${debugId} [REQUEST] POST /api/public/ordenes-cliente/:numero_orden/comprobante`);
+        console.log(`${debugId} [REQUEST] Parámetros recibidos:`);
+        console.log(`${debugId} [REQUEST]   - numero_orden: ${numero_orden}`);
+        console.log(`${debugId} [REQUEST]   - whatsapp: ${whatsapp ? '✅ YES' : '❌ NO'}`);
+        console.log(`${debugId} [REQUEST]   - archivo: ${archivo ? '✅ YES' : '❌ NO'}`);
+        if (archivo) {
+            console.log(`${debugId} [REQUEST]   - archivo.name: ${archivo.name}`);
+            console.log(`${debugId} [REQUEST]   - archivo.size: ${archivo.size} bytes`);
+            console.log(`${debugId} [REQUEST]   - archivo.mimetype: ${archivo.mimetype}`);
+            console.log(`${debugId} [REQUEST]   - archivo.data: ${archivo.data ? '✅ Buffer present' : '❌ NO BUFFER'}`);
+        }
+        console.log(`${debugId} [REQUEST] req.files keys: ${req.files ? Object.keys(req.files).join(', ') : 'NO FILES OBJECT'}`);
+        console.log(`${debugId} [REQUEST] req.body keys: ${req.body ? Object.keys(req.body).join(', ') : 'NO BODY OBJECT'}`);
+        console.log(`${debugId} Content-Type: ${req.headers['content-type']}`);
+        console.log(`${debugId} User-Agent: ${req.headers['user-agent']?.substring(0, 60)}...`);
 
         // Usar service para procesar comprobante (todas las validaciones incluidas)
         const resultado = await comprobanteService.procesarComprobante({
             numeroOrden: numero_orden,
             whatsapp,
-            archivo
+            archivo,
+            rifaId: req.rifaContext?.id || null
         });
 
-        console.log(`${debugId} ✅ Comprobante procesado exitosamente\n`);
+        console.log(`${debugId} ✅ SUCCESS - Comprobante procesado exitosamente`);
+        console.log(`${debugId} ═══════════════════════════════════════════════\n`);
 
         log('info', 'Comprobante subido exitosamente', {
             numero_orden,
             tamaño_mb: resultado.tamaño_mb,
-            // 🔒 NO loguear la URL de Cloudinary (información sensible)
-            // cloudinary_url: resultado.url,
             ip: req.ip
         });
         logOperacionHttp('POST /api/public/ordenes-cliente/:numero_orden/comprobante', startTime, {
@@ -6166,7 +7973,6 @@ app.post('/api/public/ordenes-cliente/:numero_orden/comprobante', async (req, re
             statusCode: 200
         }, { slowMs: 1500, warnMs: 4000 });
 
-        // 🔒 NO retornar URL completa al cliente (solo confirmación)
         res.json({
             success: true,
             message: 'Comprobante subido correctamente',
@@ -6178,6 +7984,7 @@ app.post('/api/public/ordenes-cliente/:numero_orden/comprobante', async (req, re
                 try {
                     wsEvents.emitirOrdenActualizadaAdmin({
                         numero_orden,
+                        rifa_id: req.rifaContext?.id || null,
                         estado: 'pendiente',
                         comprobante_path: '__present__',
                         updated_at: new Date().toISOString()
@@ -6211,11 +8018,13 @@ app.post('/api/public/ordenes-cliente/:numero_orden/comprobante', async (req, re
         if (errorMessage.includes('Cloudinary')) statusCode = 500;
         if (errorMessage.includes('Esquema de BD')) statusCode = 500;
 
-        console.error(`\n${debugId} ❌ Error procesando comprobante`);
-        console.error(`${debugId} Status: ${statusCode}`);
-        console.error(`${debugId} Mensaje: ${errorMessage}`);
-        console.error(`${debugId} Stack:`, error.stack.split('\n').slice(0, 5).join('\n'));
-        console.error('');
+        console.error(`\n${debugId} ═══════════════════════════════════════════════`);
+        console.error(`${debugId} ❌ ERROR PROCESANDO COMPROBANTE`);
+        console.error(`${debugId} [ERROR] Status Code: ${statusCode}`);
+        console.error(`${debugId} [ERROR] Mensaje: ${errorMessage}`);
+        console.error(`${debugId} [ERROR] Stack (primeras 3 líneas):`);
+        console.error(`${debugId}`, error.stack.split('\n').slice(0, 3).join(`\n${debugId}`));
+        console.error(`${debugId} ═══════════════════════════════════════════════\n`);
 
         log('error', 'Error en POST /comprobante', {
             statusCode,
@@ -6248,6 +8057,7 @@ app.post('/api/public/ordenes-cliente/:numero_orden/comprobante', async (req, re
 app.get('/api/ordenes/por-cliente/:email', limiterRecuperacionOrdenes, async (req, res) => {
     try {
         const { nombre, whatsapp } = req.query;
+        const rifaIdActual = Number.parseInt(req.rifaContext?.id, 10) || null;
         
         // Se requiere al menos nombre + whatsapp para búsqueda
         if (!nombre || !whatsapp) {
@@ -6272,6 +8082,9 @@ app.get('/api/ordenes/por-cliente/:email', limiterRecuperacionOrdenes, async (re
 
         // Búsqueda estricta por nombre normalizado en ventana corta
         const ordenes = await db('ordenes')
+            .modify((qb) => {
+                if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+            })
             .where('created_at', '>=', hace30Min)
             .whereRaw("LOWER(TRIM(REGEXP_REPLACE(nombre_cliente, '\\s+', ' ', 'g'))) = ?", [nombreNormalizado])
             .select('numero_orden', 'estado', 'cantidad_boletos', 'total', 'created_at', 'nombre_cliente', 'telefono_cliente')
@@ -6308,6 +8121,7 @@ app.get('/api/ordenes/por-cliente/:email', limiterRecuperacionOrdenes, async (re
  */
 app.get('/api/ordenes', verificarToken, async (req, res) => {
     try {
+        const rifaIdActual = obtenerRifaIdRequest(req);
         const {
             estado,
             limit = 50,
@@ -6327,6 +8141,7 @@ app.get('/api/ordenes', verificarToken, async (req, res) => {
         const idFiltro = String(searchId || '').trim().toLowerCase();
         
         const applyFilters = (builder) => {
+            aplicarFiltroRifa(builder, rifaIdActual);
             if (estadoFiltro) {
                 if (estadoFiltro === 'comprobante_recibido' || estadoFiltro === 'comprobante') {
                     builder.where(function() {
@@ -6406,13 +8221,14 @@ app.get('/api/ordenes', verificarToken, async (req, res) => {
             db.raw("COUNT(CASE WHEN COALESCE(comprobante_recibido, false) = true OR comprobante_path IS NOT NULL THEN 1 END) as comprobante_recibido"),
             db.raw("COUNT(CASE WHEN estado = 'confirmada' THEN 1 END) as confirmada"),
             db.raw("COUNT(CASE WHEN estado = 'cancelada' THEN 1 END) as cancelada"),
-            db.raw('COALESCE(SUM(cantidad_boletos), 0) as total_boletos')
+            db.raw('COALESCE(SUM(cantidad_boletos), 0) as total_boletos'),
+            db.raw("COALESCE(SUM(CASE WHEN estado = 'pendiente' OR COALESCE(comprobante_recibido, false) = true OR comprobante_path IS NOT NULL THEN total ELSE 0 END), 0) as pendiente_total")
         );
         applyFilters(summaryQuery);
 
         const [total, summaryRow, ordenes] = await Promise.all([
             totalQuery.count('* as count').first(),
-            summaryQuery,
+            summaryQuery.first(),
             query.limit(limitSeguro).offset(offsetSeguro)
         ]);
 
@@ -6429,8 +8245,7 @@ app.get('/api/ordenes', verificarToken, async (req, res) => {
         summary.confirmada = parseInt(summaryRow?.confirmada || 0, 10) || 0;
         summary.cancelada = parseInt(summaryRow?.cancelada || 0, 10) || 0;
         summary.totalBoletos = parseInt(summaryRow?.total_boletos || 0, 10) || 0;
-
-        summary.pendienteTotal = summary.pendiente + summary.comprobante_recibido;
+        summary.pendienteTotal = parseFloat(summaryRow?.pendiente_total || 0) || 0;
 
         // Parsear boletos de cada orden - manejo seguro para PostgreSQL
         // ⚠️ CRÍTICO: Limitar concurrencia a 3 para evitar "MaxClientsInSessionMode" en Vercel
@@ -7092,10 +8907,11 @@ app.get('/api/admin/boleto/:numero', verificarToken, async (req, res) => {
  */
 app.get('/api/public/ordenes-stats', async (req, res) => {
     const startTime = Date.now();
+    const cacheSuffix = String(req.rifaContext?.slug || req.rifaContext?.id || 'default');
     const cacheTtl = obtenerTtlCachePublico({ productionMs: 30000, developmentMs: 5000 });
     const cached = obtenerCacheMemoriaVigente(
-        serverCache.ordenesStatsCached,
-        serverCache.ordenesStatsCachedTime,
+        serverCache.ordenesStatsCached?.[cacheSuffix],
+        serverCache.ordenesStatsCachedTime?.[cacheSuffix],
         cacheTtl
     );
 
@@ -7115,8 +8931,12 @@ app.get('/api/public/ordenes-stats', async (req, res) => {
             });
         }
 
-        const stats = await resolverSingleFlightPublico('public:ordenes-stats', async () => {
+        const rifaIdActual = Number.parseInt(req.rifaContext?.id, 10) || null;
+        const stats = await resolverSingleFlightPublico(`public:ordenes-stats:${cacheSuffix}`, async () => {
             const result = await db('ordenes')
+                .modify((qb) => {
+                    if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+                })
                 .whereIn('estado', ['confirmada', 'completada'])
                 .select(
                     db.raw('COUNT(*) as total_ordenes'),
@@ -7130,8 +8950,10 @@ app.get('/api/public/ordenes-stats', async (req, res) => {
             };
         });
 
-        serverCache.ordenesStatsCached = stats;
-        serverCache.ordenesStatsCachedTime = Date.now();
+        serverCache.ordenesStatsCached = serverCache.ordenesStatsCached || {};
+        serverCache.ordenesStatsCachedTime = serverCache.ordenesStatsCachedTime || {};
+        serverCache.ordenesStatsCached[cacheSuffix] = stats;
+        serverCache.ordenesStatsCachedTime[cacheSuffix] = Date.now();
 
         return res.json({
             success: true,
@@ -7146,12 +8968,12 @@ app.get('/api/public/ordenes-stats', async (req, res) => {
     } catch (error) {
         console.error('GET /api/public/ordenes-stats error:', error);
 
-        if (serverCache.ordenesStatsCached) {
+        if (serverCache.ordenesStatsCached?.[cacheSuffix]) {
             return res.json({
                 success: true,
                 data: {
-                    total_ordenes: serverCache.ordenesStatsCached.total_ordenes,
-                    total_boletos_vendidos: serverCache.ordenesStatsCached.total_boletos_vendidos,
+                    total_ordenes: serverCache.ordenesStatsCached[cacheSuffix].total_ordenes,
+                    total_boletos_vendidos: serverCache.ordenesStatsCached[cacheSuffix].total_boletos_vendidos,
                     porcentaje_vendido: 0,
                     queryTime: 0,
                     cached: true,
@@ -7200,11 +9022,13 @@ app.get('/api/public/boletos/stats', async (req, res) => {
     try {
         const startTime = Date.now();
         const config = cargarConfigSorteo();
+        const rifaIdActual = Number.parseInt(req.rifaContext?.id, 10) || null;
+        const cacheSuffix = String(req.rifaContext?.slug || rifaIdActual || 'default');
         const totalBoletos = config.totalBoletos;
         const cacheTtl = obtenerTtlCachePublico({ productionMs: 30000, developmentMs: 5000 });
         const cached = obtenerCacheMemoriaVigente(
-            global.boletosStatsCache,
-            global.boletosStatsCacheTime,
+            serverCache.boletosStatsCached?.[cacheSuffix],
+            serverCache.boletosStatsCachedTime?.[cacheSuffix],
             cacheTtl
         );
 
@@ -7235,8 +9059,12 @@ app.get('/api/public/boletos/stats', async (req, res) => {
                 // ⭐ OPTIMIZACIÓN: Query más rápida usando índices
                 // Separar en dos queries para cada estado (usa índices mejor)
                 const [vendidosResult, apartadosResult] = await Promise.all([
-                    db('boletos_estado').where('estado', 'vendido').count('* as count').first(),
-                    db('boletos_estado').where('estado', 'apartado').count('* as count').first()
+                    db('boletos_estado').modify((qb) => {
+                        if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+                    }).where('estado', 'vendido').count('* as count').first(),
+                    db('boletos_estado').modify((qb) => {
+                        if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+                    }).where('estado', 'apartado').count('* as count').first()
                 ]);
                 
                 return {
@@ -7246,21 +9074,27 @@ app.get('/api/public/boletos/stats', async (req, res) => {
             } catch (dbError) {
                 console.warn('[PublicBoletoStats] DB Query error (usando caché anterior):', dbError.message);
                 // Si la BD falla, usar caché anterior si existe
-                if (global.boletosStatsCache) {
-                    return global.boletosStatsCache;
+                if (serverCache.boletosStatsCached?.[cacheSuffix]) {
+                    return serverCache.boletosStatsCached[cacheSuffix];
                 }
                 // Si no hay caché, devolver error
                 throw dbError;
             }
         };
 
-        const stats = await resolverSingleFlightPublico('public:boletos-stats', fetchStats);
+        const stats = await resolverSingleFlightPublico(`public:boletos-stats:${cacheSuffix}`, fetchStats);
         const disponibles = totalBoletos - stats.vendidos - stats.apartados;
         const queryTime = Date.now() - startTime;
 
         // Guardar en caché local de servidor
-        global.boletosStatsCache = { vendidos: stats.vendidos, apartados: stats.apartados, disponibles: disponibles };
-        global.boletosStatsCacheTime = Date.now();
+        serverCache.boletosStatsCached = serverCache.boletosStatsCached || {};
+        serverCache.boletosStatsCachedTime = serverCache.boletosStatsCachedTime || {};
+        serverCache.boletosStatsCached[cacheSuffix] = {
+            vendidos: stats.vendidos,
+            apartados: stats.apartados,
+            disponibles
+        };
+        serverCache.boletosStatsCachedTime[cacheSuffix] = Date.now();
         logOperacionHttp('GET /api/public/boletos/stats', startTime, {
             cached: false,
             vendidos: stats.vendidos,
@@ -7284,16 +9118,17 @@ app.get('/api/public/boletos/stats', async (req, res) => {
         console.error('[PublicBoletoStats] Error:', error.message);
         log('error', 'GET /api/public/boletos/stats error', { error: error.message });
         const config = cargarConfigSorteo();
+        const cacheSuffix = String(req.rifaContext?.slug || req.rifaContext?.id || 'default');
         
         // ⭐ FALLBACK: Usar caché anterior o valores por defecto
-        if (global.boletosStatsCache) {
+        if (serverCache.boletosStatsCached?.[cacheSuffix]) {
             console.warn('[PublicBoletoStats] Error - usando cache anterior');
             return res.json({
                 success: true,
                 data: {
-                    vendidos: global.boletosStatsCache.vendidos,
-                    apartados: global.boletosStatsCache.apartados,
-                    disponibles: global.boletosStatsCache.disponibles,
+                    vendidos: serverCache.boletosStatsCached[cacheSuffix].vendidos,
+                    apartados: serverCache.boletosStatsCached[cacheSuffix].apartados,
+                    disponibles: serverCache.boletosStatsCached[cacheSuffix].disponibles,
                     total: config.totalBoletos,
                     queryTime: 0,
                     cached: true,
@@ -7321,6 +9156,8 @@ app.get('/api/public/boletos', async (req, res) => {
     const inicioQuery = req.query.inicio !== undefined ? parseInt(req.query.inicio, 10) : null;
     const finQuery = req.query.fin !== undefined ? parseInt(req.query.fin, 10) : null;
     const usarRango = Number.isInteger(inicioQuery) && Number.isInteger(finQuery);
+    const rifaIdActual = Number.parseInt(req.rifaContext?.id, 10) || null;
+    const cacheSuffix = String(req.rifaContext?.slug || req.rifaContext?.id || 'default');
 
     try {
         if (usarRango && inicioQuery > finQuery) {
@@ -7335,7 +9172,7 @@ app.get('/api/public/boletos', async (req, res) => {
         setHttpCacheHeaders(res, Math.max(5, Math.floor((usarRango ? rangeCacheTtl : fullCacheTtl) / 1000)), true);
 
         if (usarRango) {
-            const cacheKey = `${inicioQuery}-${finQuery}`;
+            const cacheKey = `${cacheSuffix}:${inicioQuery}-${finQuery}`;
             const cachedRange = serverCache.boletosPublicosByRange.get(cacheKey);
             if (cachedRange && (Date.now() - cachedRange.time) < rangeCacheTtl) {
                 return res.json(cachedRange.payload);
@@ -7343,8 +9180,8 @@ app.get('/api/public/boletos', async (req, res) => {
         }
 
         const cachedFull = obtenerCacheMemoriaVigente(
-            serverCache.boletosPublicosCached,
-            serverCache.boletosPublicosCachedTime,
+            serverCache.boletosPublicosCached?.[cacheSuffix],
+            serverCache.boletosPublicosCachedTime?.[cacheSuffix],
             fullCacheTtl
         );
 
@@ -7381,11 +9218,13 @@ app.get('/api/public/boletos', async (req, res) => {
                         COUNT(*) FILTER (WHERE estado = 'vendido')::int as vendidos,
                         COUNT(*) FILTER (WHERE estado = 'apartado')::int as apartados
                     FROM boletos_estado
-                `).timeout(10000),
+                    WHERE (?::int IS NULL OR rifa_id = ?::int)
+                `, [rifaIdActual, rifaIdActual]).timeout(10000),
                 db.raw(`
                     SELECT COUNT(*)::int as count FROM orden_oportunidades 
                     WHERE estado = 'disponible'
-                `).timeout(10000)
+                      AND (?::int IS NULL OR rifa_id = ?::int)
+                `, [rifaIdActual, rifaIdActual]).timeout(10000)
             ]);
 
             const countData = countResult.rows?.[0] || { vendidos: 0, apartados: 0 };
@@ -7410,17 +9249,25 @@ app.get('/api/public/boletos', async (req, res) => {
             let oportunidades = [];
 
             if (usarRango) {
-                const estadoRango = await BoletoService.obtenerEstadoNoDisponibleEnRango(inicioQuery, finQuery);
+                const estadoRango = await BoletoService.obtenerEstadoNoDisponibleEnRango(inicioQuery, finQuery, {
+                    rifaId: rifaIdActual
+                });
                 sold = estadoRango.sold;
                 reserved = estadoRango.reserved;
             } else {
                 const [estadoCompleto, oportunidadesList, oportunidadesDisponiblesCount] = await Promise.all([
                     db('boletos_estado')
+                        .modify((qb) => {
+                            if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+                        })
                         .whereIn('estado', ['vendido', 'apartado'])
                         .select('numero', 'estado')
                         .timeout(15000)
                         .orderBy('numero'),
                     db('orden_oportunidades')
+                        .modify((qb) => {
+                            if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+                        })
                         .where('estado', 'apartado')
                         .select('numero_oportunidad')
                         .timeout(15000)
@@ -7430,7 +9277,8 @@ app.get('/api/public/boletos', async (req, res) => {
                         : db.raw(`
                             SELECT COUNT(*)::int as count FROM orden_oportunidades
                             WHERE estado = 'disponible'
-                        `).timeout(10000)
+                              AND (?::int IS NULL OR rifa_id = ?::int)
+                        `, [rifaIdActual, rifaIdActual]).timeout(10000)
                 ]);
 
                 estadoCompleto.forEach((b) => {
@@ -7474,13 +9322,13 @@ app.get('/api/public/boletos', async (req, res) => {
         };
 
         const payload = await resolverSingleFlightPublico(
-            usarRango ? `public:boletos:${inicioQuery}-${finQuery}` : 'public:boletos:full',
+            usarRango ? `public:boletos:${cacheSuffix}:${inicioQuery}-${finQuery}` : `public:boletos:full:${cacheSuffix}`,
             fetchPayload
         );
 
         // ⭐ GUARDAR EN CACHÉ para siguiente request
         if (usarRango) {
-            serverCache.boletosPublicosByRange.set(`${inicioQuery}-${finQuery}`, {
+            serverCache.boletosPublicosByRange.set(`${cacheSuffix}:${inicioQuery}-${finQuery}`, {
                 time: Date.now(),
                 payload
             });
@@ -7489,8 +9337,10 @@ app.get('/api/public/boletos', async (req, res) => {
                 if (oldestKey) serverCache.boletosPublicosByRange.delete(oldestKey);
             }
         } else {
-            serverCache.boletosPublicosCached = payload;
-            serverCache.boletosPublicosCachedTime = Date.now();
+            serverCache.boletosPublicosCached = serverCache.boletosPublicosCached || {};
+            serverCache.boletosPublicosCachedTime = serverCache.boletosPublicosCachedTime || {};
+            serverCache.boletosPublicosCached[cacheSuffix] = payload;
+            serverCache.boletosPublicosCachedTime[cacheSuffix] = Date.now();
         }
 
         if ((payload.stats?.queryTime || 0) > 1000 || Math.random() < 0.05) {
@@ -7508,7 +9358,7 @@ app.get('/api/public/boletos', async (req, res) => {
         console.error('GET /api/public/boletos error:', error.message);
 
         if (usarRango) {
-            const cachedRange = serverCache.boletosPublicosByRange.get(`${inicioQuery}-${finQuery}`);
+            const cachedRange = serverCache.boletosPublicosByRange.get(`${cacheSuffix}:${inicioQuery}-${finQuery}`);
             if (cachedRange?.payload) {
                 console.warn(`[PublicBoletos] Error en rango ${inicioQuery}-${finQuery} - usando cache de rango`);
                 return res.json(cachedRange.payload);
@@ -7516,9 +9366,9 @@ app.get('/api/public/boletos', async (req, res) => {
         }
         
         // ⭐ SI FALLA, USAR CACHÉ ANTERIOR O DEVOLVER VACÍO
-        if (serverCache.boletosPublicosCached) {
+        if (serverCache.boletosPublicosCached?.[cacheSuffix]) {
             console.warn('[PublicBoletos] Error - usando cache antiguo');
-            return res.json(serverCache.boletosPublicosCached);
+            return res.json(serverCache.boletosPublicosCached[cacheSuffix]);
         }
 
         const totalFallback = Number(obtenerConfigActual()?.rifa?.totalBoletos) || Number(obtenerConfigExpiracion()?.totalBoletos) || 60000;
@@ -7537,6 +9387,7 @@ app.get('/api/public/boletos', async (req, res) => {
 
 app.get('/api/public/boletos/busqueda', limiterOrdenes, async (req, res) => {
     try {
+        const rifaIdActual = Number.parseInt(req.rifaContext?.id, 10) || null;
         const modo = String(req.query.modo || req.query.mode || 'exacto').trim().toLowerCase();
         const availableOnly = ['1', 'true', 'si', 'sí', 'on'].includes(String(req.query.availableOnly || '').trim().toLowerCase());
         const limiteSolicitado = parseInt(req.query.limite || req.query.limit, 10);
@@ -7598,6 +9449,9 @@ app.get('/api/public/boletos/busqueda', limiterOrdenes, async (req, res) => {
             }
 
             const estadoRegistro = await db('boletos_estado')
+                .modify((qb) => {
+                    if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+                })
                 .where({ numero })
                 .whereIn('estado', ['vendido', 'apartado'])
                 .timeout(10000)
@@ -7711,6 +9565,30 @@ app.get('/api/public/boletos/busqueda', limiterOrdenes, async (req, res) => {
             OFFSET ?
         `;
 
+        if (rifaIdActual) {
+            const scopedSql = `
+                WITH serie AS (
+                    SELECT gs::int AS numero
+                    FROM generate_series(0::bigint, ?::bigint) AS gs
+                    WHERE LPAD(CAST(gs AS text), ?, '0') LIKE ?
+                )
+                SELECT
+                    s.numero,
+                    COALESCE(be.estado, 'disponible') AS estado
+                FROM serie s
+                LEFT JOIN boletos_estado be
+                    ON be.numero = s.numero
+                   AND be.rifa_id = ?::int
+                   AND be.estado IN ('vendido', 'apartado')
+                ${availableOnly ? 'WHERE be.numero IS NULL' : ''}
+                ORDER BY s.numero
+                LIMIT ?
+                OFFSET ?
+            `;
+            const scopedResult = await db.raw(scopedSql, [maxNumero, anchoBoletos, patron, rifaIdActual, limite, offset]).timeout(15000);
+            return res.json(formatearRespuesta(scopedResult.rows || [], { q: valor }));
+        }
+
         const resultado = await db.raw(sql, [maxNumero, anchoBoletos, patron, limite, offset]).timeout(15000);
         return res.json(formatearRespuesta(resultado.rows || [], { q: valor }));
     } catch (error) {
@@ -7751,7 +9629,9 @@ app.post('/api/boletos/disponibles-aleatorios', async (req, res) => {
             });
         }
 
-        const boletos = await BoletoService.obtenerBoletosAleatoriosDisponibles(cantidad, excludeNumbers);
+        const boletos = await BoletoService.obtenerBoletosAleatoriosDisponibles(cantidad, excludeNumbers, {
+            rifaId: req.rifaContext?.id
+        });
 
         return res.json({
             success: true,
@@ -7778,16 +9658,26 @@ app.post('/api/boletos/disponibles-aleatorios', async (req, res) => {
  */
 app.get('/api/admin/stats', verificarToken, async (req, res) => {
     try {
-        const stats = await db('ordenes').select(
+        const rifaIdActual = Number.parseInt(req.rifaContext?.id, 10) || null;
+        const stats = await db('ordenes')
+            .modify((qb) => {
+                if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+            })
+            .select(
             db.raw('COUNT(*) as total_ordenes'),
             db.raw('SUM(cantidad_boletos) as total_boletos'),
             db.raw('SUM(total) as ingresos_totales'),
             db.raw("SUM(CASE WHEN estado IN ('confirmada','completada') THEN total ELSE 0 END) as ingresos_confirmados"),
             db.raw("SUM(CASE WHEN estado IN ('confirmada','completada') THEN cantidad_boletos ELSE 0 END) as total_boletos_vendidos"),
             db.raw('AVG(total) as promedio_orden')
-        ).first();
+        )
+            .first();
 
-        const porEstado = await db('ordenes').select('estado')
+        const porEstado = await db('ordenes')
+            .modify((qb) => {
+                if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+            })
+            .select('estado')
             .count('* as cantidad')
             .groupBy('estado');
 
@@ -7830,6 +9720,7 @@ app.get('/api/public/boletos/:numero/oportunidades', limiterOrdenes, async (req,
     try {
         const { numero } = req.params;
         const numeroBoleto = parseInt(numero, 10);
+        const rifaIdActual = Number.parseInt(req.rifaContext?.id, 10) || null;
         const config = cargarConfigSorteo();
         const oportunidadesConfig = obtenerConfigOportunidadesSistema(config);
 
@@ -7865,6 +9756,9 @@ app.get('/api/public/boletos/:numero/oportunidades', limiterOrdenes, async (req,
         }
         
         const oportunidades = await db('orden_oportunidades')
+            .modify((qb) => {
+                if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+            })
             .where('numero_boleto', numeroBoleto)
             .select('numero_oportunidad')
             .orderBy('numero_oportunidad');
@@ -7921,6 +9815,7 @@ app.get('/api/public/boletos/:numero/oportunidades', limiterOrdenes, async (req,
 app.post('/api/public/boletos/oportunidades/batch', limiterOrdenes, async (req, res) => {
     try {
         const { numeros } = req.body;
+        const rifaIdActual = Number.parseInt(req.rifaContext?.id, 10) || null;
         const config = cargarConfigSorteo();
         const oportunidadesConfig = obtenerConfigOportunidadesSistema(config);
 
@@ -7976,6 +9871,9 @@ app.post('/api/public/boletos/oportunidades/batch', limiterOrdenes, async (req, 
         
         // 🚀 QUERY OPTIMIZADO: Un solo WHERE IN() para todos los boletos
         const oportunidades = await db('orden_oportunidades')
+            .modify((qb) => {
+                if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+            })
             .whereIn('numero_boleto', numerosValidos)
             .select('numero_boleto', 'numero_oportunidad')
             .orderBy('numero_boleto')
@@ -8325,7 +10223,9 @@ app.post('/api/public/oportunidades/validar', limiterOrdenes, async (req, res) =
  */
 app.get('/api/admin/oportunidades/inventario/resumen', verificarToken, async (req, res) => {
     try {
-        const resumen = await OportunidadesInventoryService.obtenerResumen(cargarConfigSorteo());
+        const resumen = await OportunidadesInventoryService.obtenerResumen(cargarConfigSorteo(), db, {
+            rifaId: req.rifaContext?.id
+        });
         return res.json({
             success: true,
             data: resumen
@@ -8346,7 +10246,9 @@ app.get('/api/admin/oportunidades/inventario/resumen', verificarToken, async (re
  */
 app.post('/api/admin/oportunidades/inventario/preview', verificarToken, async (req, res) => {
     try {
-        const resumen = await OportunidadesInventoryService.obtenerResumen(cargarConfigSorteo());
+        const resumen = await OportunidadesInventoryService.obtenerResumen(cargarConfigSorteo(), db, {
+            rifaId: req.rifaContext?.id
+        });
         return res.json({
             success: true,
             data: resumen
@@ -8368,7 +10270,8 @@ app.post('/api/admin/oportunidades/inventario/poblar', verificarToken, async (re
     try {
         const shuffle = req.body?.shuffle !== false;
         const resultado = await OportunidadesInventoryService.poblarDesdeConfig(cargarConfigSorteo(), {
-            shuffle
+            shuffle,
+            rifaId: req.rifaContext?.id
         });
 
         log('info', 'POST /api/admin/oportunidades/inventario/poblar success', {
@@ -8412,8 +10315,12 @@ app.post('/api/admin/oportunidades/inventario/poblar', verificarToken, async (re
 app.get('/api/admin/oportunidades-stats', verificarToken, async (req, res) => {
     try {
         console.log('📊 [GET /api/admin/oportunidades-stats] Iniciando...');
+        const rifaIdActual = Number.parseInt(req.rifaContext?.id, 10) || null;
 
         const agregados = await db('orden_oportunidades')
+            .modify((qb) => {
+                if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+            })
             .select(
                 db.raw(`
                     COUNT(*) FILTER (
@@ -8508,7 +10415,11 @@ app.get('/api/admin/oportunidades-stats', verificarToken, async (req, res) => {
  */
 app.get('/api/admin/boletos', verificarToken, async (req, res) => {
     try {
+        const rifaIdActual = Number.parseInt(req.rifaContext?.id, 10) || null;
         const ordenes = await db('ordenes')
+            .modify((qb) => {
+                if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+            })
             .select('numero_orden', 'boletos', 'estado', 'nombre_cliente', 'telefono_cliente', 'created_at');
 
         // Obtener totalBoletos desde la configuración actual
@@ -8594,6 +10505,7 @@ app.patch('/api/ordenes/:id/estado', verificarToken, async (req, res) => {
     try {
         const { id } = req.params;
         const { estado } = req.body;
+        const rifaIdActual = Number.parseInt(req.rifaContext?.id, 10) || null;
 
         const estadosValidos = ['pendiente', 'confirmada', 'cancelada'];
         if (!estadosValidos.includes(estado)) {
@@ -8607,6 +10519,9 @@ app.patch('/api/ordenes/:id/estado', verificarToken, async (req, res) => {
         const resultado = await db.transaction(async (trx) => {
             // Leer orden actual (con lock implícito dentro de transacción)
             const ordenActual = await trx('ordenes')
+                .modify((qb) => {
+                    if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+                })
                 .where('numero_orden', id)
                 .first();
             
@@ -8642,6 +10557,9 @@ app.patch('/api/ordenes/:id/estado', verificarToken, async (req, res) => {
                     for (let i = 0; i < boletos.length; i += CHUNK_SIZE) {
                         const chunk = boletos.slice(i, i + CHUNK_SIZE);
                         const actualizado = await trx('boletos_estado')
+                            .modify((qb) => {
+                                if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+                            })
                             .whereIn('numero', chunk)
                             .update({
                                 estado: 'vendido',
@@ -8653,6 +10571,9 @@ app.patch('/api/ordenes/:id/estado', verificarToken, async (req, res) => {
                     console.log(`[Orden ${id}] Confirmada: ${boletosActualizados} boletos marcados como VENDIDO`);
 
                     const oportunidadesConfirmadas = await trx('orden_oportunidades')
+                        .modify((qb) => {
+                            if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+                        })
                         .where('numero_orden', id)
                         .whereIn('numero_boleto', boletos)
                         .where('estado', 'apartado')
@@ -8675,6 +10596,9 @@ app.patch('/api/ordenes/:id/estado', verificarToken, async (req, res) => {
                     for (let i = 0; i < boletos.length; i += CHUNK_SIZE) {
                         const chunk = boletos.slice(i, i + CHUNK_SIZE);
                         const actualizado = await trx('boletos_estado')
+                            .modify((qb) => {
+                                if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+                            })
                             .whereIn('numero', chunk)
                             .update({
                                 estado: 'disponible',
@@ -8688,6 +10612,9 @@ app.patch('/api/ordenes/:id/estado', verificarToken, async (req, res) => {
                 
                 // NUEVO: Liberar OPORTUNIDADES (apartadas O vendidas) para esta orden
                 const oportunidadesLiberadas = await trx('orden_oportunidades')
+                    .modify((qb) => {
+                        if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+                    })
                     .where('numero_orden', id)
                     .whereIn('numero_boleto', boletos)
                     .whereIn('estado', ['apartado', 'vendido'])  // ✅ CRITICAL FIX: Liberar también 'vendido'
@@ -8703,6 +10630,9 @@ app.patch('/api/ordenes/:id/estado', verificarToken, async (req, res) => {
             
             // Actualizar estado de orden dentro de transacción (atomic)
             await trx('ordenes')
+                .modify((qb) => {
+                    if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+                })
                 .where('numero_orden', id)
                 .update({
                     estado: estado,
@@ -8716,7 +10646,22 @@ app.patch('/api/ordenes/:id/estado', verificarToken, async (req, res) => {
             // 2. Descomentar el código en ENDPOINT-PATCH-ORDENES-ESTADO.md línea 4309-4325
             // Ver: ENDPOINT-PATCH-ORDENES-ESTADO.md para detalles
             
-            return { success: true, boletosActualizados };
+            return {
+                success: true,
+                boletosActualizados,
+                ordenAnterior: {
+                    numero_orden: ordenActual.numero_orden,
+                    rifa_id: ordenActual.rifa_id || rifaIdActual || null,
+                    nombre_cliente: ordenActual.nombre_cliente || '',
+                    telefono_cliente: ordenActual.telefono_cliente || '',
+                    estado: estadoActual,
+                    cantidad_boletos: Number(ordenActual.cantidad_boletos || boletos.length || 0),
+                    total: Number(ordenActual.total || 0),
+                    comprobante_path: ordenActual.comprobante_path || null,
+                    created_at: ordenActual.created_at || null,
+                    updated_at: ordenActual.updated_at || null
+                }
+            };
         });
 
         if (resultado && resultado.success) {
@@ -8728,21 +10673,61 @@ app.patch('/api/ordenes/:id/estado', verificarToken, async (req, res) => {
         if (wsEvents) {
             try {
                 const ordenActualizada = await db('ordenes')
+                    .modify((qb) => {
+                        if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+                    })
                     .where('numero_orden', id)
-                    .first('numero_orden', 'estado', 'comprobante_path', 'updated_at');
+                    .first('numero_orden', 'rifa_id', 'nombre_cliente', 'telefono_cliente', 'estado', 'cantidad_boletos', 'total', 'comprobante_path', 'created_at', 'updated_at');
 
                 if (ordenActualizada) {
-                    wsEvents.emitirOrdenActualizadaAdmin(ordenActualizada);
+                    wsEvents.emitirOrdenActualizadaAdmin({
+                        ...ordenActualizada,
+                        estado_anterior: resultado?.ordenAnterior?.estado || null
+                    });
+                    wsEvents.emitirOrdenActualizadaPublica({
+                        ...ordenActualizada,
+                        estado_anterior: resultado?.ordenAnterior?.estado || null
+                    });
                 }
             } catch (wsError) {
                 console.warn(`⚠️  Error emitiendo actualización admin de orden ${id}:`, wsError.message);
             }
         }
 
+        let push = null;
+        const cambioRealAConfirmada = estado === 'confirmada'
+            && resultado?.ordenAnterior?.estado !== 'confirmada';
+        const cambioRealACancelada = estado === 'cancelada'
+            && resultado?.ordenAnterior?.estado !== 'cancelada';
+        if (cambioRealAConfirmada || cambioRealACancelada) {
+            try {
+                const ordenActualizadaPush = await db('ordenes')
+                    .modify((qb) => {
+                        if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+                    })
+                    .where('numero_orden', id)
+                    .first('numero_orden', 'rifa_id', 'telefono_cliente', 'cantidad_boletos', 'estado', 'created_at', 'updated_at');
+
+                if (ordenActualizadaPush) {
+                    if (cambioRealAConfirmada) {
+                        push = await enviarPushOrdenConfirmada(db, ordenActualizadaPush);
+                    } else if (cambioRealACancelada) {
+                        push = await enviarPushOrdenCancelada(db, ordenActualizadaPush, {
+                            reason: 'manual',
+                            eventAt: ordenActualizadaPush.updated_at
+                        });
+                    }
+                }
+            } catch (pushError) {
+                console.warn(`⚠️  Error enviando push de estado para orden ${id}:`, pushError.message);
+            }
+        }
+
         return res.json({
             success: true,
             message: `Orden actualizada a estado: ${estado}`,
-            boletosActualizados: resultado.boletosActualizados || 0
+            boletosActualizados: resultado.boletosActualizados || 0,
+            push
         });
     } catch (error) {
         if (error.message === 'ORDER_NOT_FOUND') {
@@ -8778,6 +10763,7 @@ app.patch('/api/ordenes/:id/estado', verificarToken, async (req, res) => {
 app.get('/api/admin/sales-stats', verificarToken, async (req, res) => {
     try {
         const range = Math.max(1, Math.min(parseInt(req.query.range, 10) || 7, 90));
+        const rifaIdActual = Number.parseInt(req.rifaContext?.id, 10) || null;
 
         const hoyUtc = new Date();
         hoyUtc.setUTCHours(0, 0, 0, 0);
@@ -8786,6 +10772,9 @@ app.get('/api/admin/sales-stats', verificarToken, async (req, res) => {
         fechaInicio.setUTCDate(fechaInicio.getUTCDate() - (range - 1));
 
         const agregados = await db('ordenes')
+            .modify((qb) => {
+                if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+            })
             .whereIn('estado', ['confirmada', 'completada'])
             .where('created_at', '>=', fechaInicio.toISOString())
             .select(
@@ -8847,6 +10836,7 @@ app.post('/api/admin/declarar-ganador', verificarToken, async (req, res) => {
     try {
         const { numero, premio, valor_premio, tipo_ganador, posicion } = req.body || {};
         const configActualGanador = obtenerConfigActual();
+        const rifaIdActual = req.rifaContext?.id || null;
         const numeroNormalizado = Number(numero);
 
         if (!Number.isInteger(numeroNormalizado) || numeroNormalizado <= 0) {
@@ -8854,7 +10844,8 @@ app.post('/api/admin/declarar-ganador', verificarToken, async (req, res) => {
         }
 
         const { orden: ordenEncontrada, boletoEstado, origen } = await buscarOrdenActivaPorBoleto(numeroNormalizado, {
-            configActual: configActualGanador
+            configActual: configActualGanador,
+            rifaId: rifaIdActual
         });
 
         if (!ordenEncontrada) {
@@ -8905,6 +10896,9 @@ app.post('/api/admin/declarar-ganador', verificarToken, async (req, res) => {
 
         const ganadoresTipoExistentes = await db('ganadores')
             .select('id', 'numero_boleto', 'tipo_ganador', 'posicion')
+            .modify((qb) => {
+                if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+            })
             .whereIn('tipo_ganador', aliasesTipoGanador);
 
         const posicionesOcupadas = new Set(
@@ -8935,7 +10929,17 @@ app.post('/api/admin/declarar-ganador', verificarToken, async (req, res) => {
             });
         }
 
+        const ganadoresPreviosTotal = await db('ganadores')
+            .modify((qb) => {
+                if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+            })
+            .count('* as total')
+            .first();
+
         const ganadorExistente = await db('ganadores')
+            .modify((qb) => {
+                if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+            })
             .where({ numero_boleto: numeroNormalizado })
             .first();
 
@@ -8948,6 +10952,9 @@ app.post('/api/admin/declarar-ganador', verificarToken, async (req, res) => {
         }
 
         const ganadorMismaOrden = await db('ganadores')
+            .modify((qb) => {
+                if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+            })
             .where({ numero_orden: ordenEncontrada.numero_orden })
             .first();
 
@@ -8999,15 +11006,51 @@ app.post('/api/admin/declarar-ganador', verificarToken, async (req, res) => {
         if (hasValorPremio) payload.valor_premio = valor_premio || null;
         if (hasFechaSorteo) payload.fecha_sorteo = new Date();
         if (hasEstado) payload.estado = 'notificado';
+        if (rifaIdActual) payload.rifa_id = rifaIdActual;
 
         await db('ganadores').insert(payload);
 
         const creado = await db('ganadores')
+            .modify((qb) => {
+                if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+            })
             .where({ numero_boleto: numeroNormalizado })
             .orderBy('id', 'desc')
             .first();
 
-        return res.json({ success: true, message: 'Ganador declarado y guardado', ganador: creado });
+        let pushCampaign = null;
+        try {
+            const totalPrevio = Number.parseInt(ganadoresPreviosTotal?.total, 10) || 0;
+            if (totalPrevio === 0) {
+                const contextoResultados = rifaIdActual && rifaService?.enabled
+                    ? await rifaService.resolverContexto({ rifaId: rifaIdActual, fallbackActive: false })
+                    : (req.rifaContext || construirContextoRifaFallback());
+
+                if (contextoResultados) {
+                    const campaign = construirCampanaResultadosDisponiblesDesdeContexto(contextoResultados, {
+                        rifaId: contextoResultados.id,
+                        rifaSlug: contextoResultados.slug,
+                        rifaNombre: contextoResultados.nombre,
+                        resultsCount: 1
+                    });
+
+                    if (campaign.enabled && campaign.autoSendOnFirstPublication) {
+                        pushCampaign = await encolarCampanaPushDesdeServidor(campaign, {
+                            priority: 220
+                        });
+                    } else {
+                        pushCampaign = {
+                            skipped: true,
+                            reason: campaign.enabled ? 'auto_send_disabled' : 'campaign_disabled'
+                        };
+                    }
+                }
+            }
+        } catch (pushError) {
+            console.warn(`⚠️  Error enviando push de resultados para rifa ${rifaIdActual || 'N/A'}:`, pushError.message);
+        }
+
+        return res.json({ success: true, message: 'Ganador declarado y guardado', ganador: creado, pushCampaign });
     } catch (error) {
         console.error('POST /api/admin/declarar-ganador error:', error);
         return res.status(500).json({ success: false, message: 'Error al declarar ganador', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
@@ -9021,12 +11064,16 @@ app.post('/api/admin/declarar-ganador', verificarToken, async (req, res) => {
 app.delete('/api/admin/ganadores/:numero', verificarToken, async (req, res) => {
     try {
         const numero = Number(req.params.numero);
+        const rifaIdActual = req.rifaContext?.id || null;
 
         if (!Number.isFinite(numero)) {
             return res.status(400).json({ success: false, message: 'Número inválido' });
         }
 
         const eliminado = await db('ganadores')
+            .modify((qb) => {
+                if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+            })
             .where({ numero_boleto: numero })
             .del();
 
@@ -9049,7 +11096,14 @@ app.delete('/api/admin/ganadores/:numero', verificarToken, async (req, res) => {
 app.get('/api/ganadores', async (req, res) => {
     try {
         const limit = Math.min(parseInt(req.query.limit || '100'), 1000);
-        const rows = await db('ganadores').select('*').orderBy('fecha_sorteo', 'desc').limit(limit);
+        const rifaIdActual = req.rifaContext?.id || null;
+        const rows = await db('ganadores')
+            .modify((qb) => {
+                if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+            })
+            .select('*')
+            .orderBy('fecha_sorteo', 'desc')
+            .limit(limit);
 
         const numeroOrdenesBase = Array.from(new Set(
             rows
@@ -9060,6 +11114,9 @@ app.get('/api/ganadores', async (req, res) => {
         let ordenesPorNumero = new Map();
         if (numeroOrdenesBase.length > 0) {
             const ordenesRelacionadas = await db('ordenes')
+                .modify((qb) => {
+                    if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+                })
                 .whereIn('numero_orden', numeroOrdenesBase)
                 .select('numero_orden', 'estado_cliente');
 
@@ -9095,7 +11152,9 @@ app.get('/api/ganadores', async (req, res) => {
  */
 app.get('/api/admin/ordenes-expiradas/stats', verificarToken, async (req, res) => {
     try {
-        const stats = await ordenExpirationService.obtenerEstadisticas();
+        const stats = await ordenExpirationService.obtenerEstadisticas({
+            rifaId: req.rifaContext?.id
+        });
         
         res.json({
             success: true,
@@ -9119,7 +11178,9 @@ app.get('/api/admin/ordenes-expiradas/stats', verificarToken, async (req, res) =
 app.get('/api/admin/ordenes-expiradas/estado-servicio', verificarToken, async (req, res) => {
     try {
         const estadoServicio = ordenExpirationService.obtenerEstado();
-        const estadisticasOrdenes = await ordenExpirationService.obtenerEstadisticas();
+        const estadisticasOrdenes = await ordenExpirationService.obtenerEstadisticas({
+            rifaId: req.rifaContext?.id
+        });
         
         res.json({
             success: true,
@@ -9172,7 +11233,10 @@ app.post('/api/admin/ordenes-expiradas/limpiar', verificarToken, async (req, res
  */
 app.post('/api/admin/ordenes-expiradas/configurar', verificarToken, async (req, res) => {
     try {
-        const { tiempoApartadoHoras, intervaloLimpiezaMinutos } = req.body;
+        const { tiempoApartadoHoras, intervaloLimpiezaMinutos, pushOrderWarningMinutes } = req.body;
+        const warningMinutesNormalized = pushOrderWarningMinutes === undefined
+            ? undefined
+            : (normalizarPushOrderWarningMinutesConfig(pushOrderWarningMinutes) || []);
 
         if (!tiempoApartadoHoras || tiempoApartadoHoras < 1) {
             return res.status(400).json({
@@ -9189,11 +11253,16 @@ app.post('/api/admin/ordenes-expiradas/configurar', verificarToken, async (req, 
         }
 
         // Configurar el servicio
-        ordenExpirationService.configurar(tiempoApartadoHoras, intervaloLimpiezaMinutos);
+        ordenExpirationService.configurar(
+            tiempoApartadoHoras,
+            intervaloLimpiezaMinutos,
+            warningMinutesNormalized
+        );
 
         log('info', 'POST /api/admin/ordenes-expiradas/configurar success', {
             tiempoApartadoHoras,
-            intervaloLimpiezaMinutos
+            intervaloLimpiezaMinutos,
+            pushOrderWarningMinutes: warningMinutesNormalized
         });
 
         res.json({
@@ -9201,7 +11270,8 @@ app.post('/api/admin/ordenes-expiradas/configurar', verificarToken, async (req, 
             message: 'Configuración de expiración actualizada',
             data: {
                 tiempoApartadoHoras,
-                intervaloLimpiezaMinutos
+                intervaloLimpiezaMinutos,
+                pushOrderWarningMinutes: warningMinutesNormalized
             }
         });
     } catch (error) {
@@ -9244,7 +11314,9 @@ app.get('/api/admin/expiration-status', verificarToken, async (req, res) => {
  */
 app.get('/api/admin/expiration-stats', verificarToken, async (req, res) => {
     try {
-        const stats = await ordenExpirationService.obtenerEstadisticas();
+        const stats = await ordenExpirationService.obtenerEstadisticas({
+            rifaId: req.rifaContext?.id
+        });
         
         res.json({
             success: true,
@@ -9270,13 +11342,18 @@ app.get('/api/admin/ordenes-canceladas', verificarToken, async (req, res) => {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
         const offset = (page - 1) * limit;
+        const rifaIdActual = obtenerRifaIdRequest(req);
 
         // Total de órdenes canceladas
-        const totalResult = await db('ordenes').where('estado', 'cancelada').count('* as total');
+        const totalResult = await db('ordenes')
+            .modify((qb) => aplicarFiltroRifa(qb, rifaIdActual))
+            .where('estado', 'cancelada')
+            .count('* as total');
         const total = totalResult[0]?.total || 0;
 
         // Órdenes canceladas con paginación
         const canceladas = await db('ordenes')
+            .modify((qb) => aplicarFiltroRifa(qb, rifaIdActual))
             .where('estado', 'cancelada')
             .select('numero_orden', 'nombre_cliente', 'cantidad_boletos', 'total', 'created_at', 'updated_at')
             .orderBy('updated_at', 'desc')
@@ -9312,8 +11389,10 @@ app.get('/api/admin/ordenes-canceladas', verificarToken, async (req, res) => {
  */
 app.get('/api/admin/ordenes-estado-resumen', verificarToken, async (req, res) => {
     try {
+        const rifaIdActual = obtenerRifaIdRequest(req);
         // Agrupar por estado y contar
         const estadisticas = await db('ordenes')
+            .modify((qb) => aplicarFiltroRifa(qb, rifaIdActual))
             .select(
                 'estado',
                 db.raw('COUNT(*) as cantidad'),
@@ -9369,6 +11448,7 @@ app.get('/api/admin/ordenes-estado-resumen', verificarToken, async (req, res) =>
 app.post('/api/admin/ordenes-manual', verificarToken, async (req, res) => {
     try {
         const { cliente_nombre, cliente_whatsapp, boletos } = req.body;
+        const rifaIdActual = obtenerRifaIdRequest(req);
 
         if (!cliente_nombre || !Array.isArray(boletos) || boletos.length === 0) {
             return res.status(400).json({
@@ -9378,16 +11458,36 @@ app.post('/api/admin/ordenes-manual', verificarToken, async (req, res) => {
         }
 
         const numeroOrden = `MAN-${Date.now()}`;
-        const resultado = await db('ordenes').insert({
+        await db.transaction(async (trx) => {
+            await trx('ordenes').insert({
             numero_orden: numeroOrden,
-            cliente_nombre: cliente_nombre || 'Venta Manual',
-            cliente_whatsapp: cliente_whatsapp || '',
+            nombre_cliente: cliente_nombre || 'Venta Manual',
+            telefono_cliente: cliente_whatsapp || '',
             cantidad_boletos: boletos.length,
             boletos: JSON.stringify(boletos),
             estado: 'completada',
             created_at: new Date(),
             updated_at: new Date(),
-            total: 0 // Venta en efectivo, sin registro de pago en sistema
+            total: 0, // Venta en efectivo, sin registro de pago en sistema
+            ...(rifaIdActual ? { rifa_id: rifaIdActual } : {})
+        });
+
+            await trx('boletos_estado')
+                .modify((qb) => aplicarFiltroRifa(qb, rifaIdActual))
+                .whereIn('numero', boletos)
+                .update({
+                    estado: 'vendido',
+                    numero_orden: numeroOrden,
+                    updated_at: new Date()
+                });
+
+            await trx('orden_oportunidades')
+                .modify((qb) => aplicarFiltroRifa(qb, rifaIdActual))
+                .whereIn('numero_boleto', boletos)
+                .update({
+                    estado: 'vendido',
+                    numero_orden: numeroOrden
+                });
         });
 
         refrescarCachesTrasCambioInventario();
@@ -9434,6 +11534,7 @@ app.patch('/api/admin/boletos/:numero/liberar', verificarToken, async (req, res)
     try {
         const { numero } = req.params;
         const numBoleto = Number(numero);
+        const rifaIdActual = obtenerRifaIdRequest(req);
 
         if (isNaN(numBoleto)) {
             return res.status(400).json({
@@ -9448,6 +11549,7 @@ app.patch('/api/admin/boletos/:numero/liberar', verificarToken, async (req, res)
 
             // Buscar la orden que contiene este boleto
             const ordenes = await trx('ordenes')
+                .modify((qb) => aplicarFiltroRifa(qb, rifaIdActual))
                 .select('numero_orden', 'boletos', 'estado', 'cantidad_boletos', 'subtotal', 'descuento', 'total');
 
             for (const orden of ordenes) {
@@ -9461,6 +11563,7 @@ app.patch('/api/admin/boletos/:numero/liberar', verificarToken, async (req, res)
                         numerosArr.splice(index, 1);
                         
                         await trx('boletos_estado')
+                            .modify((qb) => aplicarFiltroRifa(qb, rifaIdActual))
                             .where('numero', numBoleto)
                             .update({
                                 estado: 'disponible',
@@ -9471,15 +11574,20 @@ app.patch('/api/admin/boletos/:numero/liberar', verificarToken, async (req, res)
                         // Si no quedan boletos, eliminar la orden; si no, actualizar
                         if (numerosArr.length === 0) {
                             await trx('orden_oportunidades')
+                                .modify((qb) => aplicarFiltroRifa(qb, rifaIdActual))
                                 .where('numero_orden', orden.numero_orden)
                                 .update({
                                     estado: 'disponible',
                                     numero_orden: null
                                 });
 
-                            await trx('ordenes').where('numero_orden', orden.numero_orden).delete();
+                            await trx('ordenes')
+                                .modify((qb) => aplicarFiltroRifa(qb, rifaIdActual))
+                                .where('numero_orden', orden.numero_orden)
+                                .delete();
                         } else {
                             await trx('orden_oportunidades')
+                                .modify((qb) => aplicarFiltroRifa(qb, rifaIdActual))
                                 .where('numero_orden', orden.numero_orden)
                                 .where('numero_boleto', numBoleto)
                                 .update({
@@ -9494,6 +11602,7 @@ app.patch('/api/admin/boletos/:numero/liberar', verificarToken, async (req, res)
                             );
 
                             await trx('ordenes')
+                                .modify((qb) => aplicarFiltroRifa(qb, rifaIdActual))
                                 .where('numero_orden', orden.numero_orden)
                                 .update({
                                     boletos: JSON.stringify(numerosArr),
@@ -9565,8 +11674,9 @@ const clienteConfig = require('./cliente-config.js');
  */
 app.get('/api/cliente', (req, res) => {
     try {
+        const cacheKey = String(req.rifaContext?.slug || req.rifaContext?.id || 'default');
         const cacheAge = Date.now() - serverCache.clienteConfigCachedTime;
-        if (serverCache.clienteConfigCached && cacheAge >= 0 && cacheAge < 10000) {
+        if (serverCache.clienteConfigCached && serverCache.clienteConfigCachedKey === cacheKey && cacheAge >= 0 && cacheAge < 10000) {
             setHttpCacheHeaders(res, 10, true);
             return res.json(serverCache.clienteConfigCached);
         }
@@ -9600,7 +11710,8 @@ app.get('/api/cliente', (req, res) => {
             tecnica: config.tecnica || {},
             cuentas: config.tecnica?.bankAccounts || [],
             seo: normalizarSeoConfigParaPersistencia(config.seo || {}, config),
-            tema: normalizarTemaConfig(config.tema || {})
+            tema: normalizarTemaConfig(config.tema || {}),
+            marketing: config.marketing || {}
         };
         
         const payload = {
@@ -9609,6 +11720,7 @@ app.get('/api/cliente', (req, res) => {
         };
 
         serverCache.clienteConfigCached = payload;
+        serverCache.clienteConfigCachedKey = cacheKey;
         serverCache.clienteConfigCachedTime = Date.now();
 
         setHttpCacheHeaders(res, 10, true);
@@ -9884,7 +11996,9 @@ app.post('/api/boletos/verificar', async (req, res) => {
  */
 app.get('/api/boletos/estadisticas', verificarToken, async (req, res) => {
     try {
-        const stats = await BoletoService.obtenerEstadisticas();
+        const stats = await BoletoService.obtenerEstadisticas({
+            rifaId: req.rifaContext?.id
+        });
 
         res.json({
             success: true,
@@ -9918,7 +12032,9 @@ app.get('/api/admin/boletos/inventario/resumen', verificarToken, async (req, res
     try {
         const configSorteo = cargarConfigSorteo();
         const totalBoletosConfigurado = Number(configSorteo?.totalBoletos) || 0;
-        const resumen = await BoletoService.obtenerResumenInventario(totalBoletosConfigurado);
+        const resumen = await BoletoService.obtenerResumenInventario(totalBoletosConfigurado, db, {
+            rifaId: req.rifaContext?.id
+        });
 
         return res.json({
             success: true,
@@ -9943,7 +12059,9 @@ app.post('/api/admin/boletos/inventario/preview', verificarToken, async (req, re
         const configSorteo = cargarConfigSorteo();
         const totalBoletosConfigurado = Number(configSorteo?.totalBoletos) || 0;
         const rango = BoletoService.normalizarRangoOperacion(req.body, totalBoletosConfigurado);
-        const preview = await BoletoService.previsualizarRangoBoletos(rango);
+        const preview = await BoletoService.previsualizarRangoBoletos(rango, db, {
+            rifaId: req.rifaContext?.id
+        });
 
         return res.json({
             success: true,
@@ -9969,7 +12087,9 @@ app.post('/api/admin/boletos/inventario/poblar', verificarToken, async (req, res
         const configSorteo = cargarConfigSorteo();
         const totalBoletosConfigurado = Number(configSorteo?.totalBoletos) || 0;
         const rango = BoletoService.normalizarRangoOperacion(req.body, totalBoletosConfigurado);
-        const resultado = await BoletoService.poblarRangoBoletos(rango);
+        const resultado = await BoletoService.poblarRangoBoletos(rango, {
+            rifaId: req.rifaContext?.id
+        });
 
         log('info', 'POST /api/admin/boletos/inventario/poblar success', {
             usuario: req.usuario?.username,
@@ -10010,7 +12130,9 @@ app.post('/api/admin/boletos/inventario/borrar', verificarToken, async (req, res
         const configSorteo = cargarConfigSorteo();
         const totalBoletosConfigurado = Number(configSorteo?.totalBoletos) || 0;
         const rango = BoletoService.normalizarRangoOperacion(req.body, totalBoletosConfigurado);
-        const resultado = await BoletoService.borrarRangoBoletos(rango);
+        const resultado = await BoletoService.borrarRangoBoletos(rango, {
+            rifaId: req.rifaContext?.id
+        });
 
         log('info', 'POST /api/admin/boletos/inventario/borrar success', {
             usuario: req.usuario?.username,
@@ -10049,6 +12171,42 @@ app.post('/api/admin/boletos/inventario/borrar', verificarToken, async (req, res
  */
 app.get('/api/admin/nueva-rifa/preview', verificarToken, async (req, res) => {
     try {
+        if (rifaService?.enabled && req.rifaContext?.id) {
+            const rifaId = req.rifaContext.id;
+            const [boletos, oportunidades, ordenes, ganadores] = await Promise.all([
+                db('boletos_estado').where('rifa_id', rifaId).count('* as total').first(),
+                db('orden_oportunidades').where('rifa_id', rifaId).count('* as total').first(),
+                db('ordenes').where('rifa_id', rifaId).count('* as total').first(),
+                db('ganadores').where('rifa_id', rifaId).count('* as total').first()
+            ]);
+
+            const estadoRifa = String(req.rifaContext?.estado || req.rifaContext?.configuracion?.rifa?.estado || 'activa').trim().toLowerCase();
+            return res.json({
+                success: true,
+                data: {
+                    estado: estadoRifa === 'finalizado' ? 'listo' : 'bloqueado',
+                    resumenEstado: estadoRifa === 'finalizado'
+                        ? 'La rifa actual ya puede depurarse de forma aislada'
+                        : 'Primero finaliza esta rifa para poder depurar sus datos operativos',
+                    confirmacionRequerida: 'NUEVA RIFA',
+                    canExecute: estadoRifa === 'finalizado',
+                    rifaActual: {
+                        id: req.rifaContext.id,
+                        slug: req.rifaContext.slug,
+                        nombre: req.rifaContext.nombre,
+                        finalizada: estadoRifa === 'finalizado'
+                    },
+                    tablas: {
+                        boletos: Number(boletos?.total || 0),
+                        oportunidades: Number(oportunidades?.total || 0),
+                        ordenes: Number(ordenes?.total || 0),
+                        ganadores: Number(ganadores?.total || 0),
+                        contadoresOrden: 0
+                    }
+                }
+            });
+        }
+
         const resumen = await NuevaRifaService.obtenerPreview();
         return res.json({
             success: true,
@@ -10075,6 +12233,41 @@ app.post('/api/admin/nueva-rifa/ejecutar', verificarToken, async (req, res) => {
                 success: false,
                 code: 'EXPIRACION_EN_PROGRESO',
                 message: 'Espera a que termine la limpieza automática de órdenes antes de preparar una nueva rifa'
+            });
+        }
+
+        if (rifaService?.enabled && req.rifaContext?.id) {
+            const estadoRifa = String(req.rifaContext?.estado || req.rifaContext?.configuracion?.rifa?.estado || 'activa').trim().toLowerCase();
+            if (estadoRifa !== 'finalizado') {
+                return res.status(409).json({
+                    success: false,
+                    code: 'RIFA_NO_FINALIZADA',
+                    message: 'Solo puedes depurar una rifa que ya esté finalizada'
+                });
+            }
+
+            const confirmacion = String(req.body?.confirmacion || '').trim().toUpperCase();
+            if (confirmacion !== 'NUEVA RIFA') {
+                return res.status(400).json({
+                    success: false,
+                    code: 'CONFIRMACION_INVALIDA',
+                    message: 'Confirmación inválida para depurar la rifa actual'
+                });
+            }
+
+            const configActual = obtenerConfigActual();
+            await asegurarSnapshotModalFinalizado(configActual, {
+                usuarioAdmin: req.usuario?.username || 'SYSTEM',
+                refrescarGanadores: true
+            });
+
+            await rifaArchiveService.depurarRifa(req.rifaContext.id);
+            limpiarCacheBoletosPublicos();
+            limpiarCacheConfiguracionPublica();
+
+            return res.json({
+                success: true,
+                message: 'La rifa actual fue depurada. Solo quedó disponible su snapshot final para historial.'
             });
         }
 
@@ -10163,6 +12356,7 @@ app.post('/api/boletos/init-dev', async (req, res) => {
 
         // ⭐ DINÁMICO: Leer totalBoletos desde la configuración actual o del request body
         const configSorteo = cargarConfigSorteo();
+        const rifaIdActual = Number.parseInt(req.rifaContext?.id, 10) || null;
         let TOTAL = parseInt(req.body.totalBoletos) || configSorteo.totalBoletos;
         
         // Validar que sea un número válido y razonable
@@ -10179,7 +12373,12 @@ app.post('/api/boletos/init-dev', async (req, res) => {
         console.log(`📊 Total a crear: ${TOTAL.toLocaleString('es-MX')} boletos`);
 
         // Contar boletos actuales
-        const result = await db('boletos_estado').count('* as total').first();
+        const result = await db('boletos_estado')
+            .modify((qb) => {
+                if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+            })
+            .count('* as total')
+            .first();
         const boletosActuales = result.total || 0;
 
         console.log(`📊 Boletos actuales: ${boletosActuales.toLocaleString()}`);
@@ -10223,6 +12422,7 @@ app.post('/api/boletos/init-dev', async (req, res) => {
 
                     for (let i = start; i <= end; i++) {
                         boletos.push({
+                            ...(rifaIdActual ? { rifa_id: rifaIdActual } : {}),
                             numero: i,
                             estado: 'disponible',
                             created_at: new Date(),
@@ -10239,7 +12439,12 @@ app.post('/api/boletos/init-dev', async (req, res) => {
                 console.log(`✅ COMPLETADO: ${insertados.toLocaleString()} boletos insertados`);
                 
                 // Verificar resultado
-                const final = await db('boletos_estado').count('* as total').first();
+                const final = await db('boletos_estado')
+                    .modify((qb) => {
+                        if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+                    })
+                    .count('* as total')
+                    .first();
                 console.log(`📊 Total final en BD: ${final.total.toLocaleString()} boletos`);
 
             } catch (err) {
@@ -10288,7 +12493,9 @@ app.post('/api/boletos/inicializar', verificarToken, async (req, res) => {
         });
 
         // No esperar respuesta, ejecutar en background
-        BoletoService.inicializarBoletos(total)
+        BoletoService.inicializarBoletos(total, {
+            rifaId: req.rifaContext?.id
+        })
             .then(() => {
                 log('info', 'POST /api/boletos/inicializar COMPLETADO', { totalCreados: total });
             })
@@ -10313,7 +12520,9 @@ app.post('/api/boletos/inicializar', verificarToken, async (req, res) => {
  */
 app.post('/api/boletos/limpiar-reservas', verificarToken, async (req, res) => {
     try {
-        const resultado = await BoletoService.limpiarReservasExpiradas();
+        const resultado = await BoletoService.limpiarReservasExpiradas({
+            rifaId: req.rifaContext?.id
+        });
 
         log('info', 'POST /api/boletos/limpiar-reservas - Reservas expiradas liberadas', resultado);
 
@@ -10329,24 +12538,6 @@ app.post('/api/boletos/limpiar-reservas', verificarToken, async (req, res) => {
             error: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
-});
-
-// Error handling
-app.use((err, req, res, next) => {
-    console.error('Error:', err);
-    res.status(500).json({
-        success: false,
-        message: 'Error interno del servidor',
-        error: process.env.NODE_ENV === 'development' ? err.message : undefined
-    });
-});
-
-// 404 handler
-app.use((req, res) => {
-    res.status(404).json({
-        success: false,
-        message: 'Ruta no encontrada'
-    });
 });
 
 /**
@@ -10365,22 +12556,26 @@ app.post('/api/admin/cleanup-boletos', verificarToken, async (req, res) => {
         }
 
         console.log('\n🔧 [CLEANUP] Iniciando limpieza de boletos huérfanos...');
+        const rifaIdActual = obtenerRifaIdRequest(req);
 
-        // Paso 1: Contar cuántos hay
-        const resultado = await db.raw(`
-            SELECT COUNT(*) as total FROM boletos_estado
-            WHERE estado = 'apartado'
-            AND (
-              numero_orden IS NULL
-              OR NOT EXISTS (
-                SELECT 1 FROM ordenes o 
-                WHERE o.numero_orden = boletos_estado.numero_orden 
-                AND o.estado IN ('pendiente', 'confirmada')
-              )
-            )
-        `);
+        const construirQueryHuerfanos = (builder) => builder('boletos_estado as be')
+            .modify((qb) => aplicarFiltroRifa(qb, rifaIdActual, 'be.rifa_id'))
+            .where('be.estado', 'apartado')
+            .where((qb) => {
+                qb.whereNull('be.numero_orden')
+                    .orWhereNotExists(
+                        db('ordenes as o')
+                            .select(db.raw('1'))
+                            .whereRaw('o.numero_orden = be.numero_orden')
+                            .modify((subQb) => aplicarFiltroRifa(subQb, rifaIdActual, 'o.rifa_id'))
+                            .whereIn('o.estado', ['pendiente', 'confirmada'])
+                    );
+            });
 
-        const totalHuerfanos = resultado.rows[0].total;
+        const totalRow = await construirQueryHuerfanos(db)
+            .count('* as total')
+            .first();
+        const totalHuerfanos = Number(totalRow?.total || 0);
         console.log(`📊 Boletos huérfanos encontrados: ${totalHuerfanos}`);
 
         if (totalHuerfanos === 0) {
@@ -10392,29 +12587,19 @@ app.post('/api/admin/cleanup-boletos', verificarToken, async (req, res) => {
             });
         }
 
-        // Paso 2: Limpiar todos los huérfanos
-        const cleanup = await db.raw(`
-            UPDATE boletos_estado
-            SET estado = 'disponible',
-                numero_orden = NULL,
-                updated_at = NOW()
-            WHERE estado = 'apartado'
-            AND (
-              numero_orden IS NULL
-              OR NOT EXISTS (
-                SELECT 1 FROM ordenes o 
-                WHERE o.numero_orden = boletos_estado.numero_orden 
-                AND o.estado IN ('pendiente', 'confirmada')
-              )
-            )
-        `);
+        const limpios = await construirQueryHuerfanos(db)
+            .update({
+                estado: 'disponible',
+                numero_orden: null,
+                updated_at: db.fn.now()
+            });
 
-        console.log(`✅ [CLEANUP] Boletos liberados: ${cleanup.rowCount}`);
+        console.log(`✅ [CLEANUP] Boletos liberados: ${limpios}`);
 
         return res.json({
             success: true,
-            message: `Limpieza completada: ${cleanup.rowCount} boletos liberados`,
-            limpios: cleanup.rowCount,
+            message: `Limpieza completada: ${limpios} boletos liberados`,
+            limpios,
             total: totalHuerfanos
         });
 
@@ -10436,9 +12621,11 @@ app.post('/api/admin/cleanup-boletos', verificarToken, async (req, res) => {
 app.post('/api/admin/limpiar-ordenes-canceladas', verificarToken, async (req, res) => {
     try {
         console.log('🧹 [CLEANUP] Iniciando limpieza de órdenes canceladas...');
+        const rifaIdActual = obtenerRifaIdRequest(req);
         
         // PASO 1: Encontrar todas las órdenes canceladas SIN comprobante
         const ordenesCanceladas = await db('ordenes')
+            .modify((qb) => aplicarFiltroRifa(qb, rifaIdActual))
             .where('estado', 'cancelada')
             .whereNull('comprobante_path')  // ⭐ Solo sin comprobante
             .select('id', 'numero_orden', 'boletos');
@@ -10457,6 +12644,7 @@ app.post('/api/admin/limpiar-ordenes-canceladas', verificarToken, async (req, re
 
                 // Liberar estos boletos en la BD
                 const actualizado = await db('boletos_estado')
+                    .modify((qb) => aplicarFiltroRifa(qb, rifaIdActual))
                     .whereIn('numero', boletos)
                     .update({
                         estado: 'disponible',
@@ -10465,6 +12653,7 @@ app.post('/api/admin/limpiar-ordenes-canceladas', verificarToken, async (req, re
                     });
 
                 await db('orden_oportunidades')
+                    .modify((qb) => aplicarFiltroRifa(qb, rifaIdActual))
                     .where('numero_orden', orden.numero_orden)
                     .whereIn('numero_boleto', boletos)
                     .update({
@@ -10708,14 +12897,53 @@ setImmediate(async () => {
     }
 
     try {
+        rifaService = new RifaService(db);
+        const multiRifaDisponible = await rifaService.inicializar();
+        if (multiRifaDisponible) {
+            console.log('✅ Servicio multi-rifa inicializado');
+            rifaArchiveService = new RifaArchiveService(db, rifaService);
+            console.log('ℹ️  Depuracion automatica de rifas desactivada; solo se ejecuta manualmente desde admin');
+            const contextoActivo = await rifaService.obtenerRifaActivaPublica(true);
+            if (contextoActivo?.configuracion) {
+                sincronizarConfigLegacyEnMemoria(contextoActivo.configuracion);
+            }
+
+            try {
+                const backfillCampanas = await backfillSuscripcionesCampanaDesdeOrdenes(db);
+                console.log(`✅ Backfill audiencia push listo (${backfillCampanas.created} nuevas, ${backfillCampanas.updated} actualizadas, ${backfillCampanas.processed} procesadas)`);
+            } catch (backfillError) {
+                console.warn('⚠️  No se pudo ejecutar el backfill de audiencia push:', backfillError.message);
+            }
+        } else {
+            console.log('ℹ️ Multi-rifa todavía no disponible; se mantiene modo legacy');
+        }
+    } catch (error) {
+        console.error('⚠️ Error inicializando servicio multi-rifa:', error.message);
+    }
+
+    try {
+        pushCampaignQueueService = new PushCampaignQueueService(db, {
+            logger: console
+        });
+        pushCampaignQueueService.start();
+        console.log('✅ Cola de campañas push inicializada');
+    } catch (queueError) {
+        console.error('⚠️ No se pudo inicializar la cola de campañas push:', queueError.message);
+    }
+
+    try {
         // Asegurar que exista tabla de oportunidades y constraints
         await asegurarTablaOportunidades();
         
         // Iniciar servicio de expiración de órdenes
-        const configActual = obtenerConfigActual();
+        const configActual = rifaService?.enabled
+            ? (await rifaService.obtenerRifaActivaPublica(true))?.configuracion || obtenerConfigActual()
+            : obtenerConfigActual();
         const tiempoApartadoActual = Number(configActual?.rifa?.tiempoApartadoHoras) || TIEMPO_APARTADO_HORAS;
         const intervaloLimpiezaActual = Number(configActual?.rifa?.intervaloLimpiezaMinutos) || INTERVALO_LIMPIEZA_MINUTOS;
-        ordenExpirationService.iniciar(intervaloLimpiezaActual, tiempoApartadoActual);
+        const pushOrderWarningMinutesActual = normalizarPushOrderWarningMinutesConfig(configActual?.rifa?.pushOrderWarningMinutes);
+        ordenExpirationService.iniciar(intervaloLimpiezaActual, tiempoApartadoActual, pushOrderWarningMinutesActual);
+        iniciarRecordatoriosEventoProgramados();
     } catch (e) {
         console.error('❌ Error en inicialización de background:', e.message);
     }
@@ -10724,6 +12952,12 @@ setImmediate(async () => {
 // Manejar cierre graceful
 process.on('SIGTERM', () => {
     console.log('\n🛑 Recibido SIGTERM, cerrando servidor gracefully...');
+    rifaArchiveService?.detener?.();
+    pushCampaignQueueService?.stop?.();
+    if (recordatoriosEventoInterval) {
+        clearInterval(recordatoriosEventoInterval);
+        recordatoriosEventoInterval = null;
+    }
     server.close(() => {
         console.log('✅ Servidor cerrado');
         process.exit(0);
@@ -10732,6 +12966,12 @@ process.on('SIGTERM', () => {
 
 process.on('SIGINT', () => {
     console.log('\n🛑 Recibido SIGINT, cerrando servidor gracefully...');
+    rifaArchiveService?.detener?.();
+    pushCampaignQueueService?.stop?.();
+    if (recordatoriosEventoInterval) {
+        clearInterval(recordatoriosEventoInterval);
+        recordatoriosEventoInterval = null;
+    }
     server.close(() => {
         console.log('✅ Servidor cerrado');
         process.exit(0);

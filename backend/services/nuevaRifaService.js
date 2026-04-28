@@ -73,27 +73,28 @@ class NuevaRifaService {
     };
   }
 
-  static _parseConfigValor(valor) {
-    if (!valor) return null;
-    if (typeof valor === 'string') {
-      try {
-        return JSON.parse(valor);
-      } catch (_) {
-        return null;
-      }
-    }
-    return valor;
-  }
-
   static async _obtenerConfigActual(runner = db) {
     try {
-      const registro = await runner('sorteo_configuracion')
-        .where('clave', 'config_principal')
-        .first();
+      const hasRifas = await runner.schema.hasTable('rifas');
+      if (hasRifas) {
+        const rifaActiva = await runner('rifas')
+          .whereNull('depurada_at')
+          .where('activa_publica', true)
+          .orderBy('id', 'asc')
+          .first()
+          || await runner('rifas')
+            .whereNull('depurada_at')
+            .where('es_predeterminada', true)
+            .orderBy('id', 'asc')
+            .first()
+          || await runner('rifas')
+            .whereNull('depurada_at')
+            .orderBy('id', 'asc')
+            .first();
 
-      const config = this._parseConfigValor(registro?.valor);
-      if (config && typeof config === 'object') {
-        return config;
+        if (rifaActiva?.configuracion && typeof rifaActiva.configuracion === 'object') {
+          return rifaActiva.configuracion;
+        }
       }
     } catch (_) {
       // Fallback seguro más abajo

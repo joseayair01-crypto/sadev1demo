@@ -15,6 +15,9 @@
  */
 
 const db = require('../db');
+const { normalizeRifaContext, applyRifaScope } = require('./rifaScope');
+const { obtenerConfigExpiracion } = require('../config-loader');
+const { enviarPushOrdenCancelada, enviarPushOrdenPorVencer } = require('./pushNotificationsService');
 
 class OrdenExpirationService {
     constructor() {
@@ -23,6 +26,7 @@ class OrdenExpirationService {
         this.isExecuting = false;  // Flag para evitar ejecuciones concurrentes
         this.tiempoApartadoMs = 12 * 60 * 60 * 1000;  // Default: 12 horas
         this.intervaloMs = 5 * 60 * 1000;  // Default: 5 minutos
+        this.warningThresholdsMinutes = null;
         this.stats = {
             totalEjecuciones: 0,
             ordenesLiberadas: 0,
@@ -33,12 +37,20 @@ class OrdenExpirationService {
         };
     }
 
+    _normalizarContextoRifa(contexto = {}) {
+        return normalizeRifaContext(contexto);
+    }
+
+    _whereRifa(query, contexto = {}) {
+        return applyRifaScope(query, contexto);
+    }
+
     /**
      * Inicia el servicio de expiración (corre cada N minutos)
      * @param {number} intervaloMinutos - Cada cuántos minutos verificar
      * @param {number} tiempoApartadoHoras - Cuántas horas dura apartado
      */
-    iniciar(intervaloMinutos = 5, tiempoApartadoHoras = 12) {
+    iniciar(intervaloMinutos = 5, tiempoApartadoHoras = 12, warningThresholdsMinutes = null) {
         if (this.isRunning) {
             console.warn('⚠️ [ExpService] Servicio ya está corriendo');
             return;
@@ -47,6 +59,7 @@ class OrdenExpirationService {
         this.isRunning = true;
         this.tiempoApartadoMs = tiempoApartadoHoras * 60 * 60 * 1000;
         this.intervaloMs = intervaloMinutos * 60 * 1000;
+        this.warningThresholdsMinutes = this.normalizarUmbralesAvisoExpiracionMinutos(warningThresholdsMinutes);
 
         const mensaje = `
 ╔════════════════════════════════════════════════════════╗
@@ -94,7 +107,7 @@ class OrdenExpirationService {
      * ⚠️ IMPORTANTE: Las órdenes con comprobante_path (tiene comprobante subido) NO expiran
      * porque están esperando revisión del admin
      */
-    async limpiarOrdenesExpiradas() {
+    async limpiarOrdenesExpiradas(contexto = {}) {
         // Prevenir ejecuciones concurrentes
         if (this.isExecuting) {
             console.warn('⚠️ [ExpService] Ya hay una limpieza en progreso, saltando...');
@@ -120,8 +133,9 @@ class OrdenExpirationService {
             // Las 'confirmada' O las con 'comprobante_path' NO expiran (están esperando revisión de admin)
             let ordenesIncompletas;
             try {
-                ordenesIncompletas = await db('ordenes')
-                    .select('id', 'numero_orden', 'estado', 'boletos', 'comprobante_path', 'created_at')
+                ordenesIncompletas = await this._whereRifa(db('ordenes'), contexto)
+                    .select('id', 'numero_orden', 'estado', 'boletos', 'comprobante_path', 'created_at', 'updated_at', 'telefono_cliente', 'cantidad_boletos')
+                    .select('rifa_id')
                     .where('estado', 'pendiente')  // SOLO pendiente
                     .whereNull('comprobante_path')  // SIN comprobante subido
                     .timeout(10000); // Timeout de 10 segundos
@@ -153,6 +167,7 @@ class OrdenExpirationService {
             });
 
             if (ordenesExpiradas.length === 0) {
+                await this.notificarOrdenesPorVencer(ordenesIncompletas, ahora, contexto);
                 console.log(`✅ [ExpService] ${ordenesIncompletas.length} orden(es) pendiente(s), pero DENTRO del plazo`);
                 this.stats.totalEjecuciones++;
                 this.stats.ultimaEjecucion = new Date();
@@ -160,12 +175,14 @@ class OrdenExpirationService {
                 return;
             }
 
+            await this.notificarOrdenesPorVencer(ordenesIncompletas, ahora, contexto);
+
             console.log(`\n⚠️  [ExpService] Encontradas ${ordenesExpiradas.length} órdenes EXPIRADAS (liberando boletos...)\n`);
 
             // Procesar cada orden expirada con manejo de errores individual
             for (const orden of ordenesExpiradas) {
                 try {
-                    const resultado = await this.liberarOrden(orden);
+                    const resultado = await this.liberarOrden(orden, { rifaId: orden.rifa_id });
                     ordenesLiberades++;
                     boletosCancelados += resultado.boletosCancelados;
                 } catch (liberarError) {
@@ -208,8 +225,9 @@ class OrdenExpirationService {
         }
     }
 
-    async liberarOrden(orden) {
+    async liberarOrden(orden, contexto = {}) {
         let boletosCancelados = 0;
+        const contextoRifa = this._normalizarContextoRifa(contexto);
 
         try {
             // ⭐ VALIDACIÓN CRÍTICA: No liberar órdenes con comprobante de pago
@@ -249,7 +267,7 @@ class OrdenExpirationService {
                 // PASO 1: Actualizar la orden a 'cancelada'
                 console.log(`  🔄 [PASO 1] Actualizando orden ${orden.numero_orden} a 'cancelada'...`);
                 
-                const actualizadoOrden = await trx('ordenes')
+                const actualizadoOrden = await this._whereRifa(trx('ordenes'), contextoRifa)
                     .where('id', orden.id)
                     .update({
                         estado: 'cancelada',
@@ -266,7 +284,7 @@ class OrdenExpirationService {
                 console.log(`     IDs: [${boletos.slice(0, 5).join(',')}${boletos.length > 5 ? '...' : ''}]`);
 
                 // Verificar que los boletos EXISTEN antes de actualizar
-                const boletosExistentes = await trx('boletos_estado')
+                const boletosExistentes = await this._whereRifa(trx('boletos_estado'), contextoRifa)
                     .whereIn('numero', boletos)
                     .count('* as cantidad')
                     .first();
@@ -279,7 +297,7 @@ class OrdenExpirationService {
                 }
 
                 // Actualizar boletos
-                const actualizadosBoletos = await trx('boletos_estado')
+                const actualizadosBoletos = await this._whereRifa(trx('boletos_estado'), contextoRifa)
                     .whereIn('numero', boletos)
                     .update({
                         estado: 'disponible',
@@ -294,7 +312,7 @@ class OrdenExpirationService {
                 }
 
                 // Verificar que realmente se actualizaron
-                const boletosVerificacion = await trx('boletos_estado')
+                const boletosVerificacion = await this._whereRifa(trx('boletos_estado'), contextoRifa)
                     .whereIn('numero', boletos.slice(0, 5))
                     .select('numero', 'estado')
                     .limit(5);
@@ -307,11 +325,28 @@ class OrdenExpirationService {
             // ✅ PASO 3: Liberar oportunidades (si existen) - NO BLOQUEANTE
             try {
                 const OportunidadesOrdenService = require('./oportunidadesOrdenService');
-                const resultOportunidades = await OportunidadesOrdenService.liberarOportunidades(orden.numero_orden);
+                const resultOportunidades = await OportunidadesOrdenService.liberarOportunidades(orden.numero_orden, contextoRifa);
                 console.log(`  ✅ Oportunidades liberadas: ${resultOportunidades.cantidad}`);
             } catch (error) {
                 console.warn(`  ⚠️  Error liberando oportunidades (no crítico):`, error.message);
                 // No lanzar error aquí - ya se liberaron los boletos
+            }
+
+            try {
+                await enviarPushOrdenCancelada(db, {
+                    numero_orden: orden.numero_orden,
+                    rifa_id: orden.rifa_id,
+                    telefono_cliente: orden.telefono_cliente,
+                    cantidad_boletos: boletos.length,
+                    estado: 'cancelada',
+                    created_at: orden.created_at,
+                    updated_at: new Date().toISOString()
+                }, {
+                    reason: 'expired',
+                    eventAt: new Date().toISOString()
+                });
+            } catch (pushError) {
+                console.warn(`  ⚠️  Error enviando push de expiración para ${orden.numero_orden}:`, pushError.message);
             }
 
             console.log(`  ✅ TRANSACCIÓN EXITOSA: ${resultado.actualizadosBoletos} boletos liberados`);
@@ -342,7 +377,7 @@ class OrdenExpirationService {
      * Obtiene estadísticas de órdenes en el sistema
      * Útil para el dashboard del admin
      */
-    async obtenerEstadisticas() {
+    async obtenerEstadisticas(contexto = {}) {
         try {
             const stats = {
                 total_pendientes: 0,
@@ -354,7 +389,7 @@ class OrdenExpirationService {
             };
 
             // Total por estado con timeout
-            const porEstado = await db('ordenes')
+            const porEstado = await this._whereRifa(db('ordenes'), contexto)
                 .select('estado')
                 .count('* as cantidad')
                 .groupBy('estado')
@@ -367,7 +402,7 @@ class OrdenExpirationService {
             }
 
             // Órdenes pendientes sin comprobante (próximas a expirar)
-            const boletosPendientes = await db('ordenes')
+            const boletosPendientes = await this._whereRifa(db('ordenes'), contexto)
                 .where('estado', 'pendiente')
                 .whereNull('detalles_pago')
                 .timeout(10000);
@@ -409,7 +444,7 @@ class OrdenExpirationService {
     /**
      * Configura el tiempo de expiración dinámicamente
      */
-    configurar(tiempoApartadoHoras, intervaloMinutos) {
+    configurar(tiempoApartadoHoras, intervaloMinutos, warningThresholdsMinutes) {
         if (tiempoApartadoHoras) {
             this.tiempoApartadoMs = tiempoApartadoHoras * 60 * 60 * 1000;
         }
@@ -423,10 +458,122 @@ class OrdenExpirationService {
                 }, this.intervaloMs);
             }
         }
+        if (warningThresholdsMinutes !== undefined) {
+            this.warningThresholdsMinutes = this.normalizarUmbralesAvisoExpiracionMinutos(warningThresholdsMinutes);
+        }
         
         console.log(`⚙️  [ExpService] Configuración actualizada:`);
         console.log(`   - Tiempo apartado: ${tiempoApartadoHoras || (this.tiempoApartadoMs / (60 * 60 * 1000))} horas`);
         console.log(`   - Intervalo: ${intervaloMinutos || (this.intervaloMs / 60000)} minutos`);
+        console.log(`   - Avisos previos: ${(this.warningThresholdsMinutes || []).join(', ') || 'desactivados / fallback'}`);
+    }
+
+    normalizarUmbralesAvisoExpiracionMinutos(rawValue) {
+        if (rawValue === undefined || rawValue === null || rawValue === '') {
+            return null;
+        }
+
+        const values = Array.isArray(rawValue)
+            ? rawValue
+            : String(rawValue)
+                .split(',')
+                .map((value) => value.trim())
+                .filter(Boolean);
+
+        const normalized = values
+            .map((value) => Number.parseInt(String(value).replace(/[^0-9]/g, ''), 10))
+            .filter((value) => Number.isInteger(value) && value > 0);
+
+        return [...new Set(normalized)].sort((a, b) => a - b);
+    }
+
+    obtenerUmbralesAvisoExpiracionMinutos() {
+        if (Array.isArray(this.warningThresholdsMinutes)) {
+            const maxMinutesConfigured = Math.max(1, Math.floor(this.tiempoApartadoMs / 60000) - 1);
+            return this.warningThresholdsMinutes
+                .map((value) => Math.max(1, Math.min(maxMinutesConfigured, value)))
+                .filter((value, index, array) => array.indexOf(value) === index)
+                .sort((a, b) => a - b);
+        }
+
+        const configExpiracion = obtenerConfigExpiracion();
+        const thresholds = new Set([15, 5]);
+        const thresholdListFromConfig = Array.isArray(configExpiracion?.pushOrderWarningMinutes)
+            ? configExpiracion.pushOrderWarningMinutes
+            : [];
+        thresholdListFromConfig
+            .map((value) => Number.parseInt(value, 10))
+            .filter((value) => Number.isInteger(value) && value > 0)
+            .forEach((value) => thresholds.add(value));
+        const thresholdFromConfig = Number(configExpiracion?.advertenciaExpirationHoras);
+        if (Number.isFinite(thresholdFromConfig) && thresholdFromConfig > 0) {
+            thresholds.add(Math.round(thresholdFromConfig * 60));
+        }
+
+        const thresholdFromEnv = String(process.env.PUSH_ORDER_WARNING_MINUTES || '').trim();
+        if (thresholdFromEnv) {
+            thresholdFromEnv
+                .split(',')
+                .map((value) => Number.parseInt(value.trim(), 10))
+                .filter((value) => Number.isInteger(value) && value > 0)
+                .forEach((value) => thresholds.add(value));
+        }
+
+        const maxMinutes = Math.max(1, Math.floor(this.tiempoApartadoMs / 60000) - 1);
+        return [...thresholds]
+            .map((value) => Math.max(1, Math.min(maxMinutes, value)))
+            .filter((value, index, array) => array.indexOf(value) === index)
+            .sort((a, b) => a - b);
+    }
+
+    resolverUmbralAvisoParaOrden(remainingMs) {
+        if (!(remainingMs > 0)) {
+            return null;
+        }
+
+        const remainingMinutes = remainingMs / 60000;
+        const thresholds = this.obtenerUmbralesAvisoExpiracionMinutos();
+        return thresholds.find((threshold) => remainingMinutes <= threshold) || null;
+    }
+
+    async notificarOrdenesPorVencer(ordenesPendientes = [], ahora = new Date(), contexto = {}) {
+        if (!Array.isArray(ordenesPendientes) || !ordenesPendientes.length) {
+            return;
+        }
+
+        for (const orden of ordenesPendientes) {
+            try {
+                if (orden.comprobante_path || String(orden.estado || '').trim().toLowerCase() !== 'pendiente') {
+                    continue;
+                }
+
+                const createdAt = new Date(orden.created_at);
+                if (Number.isNaN(createdAt.getTime())) {
+                    continue;
+                }
+
+                const expiresAt = createdAt.getTime() + this.tiempoApartadoMs;
+                const remainingMs = expiresAt - ahora.getTime();
+                const warningMinutes = this.resolverUmbralAvisoParaOrden(remainingMs);
+                if (!warningMinutes) {
+                    continue;
+                }
+
+                await enviarPushOrdenPorVencer(db, {
+                    numero_orden: orden.numero_orden,
+                    rifa_id: orden.rifa_id,
+                    telefono_cliente: orden.telefono_cliente,
+                    cantidad_boletos: Array.isArray(orden.boletos) ? orden.boletos.length : Number(orden.cantidad_boletos || 0),
+                    estado: orden.estado,
+                    created_at: orden.created_at,
+                    updated_at: orden.updated_at || orden.created_at
+                }, {
+                    warningMinutes
+                });
+            } catch (pushError) {
+                console.warn(`⚠️ [ExpService] Error enviando aviso por vencer para ${orden?.numero_orden || 'N/A'}:`, pushError.message);
+            }
+        }
     }
 }
 

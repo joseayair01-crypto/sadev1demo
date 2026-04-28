@@ -10,7 +10,7 @@ const APP_TABLES = [
   'orden_oportunidades',
   'ganadores',
   'order_id_counter',
-  'sorteo_configuracion'
+  'rifas'
 ];
 
 const environment = process.env.NODE_ENV || 'development';

@@ -1447,8 +1447,35 @@ function inicializarMaquinaSuerteMejorada() {
     const inputCantidad = document.getElementById('cantidadNumeros');
     const btnRepetir = document.getElementById('btnRepetir');
     const btnAgregarSuerte = document.getElementById('btnAgregarSuerte');
+    const quickPickContainer = document.getElementById('maquinaQuickPicks');
 
     actualizarLimiteMaquinaSuerteUI();
+
+    const sincronizarQuickPicksMaquina = function() {
+        const quickPickButtons = Array.from(document.querySelectorAll('.maquina-quick-pick'));
+        if (!quickPickButtons.length || !inputCantidad) return;
+
+        const cantidadActual = normalizarCantidadMaquinaSuerte(inputCantidad.value);
+        const maxTickets = obtenerMaximoPermitidoMaquinaSuerte();
+
+        quickPickButtons.forEach((button) => {
+            const cantidad = parseInt(button.dataset.quickCantidad, 10);
+            const deshabilitado = !Number.isInteger(cantidad) || cantidad > maxTickets;
+
+            button.classList.toggle('is-disabled', deshabilitado);
+            button.disabled = deshabilitado;
+            button.classList.toggle('is-active', !deshabilitado && cantidad === cantidadActual && cantidadActual > 0);
+        });
+    };
+
+    const aplicarCantidadMaquina = function(valor) {
+        if (!inputCantidad) return;
+
+        inputCantidad.value = String(normalizarCantidadMaquinaSuerte(valor));
+        actualizarTotalMaquina();
+        actualizarEstadoBotonGenerar();
+        sincronizarQuickPicksMaquina();
+    };
     
     // Helper: activar/desactivar botón generar según cantidad
     // Nota: la función `actualizarEstadoBotonGenerar` se define a nivel global
@@ -1461,9 +1488,7 @@ function inicializarMaquinaSuerteMejorada() {
             let cantidad = parseInt(inputCantidad.value, 10);
             if (isNaN(cantidad)) cantidad = 0;
             if (cantidad > 0) {
-                inputCantidad.value = cantidad - 1;
-                actualizarTotalMaquina();
-                actualizarEstadoBotonGenerar();
+                aplicarCantidadMaquina(cantidad - 1);
             }
         };
         
@@ -1472,9 +1497,7 @@ function inicializarMaquinaSuerteMejorada() {
             if (isNaN(cantidad)) cantidad = 0;
             const maxTickets = obtenerMaximoPermitidoMaquinaSuerte();
             if (cantidad < maxTickets) {
-                inputCantidad.value = cantidad + 1;
-                actualizarTotalMaquina();
-                actualizarEstadoBotonGenerar();
+                aplicarCantidadMaquina(cantidad + 1);
             }
         };
 
@@ -1506,11 +1529,18 @@ function inicializarMaquinaSuerteMejorada() {
 
         registrarTapRapido(btnDisminuir, decrementarCantidad);
         registrarTapRapido(btnAumentar, incrementarCantidad);
+
+        if (quickPickContainer && quickPickContainer.dataset.quickPicksReady !== 'true') {
+            quickPickContainer.addEventListener('click', function(event) {
+                const button = event.target.closest('.maquina-quick-pick');
+                if (!button || button.disabled) return;
+                aplicarCantidadMaquina(button.dataset.quickCantidad);
+            });
+            quickPickContainer.dataset.quickPicksReady = 'true';
+        }
         
         inputCantidad.addEventListener('change', function() {
-            this.value = normalizarCantidadMaquinaSuerte(this.value);
-            actualizarTotalMaquina();
-            actualizarEstadoBotonGenerar();
+            aplicarCantidadMaquina(this.value);
         });
 
         // Input sanitization: allow only integers, clamp range, update total and button state live
@@ -1527,6 +1557,7 @@ function inicializarMaquinaSuerteMejorada() {
             }
             actualizarTotalMaquina();
             actualizarEstadoBotonGenerar();
+            sincronizarQuickPicksMaquina();
         });
         
         // Limpiar el 0 cuando el usuario hace focus en el input
@@ -1542,6 +1573,7 @@ function inicializarMaquinaSuerteMejorada() {
                 this.value = '0';
                 actualizarTotalMaquina();
                 actualizarEstadoBotonGenerar();
+                sincronizarQuickPicksMaquina();
             }
         });
     }
@@ -1570,6 +1602,7 @@ function inicializarMaquinaSuerteMejorada() {
     // Inicializar total y estado del botón
     actualizarTotalMaquina();
     actualizarEstadoBotonGenerar();
+    sincronizarQuickPicksMaquina();
     // Actualizar nota de disponibilidad inicialmente
     if (typeof actualizarNotaDisponibilidad === 'function') actualizarNotaDisponibilidad();
 
@@ -1586,6 +1619,8 @@ function obtenerUniversoMaquinaSuerteCompra() {
 }
 
 const MAQUINA_SUERTE_MAXIMA_SOLICITUD = 5000;
+const MAQUINA_SUERTE_QUICK_PICKS_MAXIMO = 8;
+const MAQUINA_SUERTE_QUICK_PICKS_DEFAULT = Object.freeze([10, 20, 50, 100]);
 
 function obtenerLimiteConfiguradoMaquinaSuerte() {
     const limite = Number(window.rifaplusConfig?.rifa?.maquinaSuerte?.limiteBoletos);
@@ -1609,16 +1644,99 @@ function normalizarCantidadMaquinaSuerte(valor, permitirCero = true) {
     return cantidad;
 }
 
+function normalizarQuickPicksMaquinaSuerte(valor, opciones = {}) {
+    const fallbackBase = opciones.fallback ?? MAQUINA_SUERTE_QUICK_PICKS_DEFAULT;
+    const limiteMaximo = Number.isFinite(Number(opciones.limiteMaximo)) && Number(opciones.limiteMaximo) > 0
+        ? Math.min(Math.floor(Number(opciones.limiteMaximo)), MAQUINA_SUERTE_MAXIMA_SOLICITUD)
+        : obtenerMaximoPermitidoMaquinaSuerte();
+
+    const normalizarLista = (entrada) => {
+        let candidatos = [];
+
+        if (Array.isArray(entrada)) {
+            candidatos = entrada;
+        } else if (typeof entrada === 'string') {
+            candidatos = entrada.split(',');
+        } else if (typeof entrada === 'number') {
+            candidatos = [entrada];
+        } else if (entrada != null) {
+            candidatos = [entrada];
+        }
+
+        return Array.from(new Set(
+            candidatos
+                .map((item) => Number.parseInt(String(item).trim(), 10))
+                .filter((numero) => Number.isInteger(numero) && numero > 0 && numero <= limiteMaximo)
+        ))
+            .sort((a, b) => a - b)
+            .slice(0, MAQUINA_SUERTE_QUICK_PICKS_MAXIMO);
+    };
+
+    const quickPicks = normalizarLista(valor);
+    if (quickPicks.length > 0) {
+        return quickPicks;
+    }
+
+    const fallbackNormalizado = normalizarLista(fallbackBase);
+    if (fallbackNormalizado.length > 0) {
+        return fallbackNormalizado;
+    }
+
+    return [Math.max(1, limiteMaximo)];
+}
+
+function obtenerQuickPicksMaquinaSuerte() {
+    return normalizarQuickPicksMaquinaSuerte(
+        window.rifaplusConfig?.rifa?.maquinaSuerte?.quickPicks,
+        {
+            limiteMaximo: obtenerMaximoPermitidoMaquinaSuerte()
+        }
+    );
+}
+
+function renderizarQuickPicksMaquinaSuerte() {
+    const contenedor = document.getElementById('maquinaQuickPicks');
+    if (!contenedor) return [];
+
+    const quickPicks = obtenerQuickPicksMaquinaSuerte();
+    if (!quickPicks.length) {
+        contenedor.hidden = true;
+        contenedor.innerHTML = '';
+        return [];
+    }
+
+    const markup = quickPicks.map((cantidad) =>
+        `<button type="button" class="maquina-quick-pick" data-quick-cantidad="${cantidad}">${cantidad}</button>`
+    ).join('');
+
+    if (contenedor.innerHTML !== markup) {
+        contenedor.innerHTML = markup;
+    }
+    contenedor.hidden = false;
+
+    return Array.from(contenedor.querySelectorAll('.maquina-quick-pick'));
+}
+
 function actualizarLimiteMaquinaSuerteUI() {
     const inputCantidad = document.getElementById('cantidadNumeros');
     const hint = document.getElementById('maquinaLimiteHint');
+    const quickPickButtons = renderizarQuickPicksMaquinaSuerte();
     const maximo = obtenerMaximoPermitidoMaquinaSuerte();
+    const cantidadActual = inputCantidad ? normalizarCantidadMaquinaSuerte(inputCantidad.value) : 0;
 
     if (inputCantidad) {
         inputCantidad.max = String(maximo);
         inputCantidad.placeholder = maximo > 0 ? `0 - ${maximo}` : '0';
-        inputCantidad.value = String(normalizarCantidadMaquinaSuerte(inputCantidad.value));
+        inputCantidad.value = String(cantidadActual);
     }
+
+    quickPickButtons.forEach((button) => {
+        const cantidad = parseInt(button.dataset.quickCantidad, 10);
+        const deshabilitado = !Number.isInteger(cantidad) || cantidad > maximo;
+        button.classList.toggle('is-disabled', deshabilitado);
+        button.disabled = deshabilitado;
+        button.classList.toggle('is-active', !deshabilitado && cantidad === cantidadActual && cantidadActual > 0);
+    });
 
     if (hint) {
         hint.textContent = `Puedes generar hasta ${maximo} boletos por ronda.`;
@@ -2428,7 +2546,8 @@ function actualizarResumenCompra() {
             descuento: calculoDescuento.descuentoMonto,
             totalFinal: calculoDescuento.totalFinal,
             precioUnitario: calculoDescuento.precioUnitario,
-            cantidad: calculoDescuento.cantidadBoletos
+            cantidad: calculoDescuento.cantidadBoletos,
+            combo: calculoDescuento.combo || null
         });
 
         if (resumenPersistidoSnapshot !== resumenSerializado) {

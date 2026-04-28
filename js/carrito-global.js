@@ -256,7 +256,8 @@ function actualizarResumenCarritoDOM(refs, calcTotal) {
             descuento: calcTotal.descuentoMonto,
             totalFinal: calcTotal.totalFinal,
             precioUnitario: calcTotal.precioUnitario,
-            cantidad: calcTotal.cantidadBoletos
+            cantidad: calcTotal.cantidadBoletos,
+            combo: calcTotal.combo || null
         }));
     } catch (e) {
         // Silent fail.
@@ -825,24 +826,28 @@ function removerBoletoSeleccionado(numero) {
  * @returns {boolean} - true si se agregó, false si ya estaba
  */
 function agregarBoletoSelecionado(numero) {
+    const numeroNormalizado = parseInt(numero, 10);
+    if (Number.isNaN(numeroNormalizado)) {
+        return false;
+    }
+
     // Si estamos en compra.html, usar el Set global
     if (typeof selectedNumbersGlobal !== 'undefined') {
-        if (selectedNumbersGlobal.has(numero)) {
+        if (selectedNumbersGlobal.has(numeroNormalizado)) {
             return false; // Ya está seleccionado
         }
-        selectedNumbersGlobal.add(numero);
+        selectedNumbersGlobal.add(numeroNormalizado);
         sincronizarCarritoAlLocalStorage();
     } else {
         // En otras páginas, usar localStorage
         let stored = localStorage.getItem('rifaplusSelectedNumbers');
         let numbers = stored ? JSON.parse(stored).map(n => parseInt(n, 10)) : [];
-        
-        numero = parseInt(numero, 10);
-        if (numbers.includes(numero)) {
+
+        if (numbers.includes(numeroNormalizado)) {
             return false; // Ya está seleccionado
         }
-        
-        numbers.push(numero);
+
+        numbers.push(numeroNormalizado);
         setItemSafeCarrito('rifaplusSelectedNumbers', JSON.stringify(numbers));
     }
     
@@ -850,6 +855,22 @@ function agregarBoletoSelecionado(numero) {
     if (window.actualizarContadorCarritoGlobal) window.actualizarContadorCarritoGlobal();
     if (isCarritoModalOpen && window.actualizarVistaCarritoGlobal) window.actualizarVistaCarritoGlobal();
     if (window.actualizarResumenCompra) window.actualizarResumenCompra();
+
+    const precioUnitario = Number(
+        window.rifaplusConfig?.obtenerPrecioBoleto?.()
+        || window.rifaplusConfig?.rifa?.precioBoleto
+        || 0
+    );
+    window.RifaPlusMetaPixel?.trackAddToCart?.({
+        content_name: window.rifaplusConfig?.rifa?.nombreSorteo || 'Sorteo',
+        content_category: 'rifa',
+        content_type: 'product',
+        content_ids: [String(numeroNormalizado)],
+        contents: [{ id: String(numeroNormalizado), quantity: 1 }],
+        num_items: 1,
+        value: Number.isFinite(precioUnitario) ? precioUnitario : 0,
+        currency: 'MXN'
+    });
     
     return true;
 }

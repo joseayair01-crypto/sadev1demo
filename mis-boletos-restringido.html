@@ -815,6 +815,7 @@
                     </script>
                     <noscript><img src="images/placeholder-logo.svg" alt="SORTEOS YEPE" class="logo-image dynamic-logo" data-dynamic-logo="true" fetchpriority="high" loading="eager" decoding="sync" width="320" height="137"></noscript>
                 </div>
+                <span class="logo-verified-badge" aria-hidden="true">✓</span>
             </a>
 
             <nav class="nav" aria-label="Navegación principal">
@@ -925,7 +926,23 @@
             }));
         }
 
+        function aplicarVisibilidadLogoVerificadoRestringido() {
+            const badge = document.querySelector('.logo-verified-badge');
+            const mostrar = window.rifaplusConfig?.rifa?.publicacion?.logoVerificadoHeader !== false;
+            if (typeof window.__RIFAPLUS_SET_LOGO_VERIFIED_VISIBILITY__ === 'function') {
+                window.__RIFAPLUS_SET_LOGO_VERIFIED_VISIBILITY__(mostrar);
+            } else {
+                document.documentElement.classList.toggle('rifaplus-logo-verified-off', !mostrar);
+            }
+
+            if (!badge) return;
+
+            badge.classList.toggle('is-hidden', !mostrar);
+            badge.setAttribute('aria-hidden', 'true');
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
+            aplicarVisibilidadLogoVerificadoRestringido();
             if (window.location.pathname && window.location.pathname.includes('mis-boletos-restringido')) {
                 setupRestrictedSearcher();
                 requestAnimationFrame(() => {
@@ -933,6 +950,9 @@
                 });
             }
         });
+
+        window.addEventListener('configuracionActualizada', aplicarVisibilidadLogoVerificadoRestringido);
+        window.addEventListener('configSyncCompleto', aplicarVisibilidadLogoVerificadoRestringido);
 
         function setupRestrictedSearcher() {
             const whatsappInput = document.getElementById('whatsappInputRestricted');

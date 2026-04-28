@@ -25,6 +25,8 @@
     "apply:index": "node -r dotenv/config apply-partial-index.js",
     "apply:index:oportunidades": "node -r dotenv/config apply-oportunidades-index-optimization.js",
     "cleanup:expiration-log": "node -r dotenv/config drop-unused-expiration-log.js",
+    "push:vapid": "node generate-vapid-keys.js",
+    "test:integration:multirifa": "dotenv_config_path=./.env node -r dotenv/config --test tests/integration/multirifa.integration.test.js",
     "maintain": "node maintenance.js",
     "maintain:conflict": "node maintenance.js conflict",
     "maintain:opportunities": "node maintenance.js opportunities",
@@ -60,7 +62,8 @@
     "pg": "^8.17.2",
     "proper-lockfile": "^4.1.2",
     "sanitize-html": "^2.17.0",
-    "socket.io": "^4.8.3"
+    "socket.io": "^4.8.3",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "eslint": "^9.39.2",

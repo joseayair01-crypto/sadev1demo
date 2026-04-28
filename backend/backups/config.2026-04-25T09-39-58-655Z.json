@@ -1,0 +1,548 @@
+{
+  "seo": {
+    "autor": "SaDev",
+    "image": "https://res.cloudinary.com/dhwvxom01/image/upload/v1776293588/rifaplus/sorteos/principal-1776293588032-dPPHS-178e475754e5.webp",
+    "title": "SaDev - Cybertruck por solo 6 pesos el boleto",
+    "author": "SaDev",
+    "imagen": "https://res.cloudinary.com/dhwvxom01/image/upload/v1776293588/rifaplus/sorteos/principal-1776293588032-dPPHS-178e475754e5.webp",
+    "titulo": "SaDev - Cybertruck por solo 6 pesos el boleto",
+    "twitter": {
+      "card": "summary_large_image",
+      "imagen": "https://res.cloudinary.com/dhwvxom01/image/upload/v1776293588/rifaplus/sorteos/principal-1776293588032-dPPHS-178e475754e5.webp",
+      "titulo": "Descubre cómo se vería tu propia página de rifas: profesional, personalizable, fácil de administrar y lista para vender boletos en línea. 🚀",
+      "creador": "",
+      "descripcion": "Descubre cómo se vería tu propia página de rifas: profesional, personalizable, fácil de administrar y lista para vender boletos en línea. 🚀"
+    },
+    "urlBase": "",
+    "keywords": "sorteo, rifa, SUPERCOMBO PARA TODOS, SORTEOS LOPEZ",
+    "openGraph": {
+      "tipo": "website",
+      "imagen": "https://res.cloudinary.com/dhwvxom01/image/upload/v1776293588/rifaplus/sorteos/principal-1776293588032-dPPHS-178e475754e5.webp",
+      "locale": "es_MX",
+      "titulo": "SaDev - La mejor plataforma para crear y administrar tu sorteo.",
+      "descripcion": "Descubre cómo se vería tu propia página de rifas: profesional, personalizable, fácil de administrar y lista para vender boletos en línea. 🚀"
+    },
+    "descripcion": "No dejes de participar en este sorteo, hoy puedes cambiar tu vida\nSaDev - Tu mejor opción para crear y gestionar tus sorteos 🚀",
+    "description": "No dejes de participar en este sorteo, hoy puedes cambiar tu vida\nSaDev - Tu mejor opción para crear y gestionar tus sorteos 🚀",
+    "palabrasLlave": "sorteo, rifa, SUPERCOMBO PARA TODOS, SORTEOS LOPEZ"
+  },
+  "rifa": {
+    "ayuda": {
+      "preguntasFrecuentes": [
+        {
+          "pregunta": "¿Cómo compro mis boletos?",
+          "respuesta": "Selecciona tus números manualmente o usa la máquina de la suerte, agrégalos al carrito, genera tu orden y sigue las instrucciones de pago que aparecen en pantalla."
+        },
+        {
+          "pregunta": "¿Puedo comprar desde mi celular?",
+          "respuesta": "Sí. La plataforma está diseñada para funcionar correctamente desde celular, tablet y computadora."
+        },
+        {
+          "pregunta": "¿Cómo sé si mi boleto sí quedó registrado?",
+          "respuesta": "Después de generar tu orden podrás ver el resumen de tu compra, tus boletos seleccionados y el estado de tu proceso.\n\nCuando tu pago sea validado, tus boletos quedarán confirmados dentro del sistema."
+        },
+        {
+          "pregunta": "¿Qué pasa si no quiero elegir números manualmente?",
+          "respuesta": "Puedes usar la máquina de la suerte para generar boletos aleatorios disponibles de forma rápida."
+        },
+        {
+          "pregunta": "¿Cómo envío mi comprobante de pago?",
+          "respuesta": "La plataforma te permite generar tu orden y subir tu comprobante directamente en el proceso de compra, sin depender completamente de atención manual por mensaje."
+        },
+        {
+          "pregunta": "¿Puedo apartar boletos?",
+          "respuesta": "Eso depende de la configuración activa del organizador.\n\nCuando esta función está habilitada, algunos boletos pueden mostrarse como apartados temporalmente."
+        },
+        {
+          "pregunta": "¿Qué pasa si un boleto ya no está disponible?",
+          "respuesta": "El sistema valida disponibilidad para evitar que selecciones boletos vendidos o apartados.\n\nSi un número ya no está disponible, se te notificará para que puedas elegir otro."
+        },
+        {
+          "pregunta": "¿Puedo ver el estado de mi orden después?",
+          "respuesta": "Sí. El sistema puede mostrar seguimiento de órdenes, estado de boletos y validación de compra según la configuración del sorteo."
+        },
+        {
+          "pregunta": "¿Hay promociones automáticas en la compra?",
+          "respuesta": "Sí. Cuando el sorteo tiene promociones activas, el sistema calcula automáticamente el precio o descuento correspondiente según la cantidad de boletos."
+        },
+        {
+          "pregunta": "¿Es seguro comprar aquí?",
+          "respuesta": "La plataforma está diseñada para dar claridad en el proceso de compra, mostrar los datos de pago de forma ordenada y registrar la información necesaria para el seguimiento de cada orden."
+        },
+        {
+          "pregunta": "¿Puedo participar aunque no sepa mucho de tecnología?",
+          "respuesta": "Sí. El proceso está pensado para ser simple, guiado y fácil de completar incluso desde celular."
+        },
+        {
+          "pregunta": "¿Qué ventajas tiene esta plataforma frente a hacer todo por WhatsApp?",
+          "respuesta": "Permite organizar mejor los boletos, órdenes, comprobantes y pagos en un solo lugar, reduciendo errores, mensajes perdidos y carga manual para el organizador."
+        }
+      ]
+    },
+    "bonos": {
+      "items": [
+        {
+          "emoji": "📱",
+          "accion": "ninguna",
+          "titulo": "Iphone 17 Pro Max",
+          "descripcion": "Si resultas ganador, adquiriste 100 boletos o mas y pagaste en la primera hora de creación de la orden te llevas este bono adicional, los boletos son acumulables"
+        },
+        {
+          "emoji": "💵",
+          "accion": "ninguna",
+          "titulo": "$10,000 pesos adicionales ",
+          "descripcion": "Si resultas ganador y eres miembro de nuestro canal oficial de whatsapp eres acreedor a este bono"
+        }
+      ],
+      "enabled": true
+    },
+    "estado": "borrador",
+    "rangos": [
+      {
+        "fin": 99,
+        "inicio": 0,
+        "nombre": "Rango 1"
+      }
+    ],
+    "galeria": {
+      "enabled": true,
+      "imagenes": [
+        {
+          "url": "https://res.cloudinary.com/dhwvxom01/image/upload/v1776293568/rifaplus/sorteos/gallery-1776293568233-dPPHS-d05054f6d60c.webp",
+          "titulo": "Imagen 1",
+          "publicId": "rifaplus/sorteos/gallery-1776293568233-dPPHS-d05054f6d60c",
+          "descripcion": ""
+        },
+        {
+          "url": "https://res.cloudinary.com/dhwvxom01/image/upload/v1776293575/rifaplus/sorteos/gallery-1776293575735-BzKnr-ba24dacb7116.webp",
+          "titulo": "Imagen 2",
+          "publicId": "rifaplus/sorteos/gallery-1776293575735-BzKnr-ba24dacb7116",
+          "descripcion": ""
+        },
+        {
+          "url": "https://res.cloudinary.com/dhwvxom01/image/upload/v1776293580/rifaplus/sorteos/gallery-1776293580915-anXEE-2754ce8a16b8.webp",
+          "titulo": "Imagen 3",
+          "publicId": "rifaplus/sorteos/gallery-1776293580915-anXEE-2754ce8a16b8",
+          "descripcion": ""
+        }
+      ]
+    },
+    "timeZone": "America/Mexico_City",
+    "descuentos": {
+      "reglas": [
+        {
+          "total": 280,
+          "ahorro": 20,
+          "precio": 280,
+          "cantidad": 50
+        },
+        {
+          "total": 550,
+          "ahorro": 50,
+          "precio": 550,
+          "cantidad": 100
+        },
+        {
+          "total": 1050,
+          "ahorro": 150,
+          "precio": 1050,
+          "cantidad": 200
+        },
+        {
+          "total": 2500,
+          "ahorro": 500,
+          "precio": 2500,
+          "cantidad": 500
+        }
+      ],
+      "enabled": false
+    },
+    "horaSorteo": "21:15",
+    "bonosCompra": {
+      "items": [
+        {
+          "emoji": "📱",
+          "titulo": "Iphone 17 Pro Max",
+          "descripcion": "Recuerda que para acceder a este bono debes comprar 100 o mas boletos."
+        },
+        {
+          "emoji": "💵",
+          "titulo": "$10,000 pesos adicionales",
+          "descripcion": "Recuerda que para acceder a este bono solo tiene que unirte a nuestro canal de whatsapp"
+        }
+      ],
+      "enabled": true
+    },
+    "descripcion": "Sorteo de lujo este 30 de mayo, también tenemos presorteo el 30 de abril y 10 ruletazos. No pierdas la oportunidad de participar por solo 6 pesitos y con excelentes promociones si compras más boletos.",
+    "fechaSorteo": "2026-05-30T21:15:00",
+    "publicacion": {
+      "bonos": true,
+      "ruletazo": true,
+      "confianza": true,
+      "presorteo": true,
+      "progressBar": true,
+      "promociones": true,
+      "testimonios": false,
+      "progressStats": true,
+      "logoVerificadoHeader": false
+    },
+    "zonaHoraria": "Hora Centro Mexico",
+    "nombreSorteo": "Cybertruck por solo $6 pesos 🤯🍀 (Sorteo Demo)",
+    "precioBoleto": 6,
+    "totalBoletos": 100,
+    "edicionNombre": "Edición No.1 - SaDev Demo",
+    "horaPresorteo": "",
+    "maquinaSuerte": {
+      "quickPicks": [
+        1,
+        3,
+        5,
+        10
+      ],
+      "limiteBoletos": 10,
+      "mostrarNotaDisponibilidad": false
+    },
+    "oportunidades": {
+      "enabled": false,
+      "rango_oculto": {
+        "fin": 0,
+        "inicio": 0
+      },
+      "multiplicador": 4,
+      "rango_visible": {
+        "fin": 0,
+        "inicio": 0
+      }
+    },
+    "fechaPresorteo": null,
+    "sistemaPremios": {
+      "sorteo": [
+        {
+          "icono": "🥇",
+          "nombre": "Primer Lugar",
+          "premio": "Cybertruck negra 2025",
+          "posicion": 1,
+          "descripcion": "Cybertruck 2025, se lleva a domicilio incluimos instalación de cargador u opción a efectivo"
+        }
+      ],
+      "enabled": true,
+      "mensaje": "Múltiples oportunidades de ganar premios extraordinarios",
+      "presorteo": [
+        {
+          "icono": "💵",
+          "nombre": "Presorteo",
+          "premio": "$50,000 pesos",
+          "posicion": 1,
+          "descripcion": "Participan todos los boletos comprados hasta la fecha del presorteo."
+        }
+      ],
+      "ruletazos": [
+        {
+          "icono": "🎰",
+          "nombre": "Ruletazo 1",
+          "premio": "$1,000 Pesos c/u",
+          "posicion": 1,
+          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
+        },
+        {
+          "icono": "🎰",
+          "nombre": "Ruletazo 2",
+          "premio": "$1,000 Pesos c/u",
+          "posicion": 2,
+          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
+        },
+        {
+          "icono": "🎰",
+          "nombre": "Ruletazo 3",
+          "premio": "$1,000 Pesos c/u",
+          "posicion": 3,
+          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
+        },
+        {
+          "icono": "🎰",
+          "nombre": "Ruletazo 4",
+          "premio": "$1,000 Pesos c/u",
+          "posicion": 4,
+          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
+        },
+        {
+          "icono": "🎰",
+          "nombre": "Ruletazo 5",
+          "premio": "$1,000 Pesos c/u",
+          "posicion": 5,
+          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
+        },
+        {
+          "icono": "🎰",
+          "nombre": "Ruletazo 6",
+          "premio": "$1,000 Pesos c/u",
+          "posicion": 6,
+          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
+        },
+        {
+          "icono": "🎰",
+          "nombre": "Ruletazo 7",
+          "premio": "$1,000 Pesos c/u",
+          "posicion": 7,
+          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
+        },
+        {
+          "icono": "🎰",
+          "nombre": "Ruletazo 8",
+          "premio": "$1,000 Pesos c/u",
+          "posicion": 8,
+          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
+        },
+        {
+          "icono": "🎰",
+          "nombre": "Ruletazo 9",
+          "premio": "$1,000 Pesos c/u",
+          "posicion": 9,
+          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
+        },
+        {
+          "icono": "🎰",
+          "nombre": "Ruletazo 10",
+          "premio": "$1,000 Pesos c/u",
+          "posicion": 10,
+          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
+        }
+      ]
+    },
+    "busquedaBoletos": {
+      "modoAvanzado": false
+    },
+    "modalidadEnlace": {
+      "tipo": "facebook"
+    },
+    "modalidadSorteo": "Transmisión en Vivo por Facebook",
+    "promocionesCombo": {
+      "reglas": [
+        {
+          "etiqueta": "2x1",
+          "cantidadPaga": 1,
+          "cantidadRecibe": 2,
+          "boletosBonificados": 1
+        }
+      ],
+      "enabled": false
+    },
+    "informacionSorteo": [
+      {
+        "titulo": "Fechas y cierre del sorteo",
+        "descripcion": "El sorteo principal se realizará el 30 de mayo de 2026 a las 9:15 PM y el presorteo el 30 de abril de 2026 a las 9:15 PM, ambos en vivo por Facebook. La venta de boletos cierra antes de iniciar cada dinámica o al agotarse la disponibilidad."
+      },
+      {
+        "titulo": "Participación y boletos",
+        "descripcion": "Participan únicamente los boletos pagados y validados. Si el pago no se confirma, los boletos pueden liberarse nuevamente para venta. Verifica bien tus datos al comprar.\n\n"
+      },
+      {
+        "titulo": " Condición del sorteo",
+        "descripcion": "Este sorteo está sujeto a alcanzar al menos el 80% de los boletos vendidos. Si no se llega a ese porcentaje, la fecha puede ser reprogramada y se avisará por medios oficiales.\n\n"
+      },
+      {
+        "titulo": "Elección del ganador",
+        "descripcion": "El ganador se elegirá en transmisión en vivo por Facebook bajo la dinámica anunciada por el organizador. Los resultados se publicarán en los canales oficiales.\n\n"
+      },
+      {
+        "titulo": "Premios adicionales",
+        "descripcion": "Los boletos comprados a tiempo también participan en el presorteo de $50,000 pesos y en los 10 ruletazos de $1,000 pesos según la dinámica publicada."
+      },
+      {
+        "titulo": "Aclaraciones importantes",
+        "descripcion": "Las promociones, bonos y beneficios aplican según las condiciones publicadas. Cualquier cambio relevante o aviso oficial se dará a conocer en la plataforma y redes oficiales.\n\n"
+      }
+    ],
+    "fechaSorteoFormato": "30 de Mayo del 2026",
+    "promocionPorTiempo": {
+      "enabled": false,
+      "fechaFin": null,
+      "fechaInicio": null,
+      "precioProvisional": null
+    },
+    "descuentoPorcentaje": {
+      "enabled": false,
+      "fechaFin": "2026-04-30T22:00",
+      "porcentaje": 100,
+      "fechaInicio": "2026-03-31T19:03"
+    },
+    "tiempoApartadoHoras": 1,
+    "fechaPresorteoFormato": "",
+    "informacionSorteoIntro": "Consulta aquí la información más importante del sorteo antes de participar. Al comprar, aceptas estas condiciones.",
+    "modalFinalizadoSnapshot": null,
+    "intervaloLimpiezaMinutos": 10,
+    "promocionesOportunidades": {
+      "enabled": true,
+      "ejemplos": [
+        {
+          "boletos": 1,
+          "oportunidades": 5
+        },
+        {
+          "boletos": 10,
+          "oportunidades": 50
+        },
+        {
+          "boletos": 20,
+          "oportunidades": 100
+        },
+        {
+          "boletos": 50,
+          "oportunidades": 250
+        }
+      ]
+    }
+  },
+  "tema": {
+    "preset": "dorado",
+    "colores": {
+      "danger": "#dc2626",
+      "bgLight": "#f7efe0",
+      "bgWhite": "#f7efe0",
+      "primary": "#d4a017",
+      "success": "#16a34a",
+      "textDark": "#0f172a",
+      "secondary": "#3f2d14",
+      "textLight": "#707276",
+      "colorFondo": "#f7efe0",
+      "colorTexto": "#0f172a",
+      "borderColor": "#d2ccc3",
+      "primaryDark": "#a57d12",
+      "colorAccento": "#3f2d14",
+      "primaryLight": "#f1e1bc",
+      "colorPrimario": "#d4a017",
+      "colorSecundario": "#3f2d14",
+      "colorSuperficie": "#f7efe0",
+      "colorTextoSecundario": "#707276"
+    },
+    "colorFondo": "#f7efe0",
+    "colorTexto": "#0f172a",
+    "colorAcento": "#3f2d14",
+    "colorPrimario": "#d4a017",
+    "personalizado": false,
+    "colorSuperficie": "#f7efe0"
+  },
+  "cache": {
+    "policies": {
+      "adminStats": 300,
+      "oportunidades": 900,
+      "publicBoletos": 600,
+      "ordenesCliente": 120
+    },
+    "ttlSeconds": 300,
+    "enableRedis": false
+  },
+  "server": {
+    "port": 5001,
+    "trustProxy": true,
+    "compression": true
+  },
+  "cliente": {
+    "id": "Sorteos SaDev",
+    "logo": "https://res.cloudinary.com/dhwvxom01/image/upload/v1776190701/rifaplus/sorteos/logo-1776190700974-Fondo-de-5aqzh-eliminado-628fc6075b2a.webp",
+    "email": "ayairlp12@gmail.com",
+    "nombre": "Sorteos SaDev",
+    "eslogan": "Tu mejor opción para crear y administrar rifas en línea",
+    "logotipo": "https://res.cloudinary.com/dhwvxom01/image/upload/v1776190701/rifaplus/sorteos/logo-1776190700974-Fondo-de-5aqzh-eliminado-628fc6075b2a.webp",
+    "telefono": "+524591153960",
+    "prefijoOrden": "SS",
+    "redesSociales": {
+      "tiktok": "",
+      "facebook": "https://www.facebook.com/profile.php?id=61575588613338",
+      "whatsapp": "+524591153960",
+      "instagram": "https://www.instagram.com/sadev_dig/",
+      "canalWhatsapp": "https://chat.whatsapp.com/Sorteos SaDev",
+      "grupoWhatsapp": "",
+      "facebookUsuario": "SaDev",
+      "instagramUsuario": "@SaDev_Dig",
+      "canalWhatsappNombre": "Sorteos SaDev",
+      "grupoWhatsappNombre": ""
+    },
+    "imagenPrincipal": "https://res.cloudinary.com/dhwvxom01/image/upload/v1776293588/rifaplus/sorteos/principal-1776293588032-dPPHS-178e475754e5.webp",
+    "mensajesWhatsapp": {
+      "ganador": "",
+      "rechazo": "",
+      "confirmacion": "",
+      "recordatorio": ""
+    }
+  },
+  "tecnica": {
+    "bankAccounts": [
+      {
+        "id": 1,
+        "phone": "",
+        "accountType": "Tarjeta",
+        "beneficiary": "Sorteos SaDev",
+        "nombreBanco": "SANTANDER",
+        "paymentType": "transferencia",
+        "accountNumber": "1111 2222 3333 4444",
+        "numero_referencia": ""
+      },
+      {
+        "id": 2,
+        "phone": "",
+        "accountType": "Tarjeta",
+        "beneficiary": "Sorteos SaDev",
+        "nombreBanco": "BBVA",
+        "paymentType": "transferencia",
+        "accountNumber": "5555 6666 7777 8888",
+        "numero_referencia": ""
+      },
+      {
+        "id": 3,
+        "phone": "",
+        "accountType": "Tarjeta",
+        "beneficiary": "SaDev Sorteos",
+        "nombreBanco": "OXXO - SPIN",
+        "paymentType": "efectivo",
+        "accountNumber": "2222 3333 1111 4444",
+        "numero_referencia": "Tu nombre completo"
+      }
+    ]
+  },
+  "database": {
+    "pool": {
+      "max": 5,
+      "min": 1,
+      "idleTimeoutMillis": 15000,
+      "reapIntervalMillis": 1000,
+      "acquireTimeoutMillis": 30000
+    },
+    "queryTimeout": 30000
+  },
+  "marketing": {
+    "metaPixel": {
+      "enabled": false,
+      "pixelId": "",
+      "trackPageView": true,
+      "trackPurchase": true,
+      "trackAddToCart": true,
+      "trackViewContent": true,
+      "trackInitiateCheckout": true
+    }
+  },
+  "rate_limits": {
+    "production": {
+      "login": 5,
+      "general": 100,
+      "ordenes": 10,
+      "windowMs": 900000
+    },
+    "development": {
+      "login": 1000,
+      "general": 10000,
+      "ordenes": 1000,
+      "windowMs": 900000
+    }
+  },
+  "sorteoActivo": {
+    "estado": "activo",
+    "ganadores": {
+      "presorte": [],
+      "ruletazo": [],
+      "principal": []
+    },
+    "fechaCierre": null,
+    "fechaCierreFormato": ""
+  }
+}

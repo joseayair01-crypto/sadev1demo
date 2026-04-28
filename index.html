@@ -31,6 +31,44 @@
             let cachedLogo = 'images/placeholder-logo.svg';
             let cachedGallery = [];
 
+            function resolverVisibilidadLogoVerificado() {
+                const clavesSnapshot = ['rifaplus_public_snapshot_v1'];
+                const clavesConfig = ['rifaplus_config_actual_v2'];
+
+                for (const clave of clavesSnapshot) {
+                    try {
+                        const raw = localStorage.getItem(clave);
+                        if (!raw) continue;
+
+                        const parsed = JSON.parse(raw);
+                        const data = parsed?.data && typeof parsed.data === 'object' ? parsed.data : parsed;
+                        const valor = data?.rifa?.publicacion?.logoVerificadoHeader;
+                        if (valor !== undefined) {
+                            return valor !== false;
+                        }
+                    } catch (error) {}
+                }
+
+                for (const clave of clavesConfig) {
+                    try {
+                        const raw = localStorage.getItem(clave);
+                        if (!raw) continue;
+
+                        const parsed = JSON.parse(raw);
+                        const valor = parsed?.rifa?.publicacion?.logoVerificadoHeader;
+                        if (valor !== undefined) {
+                            return valor !== false;
+                        }
+                    } catch (error) {}
+                }
+
+                return true;
+            }
+
+            if (resolverVisibilidadLogoVerificado() === false) {
+                document.documentElement.classList.add('rifaplus-logo-verified-off');
+            }
+
             try {
                 configLocal = JSON.parse(localStorage.getItem('rifaplus_config_actual_v2') || '{}');
             } catch (error) {
@@ -197,6 +235,7 @@
     <script defer src="js/config.js?v=20260410.1"></script>
     <script defer src="js/config-sync.js"></script>
     <script defer src="js/meta-inyector.js"></script>
+    <script defer src="js/meta-pixel.js"></script>
     <!-- ⚙️ Detectar entorno -->
     <script defer src="js/environment-config.js"></script>
     <!-- 🔄 SINCRONIZACIÓN EN VIVO: Cambios desde panel admin → Frontend -->
@@ -345,6 +384,7 @@
                     </script>
                     <noscript><img src="images/placeholder-logo.svg" alt="Logo del organizador" class="logo-image dynamic-logo" data-dynamic-logo="true" fetchpriority="high" loading="eager" decoding="sync" width="320" height="137"></noscript>
                 </div>
+                <span class="logo-verified-badge" aria-hidden="true">✓</span>
             </a>
 
             <nav class="nav" aria-label="Navegación principal">
@@ -814,17 +854,23 @@
             <!-- PRECIO UNITARIO - Una sola tarjeta como en compra.html -->
             <div class="precios-grid-unitario">
                 <div class="precio-card-main" id="precioCardMain">
+                    <div class="precio-card-badge-corner" id="precioBadgeIndex" style="display: none;">
+                        <span id="precioBadgeIndexText">2x1</span>
+                    </div>
                     <!-- PRECIO NORMAL (cuando no hay promoción) -->
                     <div id="precioNormal" class="precio-normal-mode">
+                        <div class="precio-super-badge" id="precioSuperBadgeIndex" style="display: none;">Super promocion</div>
                         <h3>Precio por Boleto</h3>
                         <div class="precio-big"><span id="precioDinamicoIndex">Cargando...</span></div>
                     </div>
                     
                     <!-- PRECIO CON OFERTA (cuando hay promoción) -->
                     <div id="precioOferta" class="precio-oferta-mode" style="display: none;">
-                        <!-- Badge OFERTA -->
-                        <div class="oferta-badge">
-                            <span class="oferta-badge-text">OFERTA</span>
+                        <div class="oferta-topline">
+                            <div class="oferta-badge">
+                                <span class="oferta-badge-text">OFERTA</span>
+                            </div>
+                            <p class="precio-kicker">Promoción activa</p>
                         </div>
                         
                         <!-- Precio normal tachado -->
@@ -838,6 +884,7 @@
                             <h3>Precio Especial</h3>
                             <div class="precio-oferta-big" id="precioEspecialOferta">$15</div>
                         </div>
+                        <p class="precio-caption">Aprovecha este precio antes de que termine</p>
                     </div>
                 </div>
                 

@@ -11,7 +11,7 @@
     <link rel="apple-touch-icon" href="images/placeholder-logo.svg">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="css/admin-layout.css?v=20251221">
+    <link rel="stylesheet" href="css/admin-layout.css?v=20260423.6">
     <link rel="stylesheet" href="css/styles.css?v=20260407.1">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
@@ -50,7 +50,7 @@
     <script src="js/config.js?v=20260407.1"></script>
     <script src="js/config-sync.js"></script>
     <script src="js/theme-dynamic.js?v=20260414.1"></script>
-    <script src="js/admin-layout.js?v=20260414.1"></script>
+    <script src="js/admin-layout.js?v=20260423.2"></script>
     <script src="js/admin-header-user.js?v=20260406.1"></script>
     <script src="js/modal-scroll-lock.js"></script>
     <script>
@@ -338,19 +338,6 @@
         /**
          * Contenedor del dashboard como flex layout
          */
-        .dashboard {
-            display: none;
-            flex-direction: column;
-            min-height: 100vh;
-        }
-
-        /**
-         * Dashboard visible cuando está autenticado
-         */
-        .dashboard.logged-in {
-            display: flex;
-        }
-
         /* ========================================================== */
         /* SECCIÓN 4: HEADER Y NAVEGACIÓN SUPERIOR                    */
         /* ========================================================== */
@@ -686,26 +673,6 @@
         }
         
         /* Usar el ID del nuevo main content */
-        #adminMain {
-            width: 100%;
-            padding-top: calc(var(--header-height) + 1.5rem);
-            padding-right: 2rem;
-            padding-bottom: 2rem;
-            padding-left: 2rem;
-        }
-        
-        /* Hacer que el dashboard sea flex */
-        .dashboard {
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
-        }
-        
-        /* Hacer que el contenedor de main sea flex */
-        .dashboard > .admin-main {
-            flex: 1;
-        }
-
         /* ========================================================== */
         /* SECCIÓN 7: GRID DE ESTADÍSTICAS                            */
         /* ========================================================== */
@@ -793,6 +760,49 @@
 
         .stat-card.clickable.danger:hover {
             box-shadow: 0 8px 24px rgba(228, 22, 58, 0.2);
+        }
+
+        .stats-grid[data-stats-ready="false"] .stat-card {
+            pointer-events: none;
+        }
+
+        .stats-grid[data-stats-ready="false"] .stat-value,
+        .stats-grid[data-stats-ready="false"] .stat-subtext span,
+        .stats-grid[data-stats-ready="false"] #progressSold,
+        .stats-grid[data-stats-ready="false"] #progressReserved,
+        .stats-grid[data-stats-ready="false"] #progressRemaining {
+            color: transparent !important;
+            position: relative;
+            border-radius: 0.4rem;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .stats-grid[data-stats-ready="false"] .stat-value::after,
+        .stats-grid[data-stats-ready="false"] .stat-subtext span::after,
+        .stats-grid[data-stats-ready="false"] #progressSold::after,
+        .stats-grid[data-stats-ready="false"] #progressReserved::after,
+        .stats-grid[data-stats-ready="false"] #progressRemaining::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            background: linear-gradient(90deg, rgba(226,232,240,0.82) 20%, rgba(241,245,249,0.98) 50%, rgba(226,232,240,0.82) 80%);
+            background-size: 220% 100%;
+            animation: stats-skeleton-wave 1.15s linear infinite;
+        }
+
+        .stats-grid[data-stats-ready="false"] .stat-value::after {
+            min-height: 1.9rem;
+        }
+
+        @keyframes stats-skeleton-wave {
+            0% {
+                background-position: 200% 0;
+            }
+            100% {
+                background-position: -200% 0;
+            }
         }
 
         /**
@@ -1410,6 +1420,74 @@
             background: var(--bg-light);
         }
 
+        .orders-mobile-list {
+            display: none;
+        }
+
+        .order-mobile-card {
+            display: grid;
+            gap: 0.9rem;
+            padding: 1rem;
+            border-bottom: 1px solid var(--divider);
+            background: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
+        }
+
+        .order-mobile-card:last-child {
+            border-bottom: none;
+        }
+
+        .order-mobile-card__top {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 0.75rem;
+        }
+
+        .order-mobile-card__meta {
+            display: grid;
+            gap: 0.3rem;
+            min-width: 0;
+        }
+
+        .order-mobile-card__customer {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--text-dark);
+            word-break: break-word;
+        }
+
+        .order-mobile-card__date {
+            font-size: 0.78rem;
+            color: var(--text-light);
+        }
+
+        .order-mobile-card__details {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.75rem;
+        }
+
+        .order-mobile-field {
+            display: grid;
+            gap: 0.2rem;
+            min-width: 0;
+        }
+
+        .order-mobile-field__label {
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--text-light);
+        }
+
+        .order-mobile-field__value {
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: var(--text-dark);
+            word-break: break-word;
+        }
+
         .order-id {
             color: var(--primary);
             font-weight: 600;
@@ -1824,10 +1902,6 @@
          * Media query para tablets (max-width: 1024px)
          */
         @media (max-width: 1024px) {
-            #adminMain {
-                padding-top: calc(var(--header-height) + 1.35rem);
-            }
-
             .dashboard-overview {
                 grid-template-columns: 1fr;
             }
@@ -1852,6 +1926,22 @@
                 grid-template-columns: 1fr;
             }
 
+            .charts-section,
+            .charts-grid,
+            .chart-container {
+                overflow: visible;
+            }
+
+            .chart-container {
+                min-height: 360px;
+                height: auto;
+            }
+
+            .chart-container canvas {
+                height: 280px !important;
+                max-height: none;
+            }
+
             .countdown-progress-section {
                 grid-template-columns: 1fr;
                 gap: 2rem;
@@ -1869,10 +1959,6 @@
         }
 
         @media (max-width: 850px) {
-            #adminMain {
-                padding-top: calc(var(--header-height) + 1.25rem);
-            }
-
             .countdown-progress-section {
                 padding: 1.5rem;
                 gap: 1.5rem;
@@ -1960,6 +2046,7 @@
 
             .chart-container {
                 height: 350px;
+                min-height: 350px;
             }
 
             .section-header {
@@ -2040,11 +2127,92 @@
             }
         }
 
-        @media (max-width: 480px) {
-            #adminMain {
-                padding-top: calc(var(--header-height) + 1.2rem);
+        @media (max-width: 640px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
             }
 
+            .section-header {
+                gap: 0.75rem;
+            }
+
+            .pending-count {
+                align-self: flex-start;
+            }
+
+            .countdown-progress-section,
+            .orders-section,
+            .charts-section,
+            .forecast-section,
+            .dashboard-overview {
+                padding: 1rem;
+                border-radius: 1rem;
+            }
+
+            .chart-container {
+                height: 300px;
+                min-height: 300px;
+            }
+
+            .chart-filter-group {
+                display: flex;
+                width: 100%;
+                overflow-x: auto;
+                overflow-y: hidden;
+                padding: 0.35rem;
+                border-radius: 1rem;
+                scrollbar-width: none;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .chart-filter-group::-webkit-scrollbar {
+                display: none;
+            }
+
+            .chart-filter-btn {
+                flex: 0 0 auto;
+                min-height: 42px;
+                padding-inline: 0.95rem;
+            }
+
+            .orders-container {
+                overflow: hidden;
+            }
+
+            .orders-table {
+                display: none;
+            }
+
+            .orders-mobile-list {
+                display: block;
+            }
+
+            .forecast-status {
+                grid-template-columns: 1fr;
+            }
+
+            .forecast-list-item {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .order-mobile-card__details {
+                grid-template-columns: 1fr;
+            }
+
+            .order-actions {
+                display: grid;
+                grid-template-columns: 1fr;
+                gap: 0.65rem;
+            }
+
+            .btn-action {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        @media (max-width: 480px) {
             .header-content {
                 padding: 0.75rem;
             }
@@ -2187,8 +2355,9 @@
 
         <!-- MAIN CONTENT -->
         <div class="admin-main" id="adminMain">
+            <div id="adminRifaActionsMount"></div>
             <!-- STATS GRID - ORDEN FINAL ESPECIFICADO -->
-            <div class="stats-grid">
+            <div class="stats-grid" id="statsGrid" data-stats-ready="false">
                 <div class="stat-card success">
                     <div class="stat-label">
                         <i class="fas fa-ticket-alt stat-icon"></i>
@@ -2565,12 +2734,629 @@
                 .replace(/<\/script/gi, '<\\/script');
         }
         
+        const DASHBOARD_REFRESH_POLICY = Object.freeze({
+            statsFallbackMs: 60000,
+            chartsFallbackMs: 120000,
+            pendingFallbackMs: 90000
+        });
+
         let tokenAutenticacion = null; // Variable para compatibilidad, pero usar obtenerTokenActual()
         let intervaloConteoRegresivo = null;
         let intervaloEstadisticas = null;
+        let intervaloGraficas = null;
+        let intervaloOrdenesPendientes = null;
         let graficoDistribucion = null;
         let graficoTendencia = null;
         let rangoActual = '7';
+        let realtimeDashboardRefreshTimeoutId = null;
+        let realtimePendingRefreshTimeoutId = null;
+        let realtimeChartsRefreshTimeoutId = null;
+        let realtimeOpportunitiesRefreshTimeoutId = null;
+        let dashboardStatsAbortController = null;
+        let dashboardChartsAbortController = null;
+        let dashboardPendingAbortController = null;
+        let dashboardOpportunitiesAbortController = null;
+        let dashboardStatsRequestSeq = 0;
+        let dashboardChartsRequestSeq = 0;
+        let dashboardPendingRequestSeq = 0;
+        let dashboardOpportunitiesRequestSeq = 0;
+        let dashboardSocketAdmin = null;
+        let dashboardSocketAdminWarned = false;
+        let ultimaRifaStatsAplicada = null;
+        let dashboardStatsSnapshot = null;
+        let pendingOrdersCache = [];
+        let processedAdminOrderEvents = new Map();
+        function obtenerRifaActivaDashboard() {
+            const adminLayoutId = Number.parseInt(ADMIN_LAYOUT?.getActiveRifaId?.(), 10);
+            if (Number.isInteger(adminLayoutId) && adminLayoutId > 0) {
+                return adminLayoutId;
+            }
+
+            const storageId = Number.parseInt(localStorage.getItem('rifaplus_admin_rifa_id') || '', 10);
+            return Number.isInteger(storageId) && storageId > 0 ? storageId : null;
+        }
+
+        function obtenerClaveRifaDashboard() {
+            const rifaId = obtenerRifaActivaDashboard();
+            const slug = String(window.rifaplusConfig?._adminRifaContext?.slug || '').trim();
+
+            if (rifaId) return `rifa:${rifaId}`;
+            if (slug) return `slug:${slug}`;
+            return 'rifa:default';
+        }
+
+        function construirUrlPublicaDashboard(path) {
+            const url = new URL(String(path || ''), URL_API);
+            const slug = String(window.rifaplusConfig?._adminRifaContext?.slug || '').trim();
+            const rifaId = obtenerRifaActivaDashboard();
+
+            if (!url.searchParams.has('rifa') && !url.searchParams.has('slug') && slug) {
+                url.searchParams.set('rifa', slug);
+            } else if (!url.searchParams.has('rifa_id') && rifaId) {
+                url.searchParams.set('rifa_id', String(rifaId));
+            }
+
+            return url.toString();
+        }
+
+        function mostrarFeedbackDashboard(mensaje, tipo = 'info') {
+            try {
+                if (window.rifaplusUtils?.showFeedback) {
+                    window.rifaplusUtils.showFeedback(mensaje, tipo);
+                    return;
+                }
+            } catch (error) {
+                console.warn('No se pudo usar rifaplusUtils.showFeedback:', error?.message || error);
+            }
+
+            console.log(`[${String(tipo || 'info').toUpperCase()}] ${mensaje}`);
+        }
+
+        function establecerCargaTarjetasDashboard(loading, options = {}) {
+            const statsGrid = document.getElementById('statsGrid');
+            if (!statsGrid) return;
+
+            if (loading) {
+                if (options.preserveReadyState !== true) {
+                    statsGrid.setAttribute('data-stats-ready', 'false');
+                }
+                statsGrid.setAttribute('aria-busy', 'true');
+                return;
+            }
+
+            statsGrid.setAttribute('data-stats-ready', 'true');
+            statsGrid.setAttribute('aria-busy', 'false');
+        }
+
+        function debeMostrarCargaVisibleEstadisticas(options = {}, rifaKey = obtenerClaveRifaDashboard()) {
+            if (options?.showLoading === true) {
+                return true;
+            }
+
+            if (options?.silent === true) {
+                return false;
+            }
+
+            return ultimaRifaStatsAplicada !== rifaKey;
+        }
+
+        function estadoCuentaComoPendienteDashboard(estado) {
+            const normalizado = String(estado || '').trim().toLowerCase();
+            return normalizado === 'pendiente' || normalizado === 'comprobante_recibido';
+        }
+
+        function estadoCuentaComoVentaConfirmadaDashboard(estado) {
+            const normalizado = String(estado || '').trim().toLowerCase();
+            return normalizado === 'confirmada' || normalizado === 'completada';
+        }
+
+        function estadoCuentaComoApartadoDashboard(estado) {
+            return estadoCuentaComoPendienteDashboard(estado);
+        }
+
+        function esOrdenPendienteDashboard(orden = {}) {
+            return estadoCuentaComoPendienteDashboard(orden.estado);
+        }
+
+        function normalizarOrdenDashboard(orden = {}) {
+            return {
+                numero_orden: String(orden.numero_orden || orden.id || '').trim(),
+                id: orden.id || orden.numero_orden || '',
+                rifa_id: Number.parseInt(orden.rifa_id, 10) || null,
+                nombre_cliente: orden.nombre_cliente || orden.cliente_nombre || '',
+                telefono_cliente: orden.telefono_cliente || '',
+                estado: String(orden.estado || 'pendiente').trim().toLowerCase(),
+                cantidad_boletos: Number(orden.cantidad_boletos || orden.cantidad || 0),
+                total: Number(orden.total || 0),
+                comprobante_path: orden.comprobante_path || null,
+                created_at: orden.created_at || null,
+                updated_at: orden.updated_at || orden.created_at || null
+            };
+        }
+
+        function ordenarPendientesDashboard(ordenes = []) {
+            return [...ordenes].sort((a, b) => {
+                const fechaB = new Date(b?.created_at || b?.updated_at || 0).getTime() || 0;
+                const fechaA = new Date(a?.created_at || a?.updated_at || 0).getTime() || 0;
+                return fechaB - fechaA;
+            });
+        }
+
+        function renderizarOrdenesPendientesDashboard(ordenes = []) {
+            const contenedor = document.getElementById('ordersContainer');
+            if (!contenedor) return;
+
+            if (!Array.isArray(ordenes) || ordenes.length === 0) {
+                contenedor.innerHTML = '<div class="orders-empty">✅ No hay órdenes pendientes</div>';
+                actualizarResumenPendientesDashboard(0);
+                return;
+            }
+
+            actualizarResumenPendientesDashboard(ordenes.length);
+
+            let html = '<table class="orders-table"><thead><tr>';
+            html += '<th>Orden ID</th>';
+            html += '<th>Cliente</th>';
+            html += '<th>Total</th>';
+            html += '<th>Estado</th>';
+            html += '<th>Fecha</th>';
+            html += '<th>Acciones</th>';
+            html += '</tr></thead><tbody>';
+
+            ordenes.forEach((orden) => {
+                const claseEstado = `status-${orden.estado || 'pendiente'}`;
+                const fechaFormato = orden.created_at ? new Date(orden.created_at).toLocaleDateString('es-MX') : '-';
+                const numeroOrdenSeguro = escapeHtmlAdmin(orden.numero_orden || orden.id || '-');
+                const clienteSeguro = escapeHtmlAdmin(orden.nombre_cliente || orden.cliente_nombre || '-');
+                const estadoSeguro = escapeHtmlAdmin(orden.estado || 'Pendiente');
+                const fechaSegura = escapeHtmlAdmin(fechaFormato);
+                const numeroOrdenJs = escapeJsSingleQuote(orden.numero_orden || orden.id || '');
+                html += `<tr>`;
+                html += `<td class="order-id">${numeroOrdenSeguro}</td>`;
+                html += `<td>${clienteSeguro}</td>`;
+                html += `<td>$${parseFloat(orden.total || 0).toLocaleString('es-MX')}</td>`;
+                html += `<td><span class="order-status ${claseEstado}">${estadoSeguro}</span></td>`;
+                html += `<td>${fechaSegura}</td>`;
+                html += `<td class="order-actions">`;
+                html += `<button class="btn-action btn-confirm" onclick="confirmarOrden('${numeroOrdenJs}')"><i class="fas fa-check"></i> Confirmar</button>`;
+                html += `<button class="btn-action btn-reject" onclick="rechazarOrden('${numeroOrdenJs}')"><i class="fas fa-times"></i> Rechazar</button>`;
+                html += `</td>`;
+                html += `</tr>`;
+            });
+
+            html += '</tbody></table>';
+            html += renderOrdenesPendientesComoTarjetas(ordenes);
+            contenedor.innerHTML = html;
+        }
+
+        function dashboardTieneOportunidadesHabilitadas() {
+            return window.rifaplusConfig?.rifa?.oportunidades?.enabled === true;
+        }
+
+        function actualizarSnapshotEstadisticasDashboard(snapshot) {
+            if (!snapshot) return;
+
+            const totalBoletos = Math.max(0, Number(snapshot.totalBoletos) || 0);
+            const vendidos = Math.max(0, Number(snapshot.vendidos) || 0);
+            const apartados = Math.max(0, Number(snapshot.apartados) || 0);
+            const pendientes = Math.max(0, Number(snapshot.pendientes) || 0);
+            const ingresosConfirmados = Math.max(0, Number(snapshot.ingresosConfirmados) || 0);
+            const totalOrdenes = Math.max(0, Number(snapshot.totalOrdenes) || 0);
+            const disponibles = Math.max(0, Number.isFinite(Number(snapshot.disponibles))
+                ? Number(snapshot.disponibles)
+                : totalBoletos - vendidos - apartados);
+            const porcentaje = totalBoletos > 0
+                ? Number(((vendidos / totalBoletos) * 100).toFixed(1))
+                : 0;
+
+            dashboardStatsSnapshot = {
+                totalBoletos,
+                vendidos,
+                apartados,
+                pendientes,
+                ingresosConfirmados,
+                totalOrdenes,
+                disponibles
+            };
+
+            document.getElementById('statAvailable').textContent = disponibles.toLocaleString();
+            document.getElementById('statSold').textContent = vendidos.toLocaleString();
+            document.getElementById('statReserved').textContent = apartados.toLocaleString();
+            document.getElementById('statRevenue').textContent = `$${ingresosConfirmados.toLocaleString('es-MX', { maximumFractionDigits: 0 })}`;
+            document.getElementById('statTotalOrders').textContent = totalOrdenes.toLocaleString();
+            document.getElementById('totalTickets').textContent = totalBoletos.toLocaleString();
+
+            const progressSold = document.getElementById('progressSold');
+            const progressReserved = document.getElementById('progressReserved');
+            const progressRemaining = document.getElementById('progressRemaining');
+
+            if (progressSold) progressSold.textContent = vendidos.toLocaleString();
+            if (progressReserved) progressReserved.textContent = apartados.toLocaleString();
+            if (progressRemaining) progressRemaining.textContent = disponibles.toLocaleString();
+
+            document.getElementById('progressPercentage').textContent = `${porcentaje}%`;
+            document.getElementById('progressBar').style.width = `${porcentaje}%`;
+
+            actualizarResumenPendientesDashboard(pendientes);
+            const badgePendientes = document.getElementById('pendingBadge');
+            if (badgePendientes) {
+                if (pendientes > 0) {
+                    badgePendientes.textContent = '!';
+                    badgePendientes.style.display = 'flex';
+                } else {
+                    badgePendientes.style.display = 'none';
+                }
+            }
+            calcularPronosticoVentas();
+            actualizarResumenEjecutivo({
+                vendidos,
+                apartados,
+                disponibles,
+                pendientes,
+                ingresosConfirmados,
+                totalBoletos
+            });
+        }
+
+        function requestOpportunitiesRefreshTiempoReal(delayMs = 260) {
+            if (!dashboardTieneOportunidadesHabilitadas()) {
+                return;
+            }
+
+            if (realtimeOpportunitiesRefreshTimeoutId) {
+                clearTimeout(realtimeOpportunitiesRefreshTimeoutId);
+            }
+
+            realtimeOpportunitiesRefreshTimeoutId = setTimeout(() => {
+                realtimeOpportunitiesRefreshTimeoutId = null;
+
+                if (document.hidden) {
+                    return;
+                }
+
+                cargarEstadisticasOportunidades().catch((error) => {
+                    console.warn('Error refrescando oportunidades en tiempo real:', error?.message || error);
+                });
+            }, Math.max(140, Number(delayMs) || 260));
+        }
+
+        function actualizarOrdenPendienteEnCache(orden) {
+            const ordenNormalizada = normalizarOrdenDashboard(orden);
+            if (!ordenNormalizada.numero_orden) return;
+
+            const restante = pendingOrdersCache.filter((item) => item.numero_orden !== ordenNormalizada.numero_orden);
+            if (esOrdenPendienteDashboard(ordenNormalizada)) {
+                restante.push(ordenNormalizada);
+            }
+
+            pendingOrdersCache = ordenarPendientesDashboard(restante);
+            renderizarOrdenesPendientesDashboard(pendingOrdersCache);
+        }
+
+        function aplicarDeltaOrdenAStatsSnapshot(orden = {}, previousState = null) {
+            if (!dashboardStatsSnapshot) {
+                return false;
+            }
+
+            const cantidad = Math.max(0, Number(orden.cantidad_boletos || 0));
+            const total = Math.max(0, Number(orden.total || 0));
+            const currentState = String(orden.estado || '').trim().toLowerCase();
+            const prevState = String(previousState || '').trim().toLowerCase();
+
+            if (!cantidad || !currentState) {
+                return false;
+            }
+
+            const currentPending = estadoCuentaComoPendienteDashboard(currentState) ? 1 : 0;
+            const prevPending = estadoCuentaComoPendienteDashboard(prevState) ? 1 : 0;
+            const currentSold = estadoCuentaComoVentaConfirmadaDashboard(currentState) ? cantidad : 0;
+            const prevSold = estadoCuentaComoVentaConfirmadaDashboard(prevState) ? cantidad : 0;
+            const currentReserved = estadoCuentaComoApartadoDashboard(currentState) ? cantidad : 0;
+            const prevReserved = estadoCuentaComoApartadoDashboard(prevState) ? cantidad : 0;
+            const currentRevenue = estadoCuentaComoVentaConfirmadaDashboard(currentState) ? total : 0;
+            const prevRevenue = estadoCuentaComoVentaConfirmadaDashboard(prevState) ? total : 0;
+            const totalOrdenesDelta = prevState ? 0 : 1;
+
+            actualizarSnapshotEstadisticasDashboard({
+                ...dashboardStatsSnapshot,
+                totalOrdenes: dashboardStatsSnapshot.totalOrdenes + totalOrdenesDelta,
+                pendientes: dashboardStatsSnapshot.pendientes + (currentPending - prevPending),
+                vendidos: dashboardStatsSnapshot.vendidos + (currentSold - prevSold),
+                apartados: dashboardStatsSnapshot.apartados + (currentReserved - prevReserved),
+                ingresosConfirmados: dashboardStatsSnapshot.ingresosConfirmados + (currentRevenue - prevRevenue)
+            });
+
+            return true;
+        }
+
+        function debeRefrescarGraficasPorEventoOrden(orden = {}, previousState = null) {
+            return estadoCuentaComoVentaConfirmadaDashboard(orden?.estado)
+                || estadoCuentaComoVentaConfirmadaDashboard(previousState);
+        }
+
+        function marcarEventoAdminOrdenProcesado(kind, orden = {}, previousState = null) {
+            const numeroOrden = String(orden?.numero_orden || '').trim();
+            if (!numeroOrden) {
+                return true;
+            }
+
+            const timestamp = orden?.updated_at || orden?.created_at || '';
+            const signature = [kind, numeroOrden, previousState || '', orden?.estado || '', timestamp].join('|');
+            const now = Date.now();
+
+            for (const [key, seenAt] of processedAdminOrderEvents.entries()) {
+                if ((now - seenAt) > 5 * 60 * 1000) {
+                    processedAdminOrderEvents.delete(key);
+                }
+            }
+
+            if (processedAdminOrderEvents.has(signature)) {
+                return false;
+            }
+
+            processedAdminOrderEvents.set(signature, now);
+            return true;
+        }
+
+        function requestStatsRefreshTiempoReal(reason = 'actualizacion', delayMs = 180) {
+            if (realtimeDashboardRefreshTimeoutId) {
+                clearTimeout(realtimeDashboardRefreshTimeoutId);
+            }
+
+            realtimeDashboardRefreshTimeoutId = setTimeout(() => {
+                realtimeDashboardRefreshTimeoutId = null;
+
+                if (document.hidden) {
+                    return;
+                }
+
+                cargarEstadisticas({
+                    reason,
+                    silent: true
+                }).catch((error) => {
+                    console.warn('Error refrescando estadísticas en tiempo real:', error?.message || error);
+                });
+            }, Math.max(60, Number(delayMs) || 180));
+        }
+
+        function requestPendingRefreshTiempoReal(delayMs = 320) {
+            if (realtimePendingRefreshTimeoutId) {
+                clearTimeout(realtimePendingRefreshTimeoutId);
+            }
+
+            realtimePendingRefreshTimeoutId = setTimeout(() => {
+                realtimePendingRefreshTimeoutId = null;
+
+                if (document.hidden) {
+                    return;
+                }
+
+                cargarOrdenesPendientes().catch((error) => {
+                    console.warn('Error refrescando órdenes pendientes en tiempo real:', error?.message || error);
+                });
+            }, Math.max(120, Number(delayMs) || 320));
+        }
+
+        function requestChartsRefreshTiempoReal(delayMs = 420) {
+            if (realtimeChartsRefreshTimeoutId) {
+                clearTimeout(realtimeChartsRefreshTimeoutId);
+            }
+
+            realtimeChartsRefreshTimeoutId = setTimeout(() => {
+                realtimeChartsRefreshTimeoutId = null;
+
+                if (document.hidden) {
+                    return;
+                }
+
+                cargarGraficas(rangoActual).catch((error) => {
+                    console.warn('Error refrescando gráficas en tiempo real:', error?.message || error);
+                });
+            }, Math.max(180, Number(delayMs) || 420));
+        }
+
+        function refrescarDashboardTrasCambioOrden() {
+            cargarOrdenesPendientes().catch((error) => {
+                console.warn('Error refrescando órdenes pendientes tras cambio de orden:', error?.message || error);
+            });
+            cargarEstadisticas().catch((error) => {
+                console.warn('Error refrescando estadísticas tras cambio de orden:', error?.message || error);
+            });
+            requestChartsRefreshTiempoReal(140);
+        }
+
+        async function cargarSocketIoAdminDashboard() {
+            if (typeof window.io !== 'undefined') {
+                return true;
+            }
+
+            const scriptUrl = window.RIFAPLUS_ENV?.socketUrl
+                || window.rifaplusConfig?.obtenerSocketScriptUrl?.()
+                || 'https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.8.1/socket.io.min.js';
+
+            await new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = scriptUrl;
+                script.async = true;
+                script.onload = () => resolve(true);
+                script.onerror = () => reject(new Error('No se pudo cargar socket.io para admin-dashboard'));
+                document.head.appendChild(script);
+            });
+
+            return typeof window.io !== 'undefined';
+        }
+
+        function desconectarTiempoRealDashboard() {
+            if (realtimeDashboardRefreshTimeoutId) {
+                clearTimeout(realtimeDashboardRefreshTimeoutId);
+                realtimeDashboardRefreshTimeoutId = null;
+            }
+
+            if (realtimePendingRefreshTimeoutId) {
+                clearTimeout(realtimePendingRefreshTimeoutId);
+                realtimePendingRefreshTimeoutId = null;
+            }
+
+            if (realtimeChartsRefreshTimeoutId) {
+                clearTimeout(realtimeChartsRefreshTimeoutId);
+                realtimeChartsRefreshTimeoutId = null;
+            }
+
+            if (realtimeOpportunitiesRefreshTimeoutId) {
+                clearTimeout(realtimeOpportunitiesRefreshTimeoutId);
+                realtimeOpportunitiesRefreshTimeoutId = null;
+            }
+
+            if (dashboardStatsAbortController) {
+                dashboardStatsAbortController.abort();
+                dashboardStatsAbortController = null;
+            }
+
+            if (dashboardChartsAbortController) {
+                dashboardChartsAbortController.abort();
+                dashboardChartsAbortController = null;
+            }
+
+            if (dashboardPendingAbortController) {
+                dashboardPendingAbortController.abort();
+                dashboardPendingAbortController = null;
+            }
+
+            if (dashboardOpportunitiesAbortController) {
+                dashboardOpportunitiesAbortController.abort();
+                dashboardOpportunitiesAbortController = null;
+            }
+
+            if (dashboardSocketAdmin) {
+                dashboardSocketAdmin.disconnect();
+                dashboardSocketAdmin = null;
+            }
+
+            if (intervaloEstadisticas) {
+                clearInterval(intervaloEstadisticas);
+                intervaloEstadisticas = null;
+            }
+
+            if (intervaloGraficas) {
+                clearInterval(intervaloGraficas);
+                intervaloGraficas = null;
+            }
+
+            if (intervaloOrdenesPendientes) {
+                clearInterval(intervaloOrdenesPendientes);
+                intervaloOrdenesPendientes = null;
+            }
+        }
+
+        async function iniciarTiempoRealDashboard() {
+            if (!obtenerTokenActual()) {
+                return;
+            }
+
+            try {
+                await cargarSocketIoAdminDashboard();
+            } catch (error) {
+                console.warn('[AdminDashboardRealtime] Socket.io no disponible:', error?.message || error);
+                return;
+            }
+
+            if (typeof window.io === 'undefined') {
+                return;
+            }
+
+            if (dashboardSocketAdmin) {
+                dashboardSocketAdmin.disconnect();
+            }
+
+            const token = obtenerTokenActual();
+            const apiBase = (window.RIFAPLUS_ENV?.apiBase)
+                || (window.rifaplusConfig?.backend?.apiBase)
+                || (window.rifaplusConfig?.obtenerApiBase?.())
+                || window.location.origin;
+
+            dashboardSocketAdmin = window.io(`${apiBase}/admin-ordenes`, {
+                auth: { token },
+                reconnection: true,
+                reconnectionAttempts: 10,
+                reconnectionDelay: 2000,
+                reconnectionDelayMax: 15000,
+                transports: ['websocket', 'polling'],
+                autoConnect: true
+            });
+
+            dashboardSocketAdmin.on('connect', () => {
+                dashboardSocketAdminWarned = false;
+                debugAdminDashboard('Tiempo real conectado para dashboard');
+            });
+
+            dashboardSocketAdmin.on('disconnect', (reason) => {
+                debugAdminDashboard('Tiempo real desconectado para dashboard', reason);
+            });
+
+            dashboardSocketAdmin.on('connect_error', (error) => {
+                if (!dashboardSocketAdminWarned) {
+                    dashboardSocketAdminWarned = true;
+                    console.warn('⚠️ [AdminDashboardRealtime] Error conectando socket admin:', error?.message || error);
+                } else {
+                    debugAdminDashboard('Reintento fallido socket admin dashboard', error?.message || error);
+                }
+            });
+
+            dashboardSocketAdmin.on('adminOrdenCreada', (evento) => {
+                const ordenEvento = normalizarOrdenDashboard(evento?.orden || {});
+                if (!marcarEventoAdminOrdenProcesado('create', ordenEvento, null)) {
+                    return;
+                }
+                const rifaIdEvento = Number.parseInt(ordenEvento?.rifa_id, 10) || null;
+                const rifaActiva = obtenerRifaActivaDashboard();
+                if (rifaIdEvento && rifaActiva && rifaIdEvento !== rifaActiva) {
+                    return;
+                }
+
+                const yaExisteEnPendientes = pendingOrdersCache.some((orden) => orden.numero_orden === ordenEvento.numero_orden);
+                actualizarOrdenPendienteEnCache(ordenEvento);
+                const pudoAplicarStats = yaExisteEnPendientes
+                    ? true
+                    : aplicarDeltaOrdenAStatsSnapshot(ordenEvento, null);
+
+                if (!pudoAplicarStats) {
+                    requestStatsRefreshTiempoReal('nuevaOrden', 120);
+                }
+
+                requestOpportunitiesRefreshTiempoReal(220);
+
+                if (debeRefrescarGraficasPorEventoOrden(ordenEvento, null)) {
+                    requestChartsRefreshTiempoReal(260);
+                }
+            });
+
+            dashboardSocketAdmin.on('adminOrdenActualizada', (evento) => {
+                const ordenEvento = normalizarOrdenDashboard(evento?.orden || {});
+                const estadoAnterior = String(evento?.orden?.estado_anterior || '').trim().toLowerCase() || null;
+                if (!marcarEventoAdminOrdenProcesado('update', ordenEvento, estadoAnterior)) {
+                    return;
+                }
+                const rifaIdEvento = Number.parseInt(ordenEvento?.rifa_id, 10) || null;
+                const rifaActiva = obtenerRifaActivaDashboard();
+                if (rifaIdEvento && rifaActiva && rifaIdEvento !== rifaActiva) {
+                    return;
+                }
+
+                actualizarOrdenPendienteEnCache(ordenEvento);
+                const pudoAplicarStats = aplicarDeltaOrdenAStatsSnapshot(ordenEvento, estadoAnterior);
+                const eventoImpactaStats = Boolean(ordenEvento.cantidad_boletos > 0 || estadoAnterior);
+
+                if (!pudoAplicarStats && eventoImpactaStats) {
+                    requestStatsRefreshTiempoReal('ordenActualizada', 90);
+                }
+
+                requestOpportunitiesRefreshTiempoReal(220);
+
+                if (debeRefrescarGraficasPorEventoOrden(ordenEvento, estadoAnterior)) {
+                    requestChartsRefreshTiempoReal(240);
+                }
+            });
+        }
 
         function actualizarFiltroTendenciaActivo(rango = '7') {
             document.querySelectorAll('[data-chart-range]').forEach(boton => {
@@ -3170,7 +3956,11 @@
          * Cargar y mostrar todas las estadísticas del dashboard
          * Incluye boletos disponibles, vendidos, ingresos confirmados, etc.
          */
-        async function cargarEstadisticas() {
+        async function cargarEstadisticas(options = {}) {
+            const requestId = ++dashboardStatsRequestSeq;
+            const rifaKey = obtenerClaveRifaDashboard();
+            const showLoading = debeMostrarCargaVisibleEstadisticas(options, rifaKey);
+
             try {
                 const token = obtenerTokenActual();
                 debugAdminDashboard('cargarEstadisticas token disponible', !!token);
@@ -3178,12 +3968,59 @@
                     console.error('⚠️ [cargarEstadisticas] No hay token disponible');
                     return;
                 }
-                debugAdminDashboard('cargarEstadisticas request', `${URL_API}/api/admin/stats`);
-                const respuestaEstadisticas = await fetch(`${URL_API}/api/admin/stats`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
+
+                if (dashboardStatsAbortController) {
+                    dashboardStatsAbortController.abort();
+                }
+
+                dashboardStatsAbortController = new AbortController();
+                const { signal } = dashboardStatsAbortController;
+
+                if (showLoading) {
+                    establecerCargaTarjetasDashboard(true);
+                } else {
+                    establecerCargaTarjetasDashboard(true, {
+                        preserveReadyState: true
+                    });
+                }
+
+                const urlBoletosStats = construirUrlPublicaDashboard('/api/public/boletos/stats');
+                debugAdminDashboard('cargarEstadisticas request', {
+                    admin: `${URL_API}/api/admin/stats`,
+                    boletos: urlBoletosStats,
+                    rifaKey
                 });
-                debugAdminDashboard('cargarEstadisticas status', respuestaEstadisticas.status);
-                const datosEstadisticas = await respuestaEstadisticas.json();
+
+                const [respuestaEstadisticas, respBoletosStats] = await Promise.all([
+                    fetch(`${URL_API}/api/admin/stats`, {
+                        headers: { 'Authorization': `Bearer ${token}` },
+                        cache: 'no-store',
+                        signal
+                    }),
+                    fetch(urlBoletosStats, {
+                        cache: 'no-store',
+                        signal
+                    })
+                ]);
+
+                if (requestId !== dashboardStatsRequestSeq || rifaKey !== obtenerClaveRifaDashboard()) {
+                    return;
+                }
+
+                debugAdminDashboard('cargarEstadisticas status', {
+                    admin: respuestaEstadisticas.status,
+                    boletos: respBoletosStats.status
+                });
+
+                const [datosEstadisticas, datosBoletosStats] = await Promise.all([
+                    respuestaEstadisticas.json(),
+                    respBoletosStats.json().catch(() => ({ success: false }))
+                ]);
+
+                if (requestId !== dashboardStatsRequestSeq || rifaKey !== obtenerClaveRifaDashboard()) {
+                    return;
+                }
+
                 debugAdminDashboard('cargarEstadisticas response', datosEstadisticas);
                 if (!datosEstadisticas.success) throw new Error(datosEstadisticas.message);
 
@@ -3191,42 +4028,26 @@
                 const config = window.rifaplusConfig || {};
                 const totalBoletosDisponibles = obtenerTotalBoletosDashboard();
 
-                // Obtener datos resumidos de boletos desde endpoint liviano
-                let vendidos = 0, apartados = 0;
-                try {
-                    const respBoletosStats = await fetch(`${URL_API}/api/public/boletos/stats`, {
-                        cache: 'no-store'
-                    });
-                    const datosBoletosStats = await respBoletosStats.json();
-                    if (datosBoletosStats.success) {
-                        vendidos = Number(datosBoletosStats.data?.vendidos || 0);
-                        apartados = Number(datosBoletosStats.data?.apartados || 0);
-                    }
-                } catch (error) {
-                    console.warn('Error cargando resumen de boletos:', error);
+                let vendidos = 0;
+                let apartados = 0;
+                if (datosBoletosStats.success) {
+                    vendidos = Number(datosBoletosStats.data?.vendidos || 0);
+                    apartados = Number(datosBoletosStats.data?.apartados || 0);
+                } else {
+                    console.warn('Error cargando resumen de boletos contextualizado:', datosBoletosStats?.message || 'Respuesta inválida');
                 }
 
                 const disponibles = Math.max(0, Number(totalBoletosDisponibles) - (Number(vendidos) + Number(apartados)));
-                const porcentaje = totalBoletosDisponibles > 0 ? Number(((Number(vendidos) / Number(totalBoletosDisponibles)) * 100).toFixed(1)) : 0;
-                
-                // Contar órdenes pendientes: incluye 'pendiente' + 'comprobante_recibido'
-                // Forzar conversión a número para evitar concatenación de strings (ej. '1' + '1' -> '11')
+
                 const cantidadPendiente = Number(estadisticas.por_estado?.find(e => e.estado === 'pendiente')?.cantidad || 0);
                 const cantidadComprobante = Number(estadisticas.por_estado?.find(e => e.estado === 'comprobante_recibido')?.cantidad || 0);
                 const pendientes = cantidadPendiente + cantidadComprobante;
-                
-                // Calcular ingresos confirmados usando stats agregadas
+
                 let ingresosConfirmados = parseFloat(estadisticas.ingresos_confirmados || 0);
-                if (isNaN(ingresosConfirmados)) {
+                if (Number.isNaN(ingresosConfirmados)) {
                     ingresosConfirmados = parseFloat(estadisticas.ingresos_totales || 0);
                 }
 
-                // Actualizar estadísticas en la interfaz
-                document.getElementById('statAvailable').textContent = Number(disponibles).toLocaleString();
-                document.getElementById('statSold').textContent = Number(vendidos).toLocaleString();
-                document.getElementById('statPending').textContent = Number(pendientes).toLocaleString();
-                
-                // 🔔 Actualizar badge de órdenes pendientes
                 const badgePendientes = document.getElementById('pendingBadge');
                 if (badgePendientes && pendientes > 0) {
                     badgePendientes.textContent = '!';
@@ -3234,53 +4055,67 @@
                 } else if (badgePendientes) {
                     badgePendientes.style.display = 'none';
                 }
-                document.getElementById('statReserved').textContent = Number(apartados).toLocaleString();
-                document.getElementById('statRevenue').textContent = `$${Number(ingresosConfirmados).toLocaleString('es-MX', { maximumFractionDigits: 0 })}`;
-                document.getElementById('statTotalOrders').textContent = Number(estadisticas.total_ordenes || 0).toLocaleString();
-                document.getElementById('totalTickets').textContent = Number(totalBoletosDisponibles).toLocaleString();
-
-                const progressSold = document.getElementById('progressSold');
-                const progressReserved = document.getElementById('progressReserved');
-                const progressRemaining = document.getElementById('progressRemaining');
-
-                if (progressSold) progressSold.textContent = Number(vendidos).toLocaleString();
-                if (progressReserved) progressReserved.textContent = Number(apartados).toLocaleString();
-                if (progressRemaining) progressRemaining.textContent = Number(disponibles).toLocaleString();
-
-                // Actualizar barra de progreso
-                document.getElementById('progressPercentage').textContent = `${porcentaje}%`;
-                document.getElementById('progressBar').style.width = `${porcentaje}%`;
-
-                // ✨ CARGAR ESTADÍSTICAS DE OPORTUNIDADES si están habilitadas
-                const oportunidadesHabilitadas = config.rifa?.oportunidades?.enabled === true;
-                debugAdminDashboard('cargarEstadisticas config rifa', config.rifa);
-                debugAdminDashboard('cargarEstadisticas oportunidades habilitadas', oportunidadesHabilitadas);
-                
-                // ✅ SOLO mostrar si están habilitadas en config
-                if (oportunidadesHabilitadas) {
-                    debugAdminDashboard('cargarEstadisticas cargando oportunidades');
-                    await cargarEstadisticasOportunidades();
-                } else {
-                    debugAdminDashboard('cargarEstadisticas oportunidades deshabilitadas');
-                    // Ocultar tarjetas si están deshabilitadas
-                    document.getElementById('oportunidadesCard').style.display = 'none';
-                    document.getElementById('oportunidadesAsignadasCard').style.display = 'none';
-                    document.getElementById('oportunidadesApartadasCard').style.display = 'none';
-                }
-                
-                // 🎯 Actualizar pronóstico después de cargar stats
-                calcularPronosticoVentas();
-                actualizarResumenEjecutivo({
+                actualizarSnapshotEstadisticasDashboard({
                     vendidos,
                     apartados,
                     disponibles,
                     pendientes,
                     ingresosConfirmados,
+                    totalOrdenes: Number(estadisticas.total_ordenes || 0),
                     totalBoletos: Number(totalBoletosDisponibles)
                 });
-                
+
+                const oportunidadesHabilitadas = config.rifa?.oportunidades?.enabled === true;
+                debugAdminDashboard('cargarEstadisticas config rifa', config.rifa);
+                debugAdminDashboard('cargarEstadisticas oportunidades habilitadas', oportunidadesHabilitadas);
+
+                if (oportunidadesHabilitadas) {
+                    debugAdminDashboard('cargarEstadisticas cargando oportunidades');
+                    await cargarEstadisticasOportunidades({ rifaKey });
+                } else {
+                    debugAdminDashboard('cargarEstadisticas oportunidades deshabilitadas');
+                    document.getElementById('oportunidadesCard').style.display = 'none';
+                    document.getElementById('oportunidadesAsignadasCard').style.display = 'none';
+                    document.getElementById('oportunidadesApartadasCard').style.display = 'none';
+                }
+
+                ultimaRifaStatsAplicada = rifaKey;
+                establecerCargaTarjetasDashboard(false);
             } catch (error) {
+                if (error?.name === 'AbortError') {
+                    debugAdminDashboard('cargarEstadisticas abortada por nueva solicitud');
+                    return;
+                }
+
                 console.error('Error cargando estadísticas:', error);
+            } finally {
+                if (requestId === dashboardStatsRequestSeq && rifaKey === obtenerClaveRifaDashboard()) {
+                    establecerCargaTarjetasDashboard(false);
+                }
+            }
+        }
+
+        function actualizarResumenPendientesDashboard(totalPendientes) {
+            const pendientesNormalizados = Math.max(0, Number(totalPendientes) || 0);
+            const statPending = document.getElementById('statPending');
+            const pendingCount = document.getElementById('pendingCount');
+            const badgePendientes = document.getElementById('pendingBadge');
+
+            if (statPending) {
+                statPending.textContent = pendientesNormalizados.toLocaleString();
+            }
+
+            if (pendingCount) {
+                pendingCount.textContent = pendientesNormalizados.toLocaleString();
+            }
+
+            if (badgePendientes) {
+                if (pendientesNormalizados > 0) {
+                    badgePendientes.textContent = '!';
+                    badgePendientes.style.display = 'flex';
+                } else {
+                    badgePendientes.style.display = 'none';
+                }
             }
         }
 
@@ -3288,7 +4123,9 @@
          * Cargar estadísticas de oportunidades desde endpoint backend
          * Datos REALES de BD - 3 cards: Disponibles, Asignadas, Apartadas
          */
-        async function cargarEstadisticasOportunidades() {
+        async function cargarEstadisticasOportunidades(options = {}) {
+            const requestId = ++dashboardOpportunitiesRequestSeq;
+            const rifaKey = options?.rifaKey || obtenerClaveRifaDashboard();
             try {
                 debugAdminDashboard('cargarEstadisticasOportunidades iniciando');
 
@@ -3299,6 +4136,13 @@
                 }
 
                 debugAdminDashboard('cargarEstadisticasOportunidades token disponible');
+
+                if (dashboardOpportunitiesAbortController) {
+                    dashboardOpportunitiesAbortController.abort();
+                }
+
+                dashboardOpportunitiesAbortController = new AbortController();
+                const { signal } = dashboardOpportunitiesAbortController;
 
                 // Mostrar las 3 tarjetas
                 const cardDisp = document.getElementById('oportunidadesCard');
@@ -3319,7 +4163,9 @@
                     headers: { 
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
-                    }
+                    },
+                    cache: 'no-store',
+                    signal
                 });
 
 
@@ -3328,6 +4174,10 @@
                 }
 
                 const datos = await respuesta.json();
+
+                if (requestId !== dashboardOpportunitiesRequestSeq || rifaKey !== obtenerClaveRifaDashboard()) {
+                    return;
+                }
 
                 if (!datos.success || !datos.data) {
                     throw new Error('Respuesta inválida del endpoint');
@@ -3347,6 +4197,11 @@
                 debugAdminDashboard('cargarEstadisticasOportunidades stats', stats);
 
             } catch (error) {
+                if (error?.name === 'AbortError') {
+                    debugAdminDashboard('cargarEstadisticasOportunidades abortada por nueva solicitud');
+                    return;
+                }
+
                 console.error('❌ [cargarEstadisticasOportunidades] Error:', error.message);
                 
                 const elemAvail = document.getElementById('statOpportunitiesAvailable');
@@ -3385,13 +4240,22 @@
          * Incluye distribución de boletos y tendencia de ventas
          * @param {string} rango - Rango de tiempo para la tendencia
          */
-        async function cargarGraficas(rango) {
+        async function cargarGraficas(rango, options = {}) {
+            const requestId = ++dashboardChartsRequestSeq;
+            const rifaKey = obtenerClaveRifaDashboard();
+
             try {
                 const rangoSeleccionado = String(rango || rangoActual || '7');
                 rangoActual = rangoSeleccionado;
                 actualizarFiltroTendenciaActivo(rangoSeleccionado);
+
+                if (dashboardChartsAbortController) {
+                    dashboardChartsAbortController.abort();
+                }
+
+                dashboardChartsAbortController = new AbortController();
+                const { signal } = dashboardChartsAbortController;
                 
-                // Esperar a que Chart.js esté disponible
                 let intentos = 0;
                 while (typeof Chart === 'undefined' && intentos < 50) {
                     await new Promise(resolve => setTimeout(resolve, 50));
@@ -3404,16 +4268,20 @@
                     return;
                 }
 
-
-                // Obtener datos resumidos de boletos desde endpoint ligero
-                let vendidos = 0, disponibles = 0, apartados = 0;
+                let vendidos = 0;
+                let disponibles = 0;
+                let apartados = 0;
                 try {
-                    const respBoletosStats = await fetch(`${URL_API}/api/public/boletos/stats`, {
-                        cache: 'no-store'
+                    const respBoletosStats = await fetch(construirUrlPublicaDashboard('/api/public/boletos/stats'), {
+                        cache: 'no-store',
+                        signal
                     });
                     const datosBoletosStats = await respBoletosStats.json();
+                    if (requestId !== dashboardChartsRequestSeq || rifaKey !== obtenerClaveRifaDashboard()) {
+                        return;
+                    }
+
                     if (datosBoletosStats.success && datosBoletosStats.data) {
-                        const config = window.rifaplusConfig || {};
                         const totalBoletosDisponibles = obtenerTotalBoletosDashboard();
                         vendidos = Number(datosBoletosStats.data?.vendidos || 0);
                         apartados = Number(datosBoletosStats.data?.apartados || 0);
@@ -3421,6 +4289,9 @@
                         debugAdminDashboard('Boletos cargados para grafica de distribucion', { vendidos, disponibles, apartados });
                     }
                 } catch (error) {
+                    if (error?.name === 'AbortError') {
+                        return;
+                    }
                     console.warn('Error cargando boletos:', error);
                 }
 
@@ -3439,58 +4310,70 @@
                     distributionMeta.textContent = `${porcentajeComprometido}% del inventario ya está comprometido`;
                 }
 
-                // Generar datos de tendencia (últimos 7 días)
                 let datosGrafica = [];
-                try {
-                    const token = obtenerTokenActual();
-                    if (!token) {
-                        console.error('⚠️ [cargarGraficas] No hay token disponible');
-                        throw new Error('Token no disponible');
-                    }
-                    const respTendencia = await fetch(`${URL_API}/api/admin/sales-stats?range=${encodeURIComponent(rangoSeleccionado)}`, {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
-                    const datosTendencia = await respTendencia.json();
-                    if (datosTendencia.success && Array.isArray(datosTendencia.data) && datosTendencia.data.length > 0) {
-                        datosGrafica = datosTendencia.data;
-                        
-                        // Validar datos cargados
+                if (options.skipTrend !== true) {
+                    try {
+                        const token = obtenerTokenActual();
+                        if (!token) {
+                            console.error('⚠️ [cargarGraficas] No hay token disponible');
+                            throw new Error('Token no disponible');
+                        }
+
+                        const respTendencia = await fetch(`${URL_API}/api/admin/sales-stats?range=${encodeURIComponent(rangoSeleccionado)}`, {
+                            headers: { 'Authorization': `Bearer ${token}` },
+                            cache: 'no-store',
+                            signal
+                        });
+                        const datosTendencia = await respTendencia.json();
+
+                        if (requestId !== dashboardChartsRequestSeq || rifaKey !== obtenerClaveRifaDashboard()) {
+                            return;
+                        }
+
+                        if (datosTendencia.success && Array.isArray(datosTendencia.data) && datosTendencia.data.length > 0) {
+                            datosGrafica = datosTendencia.data;
+
+                            const hoy = new Date();
+                            const fechaHoy = hoy.getFullYear() + '-'
+                                + String(hoy.getMonth() + 1).padStart(2, '0') + '-'
+                                + String(hoy.getDate()).padStart(2, '0');
+
+                            debugAdminDashboard('Datos de tendencia cargados desde backend', {
+                                fechaHoy,
+                                total: datosGrafica.reduce((suma, d) => suma + (d.boletos || 0), 0),
+                                items: datosGrafica
+                            });
+                        } else {
+                            console.warn('No hay datos válidos del backend');
+                            throw new Error('No hay datos de tendencia');
+                        }
+                    } catch (error) {
+                        if (error?.name === 'AbortError') {
+                            return;
+                        }
+                        console.warn('⚠️ Error obteniendo datos del backend:', error);
                         const hoy = new Date();
-                        const fechaHoy = hoy.getFullYear() + '-' + 
-                                       String(hoy.getMonth() + 1).padStart(2, '0') + '-' + 
-                                       String(hoy.getDate()).padStart(2, '0');
-                        
-                        debugAdminDashboard('Datos de tendencia cargados desde backend', {
-                            fechaHoy,
-                            total: datosGrafica.reduce((suma, d) => suma + (d.boletos || 0), 0),
-                            items: datosGrafica
-                        });
-                    } else {
-                        console.warn('No hay datos válidos del backend');
-                        throw new Error('No hay datos de tendencia');
+                        const diasFallback = rangoSeleccionado === '1' ? 1 : (rangoSeleccionado === '30' ? 30 : 7);
+                        for (let i = diasFallback - 1; i >= 0; i--) {
+                            const fecha = new Date(hoy);
+                            fecha.setDate(fecha.getDate() - i);
+                            datosGrafica.push({
+                                fecha: fecha.getFullYear() + '-'
+                                    + String(fecha.getMonth() + 1).padStart(2, '0') + '-'
+                                    + String(fecha.getDate()).padStart(2, '0'),
+                                boletos: 0
+                            });
+                        }
+                        debugAdminDashboard('Usando datos vacios para tendencia');
                     }
-                } catch (error) {
-                    console.warn('⚠️ Error obteniendo datos del backend:', error);
-                    // Fallback: generar datos vacíos respetando el rango activo
-                    const hoy = new Date();
-                    const diasFallback = rangoSeleccionado === '1' ? 1 : (rangoSeleccionado === '30' ? 30 : 7);
-                    for (let i = diasFallback - 1; i >= 0; i--) {
-                        const fecha = new Date(hoy);
-                        fecha.setDate(fecha.getDate() - i);
-                        const boletosSimulados = 0; // Datos vacíos de prueba
-                        datosGrafica.push({
-                            fecha: fecha.getFullYear() + '-' + 
-                                   String(fecha.getMonth() + 1).padStart(2, '0') + '-' + 
-                                   String(fecha.getDate()).padStart(2, '0'),
-                            boletos: boletosSimulados
-                        });
-                    }
-                    debugAdminDashboard('Usando datos vacios para tendencia');
                 }
 
                 const trendMeta = document.getElementById('trendMeta');
                 const chartTrendInsight = document.getElementById('chartTrendInsight');
                 const trendChartTitle = document.getElementById('trendChartTitle');
+                if (requestId !== dashboardChartsRequestSeq || rifaKey !== obtenerClaveRifaDashboard()) {
+                    return;
+                }
                 const totalPeriodo = datosGrafica.reduce((suma, item) => suma + (parseInt(item.boletos) || 0), 0);
                 const mejorDia = datosGrafica.reduce((mejor, item) => {
                     const valor = parseInt(item.boletos) || 0;
@@ -3530,6 +4413,10 @@
                 _crearGraficoTendencia(datosGrafica);
 
             } catch (error) {
+                if (error?.name === 'AbortError') {
+                    debugAdminDashboard('cargarGraficas abortada por nueva solicitud');
+                    return;
+                }
                 console.error('Error en cargarGraficas:', error);
             }
         }
@@ -3757,11 +4644,54 @@
         /* SECCIÓN 6: CARGA DE ÓRDENES PENDIENTES                       */
         /* ============================================================ */
 
+        function renderOrdenesPendientesComoTarjetas(ordenes) {
+            const cards = ordenes.map((orden) => {
+                const claseEstado = `status-${orden.estado || 'pendiente'}`;
+                const fechaFormato = orden.created_at ? new Date(orden.created_at).toLocaleDateString('es-MX') : '-';
+                const numeroOrdenSeguro = escapeHtmlAdmin(orden.numero_orden || orden.id || '-');
+                const clienteSeguro = escapeHtmlAdmin(orden.nombre_cliente || orden.cliente_nombre || '-');
+                const estadoSeguro = escapeHtmlAdmin(orden.estado || 'Pendiente');
+                const fechaSegura = escapeHtmlAdmin(fechaFormato);
+                const totalSeguro = escapeHtmlAdmin(`$${parseFloat(orden.total || 0).toLocaleString('es-MX')}`);
+                const numeroOrdenJs = escapeJsSingleQuote(orden.numero_orden || orden.id || '');
+
+                return `
+                    <article class="order-mobile-card">
+                        <div class="order-mobile-card__top">
+                            <div class="order-mobile-card__meta">
+                                <div class="order-id">${numeroOrdenSeguro}</div>
+                                <div class="order-mobile-card__customer">${clienteSeguro}</div>
+                                <div class="order-mobile-card__date">${fechaSegura}</div>
+                            </div>
+                            <span class="order-status ${claseEstado}">${estadoSeguro}</span>
+                        </div>
+                        <div class="order-mobile-card__details">
+                            <div class="order-mobile-field">
+                                <span class="order-mobile-field__label">Total</span>
+                                <span class="order-mobile-field__value">${totalSeguro}</span>
+                            </div>
+                            <div class="order-mobile-field">
+                                <span class="order-mobile-field__label">Acciones</span>
+                                <div class="order-actions">
+                                    <button class="btn-action btn-confirm" onclick="confirmarOrden('${numeroOrdenJs}')"><i class="fas fa-check"></i> Confirmar</button>
+                                    <button class="btn-action btn-reject" onclick="rechazarOrden('${numeroOrdenJs}')"><i class="fas fa-times"></i> Rechazar</button>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+                `;
+            }).join('');
+
+            return `<div class="orders-mobile-list">${cards}</div>`;
+        }
+
         /**
          * Cargar todas las órdenes pendientes de confirmación
          * Muestra tabla con información de órdenes y opciones de acción
          */
         async function cargarOrdenesPendientes() {
+            const requestId = ++dashboardPendingRequestSeq;
+            const rifaKey = obtenerClaveRifaDashboard();
             try {
                 const token = obtenerTokenActual();
                 debugAdminDashboard('cargarOrdenesPendientes token disponible', !!token);
@@ -3771,67 +4701,44 @@
                     console.error('⚠️ [cargarOrdenesPendientes] No hay token disponible');
                     return;
                 }
+
+                if (dashboardPendingAbortController) {
+                    dashboardPendingAbortController.abort();
+                }
+
+                dashboardPendingAbortController = new AbortController();
+                const { signal } = dashboardPendingAbortController;
                 
                 const respuesta = await fetch(`${URL_API}/api/ordenes?limit=1000`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    cache: 'no-store',
+                    signal
                 });
                 
                 debugAdminDashboard('cargarOrdenesPendientes status', respuesta.status);
                 const datos = await respuesta.json();
+
+                if (requestId !== dashboardPendingRequestSeq || rifaKey !== obtenerClaveRifaDashboard()) {
+                    return;
+                }
+
                 debugAdminDashboard('cargarOrdenesPendientes response', datos);
                 
                 if (!datos.success) throw new Error(datos.message);
 
-                // Filtrar órdenes que NO están confirmadas ni canceladas (pendientes)
-                const todasOrdenes = datos.data || [];
-                const ordenes = todasOrdenes.filter(o => {
-                    const estado = o.estado || 'pendiente';
-                    return estado !== 'confirmada' && estado !== 'cancelada';
-                });
-                
-                const contenedor = document.getElementById('ordersContainer');
-                
-                if (!Array.isArray(ordenes) || ordenes.length === 0) {
-                    contenedor.innerHTML = '<div class="orders-empty">✅ No hay órdenes pendientes</div>';
-                    document.getElementById('pendingCount').textContent = '0';
+                const todasOrdenes = Array.isArray(datos.data) ? datos.data : [];
+                pendingOrdersCache = ordenarPendientesDashboard(
+                    todasOrdenes
+                        .map((orden) => normalizarOrdenDashboard(orden))
+                        .filter((orden) => esOrdenPendienteDashboard(orden))
+                );
+                renderizarOrdenesPendientesDashboard(pendingOrdersCache);
+            } catch (error) {
+                if (error?.name === 'AbortError') {
+                    debugAdminDashboard('cargarOrdenesPendientes abortada por nueva solicitud');
                     return;
                 }
 
-                document.getElementById('pendingCount').textContent = ordenes.length;
-
-                let html = '<table class="orders-table"><thead><tr>';
-                html += '<th>Orden ID</th>';
-                html += '<th>Cliente</th>';
-                html += '<th>Total</th>';
-                html += '<th>Estado</th>';
-                html += '<th>Fecha</th>';
-                html += '<th>Acciones</th>';
-                html += '</tr></thead><tbody>';
-
-                ordenes.forEach(orden => {
-                    const claseEstado = `status-${orden.estado || 'pendiente'}`;
-                    const fechaFormato = orden.created_at ? new Date(orden.created_at).toLocaleDateString('es-MX') : '-';
-                    const numeroOrdenSeguro = escapeHtmlAdmin(orden.numero_orden || orden.id || '-');
-                    const clienteSeguro = escapeHtmlAdmin(orden.nombre_cliente || orden.cliente_nombre || '-');
-                    const estadoSeguro = escapeHtmlAdmin(orden.estado || 'Pendiente');
-                    const fechaSegura = escapeHtmlAdmin(fechaFormato);
-                    const numeroOrdenJs = escapeJsSingleQuote(orden.numero_orden || orden.id || '');
-                    html += `<tr>`;
-                    html += `<td class="order-id">${numeroOrdenSeguro}</td>`;
-                    html += `<td>${clienteSeguro}</td>`;
-                    html += `<td>$${parseFloat(orden.total || 0).toLocaleString('es-MX')}</td>`;
-                    html += `<td><span class="order-status ${claseEstado}">${estadoSeguro}</span></td>`;
-                    html += `<td>${fechaSegura}</td>`;
-                    html += `<td class="order-actions">`;
-                    html += `<button class="btn-action btn-confirm" onclick="confirmarOrden('${numeroOrdenJs}')"><i class="fas fa-check"></i> Confirmar</button>`;
-                    html += `<button class="btn-action btn-reject" onclick="rechazarOrden('${numeroOrdenJs}')"><i class="fas fa-times"></i> Rechazar</button>`;
-                    html += `</td>`;
-                    html += `</tr>`;
-                });
-
-                html += '</tbody></table>';
-                contenedor.innerHTML = html;
-            } catch (error) {
                 console.error('Error cargando órdenes pendientes:', error);
                 document.getElementById('ordersContainer').innerHTML = '<div class="orders-empty">❌ Error al cargar órdenes</div>';
             }
@@ -3842,11 +4749,13 @@
         /* ============================================================ */
 
         /**
-         * Confirmar una orden como pagada
-         * @param {string} ordenId - ID de la orden a confirmar
+         * Actualizar una orden desde el dashboard
+         * @param {string} ordenId - ID de la orden a actualizar
+         * @param {string} estado - Estado destino
+         * @param {string} confirmacion - Mensaje de confirmación
          */
-        async function confirmarOrden(ordenId) {
-            if (!confirm('¿Confirmar esta orden?')) return;
+        async function actualizarEstadoOrdenDashboard(ordenId, estado, confirmacion) {
+            if (!confirm(confirmacion)) return;
             try {
                 const token = obtenerTokenActual();
                 if (!token) {
@@ -3859,15 +4768,22 @@
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ estado: 'confirmada' })
+                    body: JSON.stringify({ estado })
                 });
                 const datos = await respuesta.json();
                 if (!datos.success) throw new Error(datos.message);
-                cargarOrdenesPendientes();
-                cargarEstadisticas();
+                refrescarDashboardTrasCambioOrden();
             } catch (error) {
                 alert('Error: ' + error.message);
             }
+        }
+
+        /**
+         * Confirmar una orden como pagada
+         * @param {string} ordenId - ID de la orden a confirmar
+         */
+        async function confirmarOrden(ordenId) {
+            await actualizarEstadoOrdenDashboard(ordenId, 'confirmada', '¿Confirmar esta orden?');
         }
 
         /**
@@ -3875,28 +4791,7 @@
          * @param {string} ordenId - ID de la orden a rechazar
          */
         async function rechazarOrden(ordenId) {
-            if (!confirm('¿Rechazar esta orden?')) return;
-            try {
-                const token = obtenerTokenActual();
-                if (!token) {
-                    console.error('⚠️ No hay token disponible');
-                    return;
-                }
-                const respuesta = await fetch(`${URL_API}/api/ordenes/${ordenId}/estado`, {
-                    method: 'PUT',
-                    headers: { 
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ estado: 'rechazada' })
-                });
-                const datos = await respuesta.json();
-                if (!datos.success) throw new Error(datos.message);
-                cargarOrdenesPendientes();
-                cargarEstadisticas();
-            } catch (error) {
-                alert('Error: ' + error.message);
-            }
+            await actualizarEstadoOrdenDashboard(ordenId, 'rechazada', '¿Rechazar esta orden?');
         }
 
         function inicializarFiltrosGraficaTendencia() {
@@ -3933,6 +4828,8 @@
         async function inicializarDashboard() {
             try {
                 debugAdminDashboard('Dashboard inicializandose');
+
+                desconectarTiempoRealDashboard();
                 
                 // Ocultar opciones del sidebar según el rol del usuario
                 restringirAccesoConfiguracion();
@@ -3959,17 +4856,24 @@
                 
                 debugAdminDashboard('Dashboard inicializado completamente');
                 
-                // Intervalos con espaciado para no saturar
+                // Polling de respaldo: más espaciado porque el socket ya cubre el tiempo real.
                 intervaloEstadisticas = setInterval(() => {
-                    cargarEstadisticas().catch(e => console.warn('Error en intervalo de stats:', e));
-                }, 15000);  // 15 segundos
+                    cargarEstadisticas({ silent: true }).catch(e => console.warn('Error en intervalo de stats:', e));
+                }, DASHBOARD_REFRESH_POLICY.statsFallbackMs);
+
+                intervaloGraficas = setInterval(() => {
+                    cargarGraficas(rangoActual).catch(e => console.warn('Error en intervalo de gráficas:', e));
+                }, DASHBOARD_REFRESH_POLICY.chartsFallbackMs);
                 
-                setInterval(() => {
+                intervaloOrdenesPendientes = setInterval(() => {
                     cargarOrdenesPendientes().catch(e => console.warn('Error en intervalo de órdenes:', e));
-                }, 60000); // 60 segundos
+                }, DASHBOARD_REFRESH_POLICY.pendingFallbackMs);
                 
                 // Inicializar toggle de visibilidad de ingresos
                 configurarToggleVisibilidad();
+                iniciarTiempoRealDashboard().catch((error) => {
+                    console.warn('No se pudo iniciar tiempo real del dashboard:', error?.message || error);
+                });
             } catch (error) {
                 console.error('Error inicializando dashboard:', error);
             }
@@ -4021,6 +4925,18 @@
         /**
          * Verificar token guardado y cargar dashboard si existe
          */
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && obtenerTokenActual()) {
+                requestStatsRefreshTiempoReal('visibilidad', 80);
+                requestChartsRefreshTiempoReal(160);
+                requestPendingRefreshTiempoReal(140);
+            }
+        });
+
+        window.addEventListener('beforeunload', () => {
+            desconectarTiempoRealDashboard();
+        });
+
         window.addEventListener('load', async () => {
             await inicializarConfiguracion();
             if (window.rifaplusConfig && typeof window.rifaplusConfig.escucharEvento === 'function' && !window.__adminDashboardCountdownSyncHook) {

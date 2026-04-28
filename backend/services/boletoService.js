@@ -12,6 +12,7 @@
 
 const db = require('../db');
 const retryService = require('./retryService');
+const { normalizeRifaContext, applyRifaScope } = require('./rifaScope');
 
 class BoletoService {
   static INVENTARIO_LOCK_KEY = 48200117;
@@ -69,6 +70,14 @@ class BoletoService {
     return Number.parseInt(valor, 10) || 0;
   }
 
+  static _normalizarContextoRifa(contexto = {}) {
+    return normalizeRifaContext(contexto);
+  }
+
+  static _whereRifa(query, contexto = {}) {
+    return applyRifaScope(query, contexto);
+  }
+
   static async _conLockInventario(callback) {
     return db.transaction(async (trx) => {
       const lockResult = await trx.raw('SELECT pg_try_advisory_xact_lock(?) AS locked', [this.INVENTARIO_LOCK_KEY]);
@@ -92,7 +101,7 @@ class BoletoService {
   static async sincronizarSecuenciaId(tableName, runner = db) {
     this._assertTablaConSecuencia(tableName);
     const row = await runner(tableName).max('id as maxId').first();
-    const maxId = Number.parseInt(row?.maxId, 10) || 0;
+    const maxId = Number.parseInt(row?.maxId ?? row?.maxid, 10) || 0;
 
     if (maxId > 0) {
       await runner.raw(`SELECT setval(pg_get_serial_sequence('${tableName}', 'id'), ?, true)`, [maxId]);
@@ -102,24 +111,24 @@ class BoletoService {
     await this.reiniciarSecuenciaId(tableName, runner);
   }
 
-  static async obtenerResumenInventario(totalBoletosConfigurado = 0, runner = db) {
+  static async obtenerResumenInventario(totalBoletosConfigurado = 0, runner = db, contexto = {}) {
     const totalConfig = Number.parseInt(totalBoletosConfigurado, 10) || 0;
 
     const [general, estados, oportunidades] = await Promise.all([
-      runner('boletos_estado')
+      this._whereRifa(runner('boletos_estado'), contexto)
         .select(
           runner.raw('COUNT(*)::int AS total'),
           runner.raw('COALESCE(MIN(numero), 0)::int AS minimo'),
           runner.raw('COALESCE(MAX(numero), 0)::int AS maximo')
         )
         .first(),
-      runner('boletos_estado')
+      this._whereRifa(runner('boletos_estado'), contexto)
         .select(
           'estado',
           runner.raw('COUNT(*)::int AS cantidad')
         )
         .groupBy('estado'),
-      runner('orden_oportunidades')
+      this._whereRifa(runner('orden_oportunidades'), contexto)
         .select(
           runner.raw('COUNT(*)::int AS total_oportunidades'),
           runner.raw('COUNT(DISTINCT numero_boleto)::int AS boletos_con_oportunidades')
@@ -158,8 +167,9 @@ class BoletoService {
     };
   }
 
-  static async previsualizarRangoBoletos(rangoNormalizado, runner = db) {
+  static async previsualizarRangoBoletos(rangoNormalizado, runner = db, contexto = {}) {
     const { inicio, fin, cantidad, totalBoletosConfigurado } = rangoNormalizado;
+    const { rifaId } = this._normalizarContextoRifa(contexto);
 
     const query = await runner.raw(`
       SELECT
@@ -190,13 +200,15 @@ class BoletoService {
             COUNT(*)::int AS total_oportunidades,
             SUM(CASE WHEN estado <> 'disponible' OR numero_orden IS NOT NULL THEN 1 ELSE 0 END)::int AS oportunidades_bloqueadas
           FROM orden_oportunidades
-          WHERE numero_boleto BETWEEN ? AND ?
+          WHERE (?::int IS NULL OR rifa_id = ?::int)
+            AND numero_boleto BETWEEN ? AND ?
           GROUP BY numero_boleto
         ) opp_stats
           ON opp_stats.numero_boleto = be.numero
-        WHERE be.numero BETWEEN ? AND ?
+        WHERE (?::int IS NULL OR be.rifa_id = ?::int)
+          AND be.numero BETWEEN ? AND ?
       ) inventario
-    `, [inicio, fin, inicio, fin]);
+    `, [rifaId, rifaId, inicio, fin, rifaId, rifaId, inicio, fin]);
 
     const row = query?.rows?.[0] || {};
     const existentes = this._enteroDesdeFila(row.existentes);
@@ -218,10 +230,11 @@ class BoletoService {
     };
   }
 
-  static async poblarRangoBoletos(rangoNormalizado) {
+  static async poblarRangoBoletos(rangoNormalizado, contexto = {}) {
+    const { rifaId } = this._normalizarContextoRifa(contexto);
     return this._conLockInventario(async (trx) => {
-      const preview = await this.previsualizarRangoBoletos(rangoNormalizado, trx);
-      const totalTablaAntes = await trx('boletos_estado').count('* as total').first();
+      const preview = await this.previsualizarRangoBoletos(rangoNormalizado, trx, { rifaId });
+      const totalTablaAntes = await this._whereRifa(trx('boletos_estado'), { rifaId }).count('* as total').first();
       const tablaVaciaAntes = this._enteroDesdeFila(totalTablaAntes?.total) === 0;
 
       if (preview.faltantes <= 0) {
@@ -233,18 +246,23 @@ class BoletoService {
 
       if (tablaVaciaAntes) {
         await this.reiniciarSecuenciaId('boletos_estado', trx);
+      } else {
+        await this.sincronizarSecuenciaId('boletos_estado', trx);
       }
+
+      const maxIdRow = await trx('boletos_estado').max('id as maxId').first();
+      const maxIdActual = this._enteroDesdeFila(maxIdRow?.maxId ?? maxIdRow?.maxid);
 
       const insertResult = await trx.raw(`
         WITH inserted AS (
-          INSERT INTO boletos_estado (numero, estado, created_at, updated_at)
-          SELECT gs::int, 'disponible', NOW(), NOW()
+          INSERT INTO boletos_estado (id, rifa_id, numero, estado, created_at, updated_at)
+          SELECT (?::int + ROW_NUMBER() OVER (ORDER BY gs))::int, ?::int, gs::int, 'disponible', NOW(), NOW()
           FROM generate_series(?::int, ?::int) AS gs
-          ON CONFLICT (numero) DO NOTHING
+          ON CONFLICT (rifa_id, numero) DO NOTHING
           RETURNING numero
         )
         SELECT COUNT(*)::int AS total FROM inserted
-      `, [rangoNormalizado.inicio, rangoNormalizado.fin]);
+      `, [maxIdActual, rifaId, rangoNormalizado.inicio, rangoNormalizado.fin]);
 
       await this.sincronizarSecuenciaId('boletos_estado', trx);
 
@@ -255,9 +273,10 @@ class BoletoService {
     });
   }
 
-  static async borrarRangoBoletos(rangoNormalizado) {
+  static async borrarRangoBoletos(rangoNormalizado, contexto = {}) {
+    const { rifaId } = this._normalizarContextoRifa(contexto);
     return this._conLockInventario(async (trx) => {
-      const preview = await this.previsualizarRangoBoletos(rangoNormalizado, trx);
+      const preview = await this.previsualizarRangoBoletos(rangoNormalizado, trx, { rifaId });
 
       if (preview.boletosBorrables <= 0) {
         return {
@@ -267,7 +286,7 @@ class BoletoService {
         };
       }
 
-      const eliminados = await trx('boletos_estado')
+      const eliminados = await this._whereRifa(trx('boletos_estado'), { rifaId })
         .whereBetween('numero', [rangoNormalizado.inicio, rangoNormalizado.fin])
         .where('estado', 'disponible')
         .whereNull('numero_orden')
@@ -275,6 +294,7 @@ class BoletoService {
           this.select(trx.raw('1'))
             .from('orden_oportunidades as oo')
             .whereRaw('oo.numero_boleto = boletos_estado.numero')
+            .whereRaw('?::int IS NULL OR oo.rifa_id = ?::int', [rifaId, rifaId])
             .where(function() {
               this.whereNot('oo.estado', 'disponible').orWhereNotNull('oo.numero_orden');
             });
@@ -348,13 +368,13 @@ class BoletoService {
     );
   }
 
-  static _queryBoletosDisponibles() {
-    return db('boletos_estado')
+  static _queryBoletosDisponibles(contexto = {}) {
+    return this._whereRifa(db('boletos_estado'), contexto)
       .where('estado', 'disponible')
       .whereNull('numero_orden');
   }
 
-  static async _obtenerDisponiblesPorNumeros(numeros) {
+  static async _obtenerDisponiblesPorNumeros(numeros, contexto = {}) {
     const lista = Array.isArray(numeros)
       ? numeros.map((numero) => Number(numero)).filter((numero) => Number.isInteger(numero))
       : [];
@@ -363,21 +383,21 @@ class BoletoService {
       return [];
     }
 
-    return this._queryBoletosDisponibles()
+    return this._queryBoletosDisponibles(contexto)
       .whereIn('numero', lista)
       .select('numero');
   }
 
-  static async _obtenerVentanaDisponiblesDesde(pivote, limite) {
-    return this._queryBoletosDisponibles()
+  static async _obtenerVentanaDisponiblesDesde(pivote, limite, contexto = {}) {
+    return this._queryBoletosDisponibles(contexto)
       .where('numero', '>=', pivote)
       .select('numero')
       .orderBy('numero', 'asc')
       .limit(limite);
   }
 
-  static async _obtenerVentanaDisponiblesAntesDe(pivote, limite) {
-    return this._queryBoletosDisponibles()
+  static async _obtenerVentanaDisponiblesAntesDe(pivote, limite, contexto = {}) {
+    return this._queryBoletosDisponibles(contexto)
       .where('numero', '<', pivote)
       .select('numero')
       .orderBy('numero', 'asc')
@@ -391,9 +411,9 @@ class BoletoService {
    * @param {number} offset - Desde dónde empezar (para pagination)
    * @returns {Promise<Array>}
    */
-  static async obtenerBoletosDisponibles(limit = 50, offset = 0) {
+  static async obtenerBoletosDisponibles(limit = 50, offset = 0, contexto = {}) {
     try {
-      const boletos = await this._queryBoletosDisponibles()
+      const boletos = await this._queryBoletosDisponibles(contexto)
         .orderBy('numero', 'asc')
         .limit(limit)
         .offset(offset)
@@ -411,9 +431,9 @@ class BoletoService {
    * Cuenta cuántos boletos disponibles hay (sin cargarlos todos)
    * @returns {Promise<number>}
    */
-  static async contarBoletosDisponibles() {
+  static async contarBoletosDisponibles(contexto = {}) {
     try {
-      const resultado = await this._queryBoletosDisponibles()
+      const resultado = await this._queryBoletosDisponibles(contexto)
         .count('* as total')
         .first();
 
@@ -431,7 +451,7 @@ class BoletoService {
    * @param {number} fin
    * @returns {Promise<{sold: number[], reserved: number[]}>}
    */
-  static async obtenerEstadoNoDisponibleEnRango(inicio, fin) {
+  static async obtenerEstadoNoDisponibleEnRango(inicio, fin, contexto = {}) {
     try {
       const rangoInicio = Number(inicio);
       const rangoFin = Number(fin);
@@ -440,7 +460,7 @@ class BoletoService {
         throw new Error('Rango inválido para obtener estado de boletos');
       }
 
-      const rows = await db('boletos_estado')
+      const rows = await this._whereRifa(db('boletos_estado'), contexto)
         .whereIn('estado', ['vendido', 'apartado'])
         .whereBetween('numero', [rangoInicio, rangoFin])
         .select('numero', 'estado')
@@ -474,7 +494,7 @@ class BoletoService {
    * @param {Array<number>} excludeNumbers
    * @returns {Promise<number[]>}
    */
-  static async obtenerBoletosAleatoriosDisponibles(cantidad, excludeNumbers = []) {
+  static async obtenerBoletosAleatoriosDisponibles(cantidad, excludeNumbers = [], contexto = {}) {
     try {
       const cantidadSolicitada = Number(cantidad);
       if (!Number.isInteger(cantidadSolicitada) || cantidadSolicitada < 1) {
@@ -488,7 +508,7 @@ class BoletoService {
 
       const excludeSet = this._normalizarExclusiones(excludeNumbers, totalBoletos);
 
-      const disponiblesTotales = Number(await this.contarBoletosDisponibles()) || 0;
+      const disponiblesTotales = Number(await this.contarBoletosDisponibles(contexto)) || 0;
       if (disponiblesTotales <= 0) {
         return [];
       }
@@ -520,7 +540,7 @@ class BoletoService {
           continue;
         }
 
-        const disponibles = await this._obtenerDisponiblesPorNumeros(lote);
+        const disponibles = await this._obtenerDisponiblesPorNumeros(lote, contexto);
         const disponiblesSet = new Set(
           disponibles
             .map((row) => Number(row.numero))
@@ -555,7 +575,7 @@ class BoletoService {
    * @param {Array<number>} numeros - Números de boletos a verificar
    * @returns {Promise<{disponibles: Array, conflictos: Array}>}
    */
-  static async verificarDisponibilidad(numeros) {
+  static async verificarDisponibilidad(numeros, contexto = {}) {
     try {
       // Validar que numeros sea un array
       if (!Array.isArray(numeros)) {
@@ -581,7 +601,7 @@ class BoletoService {
       }
 
       // Query optimizada: busca solo los boletos solicitados
-      const boletos = await db('boletos_estado')
+      const boletos = await this._whereRifa(db('boletos_estado'), contexto)
         .whereIn('numero', numeros)
         .select('numero', 'estado', 'numero_orden');
 
@@ -634,9 +654,9 @@ class BoletoService {
    * @param {string} ordenId - ID de la orden
    * @returns {Promise<{success: boolean}>}
    */
-  static async confirmarVenta(ordenId) {
+  static async confirmarVenta(ordenId, contexto = {}) {
     try {
-      const resultado = await db('boletos_estado')
+      const resultado = await this._whereRifa(db('boletos_estado'), contexto)
         .where('numero_orden', ordenId)
         .where('estado', 'apartado')
         .update({
@@ -660,11 +680,14 @@ class BoletoService {
    * @param {string} ordenId - ID de la orden
    * @returns {Promise<{success: boolean, boletosLiberados: number}>}
    */
-  static async cancelarOrden(ordenId) {
+  static async cancelarOrden(ordenId, contexto = {}) {
     return db.transaction(async (trx) => {
       try {
         // PASO 1: Cambiar boletos a disponibles (por numero_orden)
-        const actualizado = await trx('boletos_estado')
+        const boletosQuery = this._whereRifa(trx('boletos_estado'), contexto);
+        const ordenesQuery = this._whereRifa(trx('ordenes'), contexto);
+
+        const actualizado = await boletosQuery.clone()
           .where('numero_orden', ordenId)
           .update({
             estado: 'disponible',
@@ -675,7 +698,7 @@ class BoletoService {
         console.log(`[BoletoService.cancelarOrden] PASO 1: ${actualizado} boletos liberados`);
 
         // PASO 2: PROTECCIÓN: Verificar que NO haya quedado ningún boleto en estado 'apartado' con esta orden
-        const huerfanos = await trx('boletos_estado')
+        const huerfanos = await this._whereRifa(trx('boletos_estado'), contexto)
           .where('numero_orden', ordenId)
           .where('estado', 'apartado')
           .count('* as cnt');
@@ -683,7 +706,7 @@ class BoletoService {
         if (huerfanos[0].cnt > 0) {
           console.warn(`⚠️  [PROTECCIÓN] ${huerfanos[0].cnt} boletos apartados aún vinculados a orden ${ordenId}`);
           // Limpiar los que quedaron
-          await trx('boletos_estado')
+          await this._whereRifa(trx('boletos_estado'), contexto)
             .where('numero_orden', ordenId)
             .update({
               estado: 'disponible',
@@ -693,7 +716,7 @@ class BoletoService {
         }
 
         // PASO 3: Cambiar orden a cancelada
-        await trx('ordenes')
+        await ordenesQuery
           .where('numero_orden', ordenId)
           .update({
             estado: 'cancelada',
@@ -714,11 +737,11 @@ class BoletoService {
    * Se ejecuta cada 5 minutos para liberar boletos no vendidos
    * @returns {Promise<{boletosLiberados: number}>}
    */
-  static async limpiarReservasExpiradas() {
+  static async limpiarReservasExpiradas(contexto = {}) {
     return db.transaction(async (trx) => {
       try {
         // Buscar órdenes pendientes más viejas que 4 horas
-        const ordenesExpiradas = await trx('ordenes')
+        const ordenesExpiradas = await this._whereRifa(trx('ordenes'), contexto)
           .where('estado', 'pendiente')
           .where('created_at', '<', new Date(Date.now() - 4 * 60 * 60 * 1000))
           .select('numero_orden');
@@ -730,7 +753,7 @@ class BoletoService {
         const ordenIds = ordenesExpiradas.map(o => o.numero_orden);
 
         // Liberar boletos
-        const resultado = await trx('boletos_estado')
+        const resultado = await this._whereRifa(trx('boletos_estado'), contexto)
           .whereIn('numero_orden', ordenIds)
           .update({
             estado: 'disponible',
@@ -739,7 +762,7 @@ class BoletoService {
           });
 
         // Marcar órdenes como expiradas
-        await trx('ordenes')
+        await this._whereRifa(trx('ordenes'), contexto)
           .whereIn('numero_orden', ordenIds)
           .update({
             estado: 'expirada',
@@ -760,12 +783,12 @@ class BoletoService {
    * @param {number} totalBoletos - Cuántos crear (default 1000000)
    * @returns {Promise<{creados: number}>}
    */
-  static async inicializarBoletos(totalBoletos = 1000000) {
+  static async inicializarBoletos(totalBoletos = 1000000, contexto = {}) {
     try {
       console.log(`🚀 Inicializando ${totalBoletos} boletos...`);
 
       // Verificar cuántos existen
-      const existentes = await db('boletos_estado').count('* as total').first();
+      const existentes = await this._whereRifa(db('boletos_estado'), contexto).count('* as total').first();
       
       if (existentes.total > 0) {
         console.log(`ℹ️  Ya existen ${existentes.total} boletos en la BD`);
@@ -782,6 +805,7 @@ class BoletoService {
 
         for (let i = inicio; i <= fin; i++) {
           batch.push({
+            ...(contexto?.rifaId ? { rifa_id: contexto.rifaId } : {}),
             numero: i,
             estado: 'disponible',
             created_at: new Date(),
@@ -812,9 +836,9 @@ class BoletoService {
    * Para dashboard admin
    * @returns {Promise<Object>}
    */
-  static async obtenerEstadisticas() {
+  static async obtenerEstadisticas(contexto = {}) {
     try {
-      const stats = await db('boletos_estado')
+      const stats = await this._whereRifa(db('boletos_estado'), contexto)
         .select(
           db.raw('estado, COUNT(*) as cantidad')
         )

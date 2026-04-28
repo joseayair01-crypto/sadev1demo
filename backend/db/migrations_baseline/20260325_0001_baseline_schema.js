@@ -111,19 +111,6 @@ exports.up = async function up(knex) {
     });
   }
 
-  const hasSorteoConfiguracion = await knex.schema.hasTable('sorteo_configuracion');
-  if (!hasSorteoConfiguracion) {
-    await knex.schema.createTable('sorteo_configuracion', (table) => {
-      table.increments('id').primary();
-      table.string('clave', 100).notNullable().unique();
-      table.jsonb('valor').notNullable().defaultTo('{}');
-      table.string('actualizado_por', 255).nullable();
-      table.timestamps(true, true);
-      table.index('clave');
-      table.index('updated_at');
-    });
-  }
-
   await knex.raw(`
     ALTER TABLE boletos_estado
     DROP CONSTRAINT IF EXISTS boletos_estado_numero_orden_fk
@@ -298,7 +285,6 @@ exports.up = async function up(knex) {
 };
 
 exports.down = async function down(knex) {
-  await knex.schema.dropTableIfExists('sorteo_configuracion');
   await knex.schema.dropTableIfExists('ganadores');
   await knex.schema.dropTableIfExists('orden_oportunidades');
   await knex.schema.dropTableIfExists('boletos_estado');

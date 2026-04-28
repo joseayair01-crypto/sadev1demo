@@ -323,6 +323,22 @@ function iniciarFlujoPago() {
     }
     
     const carritoEstabaAbierto = !!(document.getElementById('carritoModal')?.classList.contains('active'));
+    const boletosCheckout = typeof window.obtenerBoletosSelecionados === 'function'
+        ? window.obtenerBoletosSelecionados()
+        : [];
+    const totalesCheckout = typeof window.calcularDescuentoGlobal === 'function'
+        ? window.calcularDescuentoGlobal(boletosCheckout.length)
+        : null;
+
+    window.RifaPlusMetaPixel?.trackInitiateCheckout?.({
+        content_name: window.rifaplusConfig?.rifa?.nombreSorteo || 'Sorteo',
+        content_category: 'rifa',
+        content_type: 'product',
+        content_ids: boletosCheckout.map((numero) => String(numero)),
+        num_items: boletosCheckout.length,
+        value: Number(totalesCheckout?.totalFinal || 0),
+        currency: 'MXN'
+    });
 
     // Cerrar carrito si está abierto
     const carritoModal = document.getElementById('carritoModal');

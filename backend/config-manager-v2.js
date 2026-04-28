@@ -4,10 +4,9 @@
  * DESCRIPCIÓN: ConfigManager V2 con persistencia en Supabase
  * 
  * FLUJO:
- * 1. Al iniciar → lee config desde la BD
- * 2. Si no existe → crea registro vacío
- * 3. Si hay error BD → carga fallback de config.json
- * 4. Al actualizar → guarda en BD + recarga en memoria
+ * 1. Al iniciar → lee config desde rifas.configuracion
+ * 2. Si hay error BD → carga fallback de config.json
+ * 3. Al actualizar → guarda en BD + recarga en memoria
  * 
  * CAMBIO IMPORTANTE:
  * - Ya NO actualiza config.json directamente
@@ -21,7 +20,7 @@ const path = require('path');
 
 /**
  * ConfigManagerV2: Gestor de configuración con persistencia en Supabase
- * - Lee desde BD primero (sorteo_configuracion)
+ * - Lee desde rifas.configuracion
  * - Fallback seguro a config.json si BD falla
  * - Guarda cambios en BD, nunca rompe estado anterior
  * 
@@ -43,6 +42,90 @@ class ConfigManagerV2 {
     console.log('📋 ConfigManagerV2 inicializándose...');
     console.log(`   - NODE_ENV: ${process.env.NODE_ENV}`);
     console.log(`   - Modo desarrollo: ${this.esDesarrollo}`);
+  }
+
+  _clonarConfig(config) {
+    return JSON.parse(JSON.stringify(config || {}));
+  }
+
+  async _obtenerRifaPrincipal() {
+    if (!this.db) return null;
+
+    const hasRifasTable = await this.db.schema.hasTable('rifas');
+    if (!hasRifasTable) {
+      return null;
+    }
+
+    return await this.db('rifas')
+      .whereNull('depurada_at')
+      .where('activa_publica', true)
+      .orderBy('id', 'asc')
+      .first()
+      || await this.db('rifas')
+        .whereNull('depurada_at')
+        .where('es_predeterminada', true)
+        .orderBy('id', 'asc')
+        .first()
+      || await this.db('rifas')
+        .whereNull('depurada_at')
+        .orderBy('id', 'asc')
+        .first();
+  }
+
+  async _cargarDesdeRifas() {
+    const rifa = await this._obtenerRifaPrincipal();
+    const config = rifa?.configuracion;
+
+    if (!config || typeof config !== 'object') {
+      return false;
+    }
+
+    this.config = this._clonarConfig(config);
+    this.lastLoadTime = Date.now();
+    this.cacheVersion++;
+
+    console.log(`✅ ConfigManagerV2: Cargado desde rifas.configuracion (rifa ${rifa.id}, v${this.cacheVersion})`);
+    return true;
+  }
+
+  async _guardarEnRifas(config, usuarioAdmin) {
+    const rifa = await this._obtenerRifaPrincipal();
+    if (!rifa?.id) {
+      return false;
+    }
+
+    const nombreRifa = String(
+      config?.rifa?.nombreSorteo
+      || config?.rifa?.edicionNombre
+      || rifa.nombre
+      || 'Rifa'
+    ).trim() || 'Rifa';
+    const estadoRifa = String(config?.rifa?.estado || rifa.estado || 'activa').trim().toLowerCase() || 'activa';
+
+    await this.db('rifas')
+      .where('id', rifa.id)
+      .update({
+        nombre: nombreRifa,
+        estado: estadoRifa,
+        configuracion: config,
+        updated_at: this.db.fn.now(),
+        actualizado_por: usuarioAdmin
+      })
+      .catch(() => this.db('rifas')
+        .where('id', rifa.id)
+        .update({
+          nombre: nombreRifa,
+          estado: estadoRifa,
+          configuracion: config,
+          updated_at: this.db.fn.now()
+        }));
+
+    this.config = this._clonarConfig(config);
+    this.lastLoadTime = Date.now();
+    this.cacheVersion++;
+
+    console.log(`✅ Configuración guardada en rifas.configuracion por: ${usuarioAdmin} (rifa ${rifa.id})`);
+    return true;
   }
 
   /**
@@ -94,66 +177,13 @@ class ConfigManagerV2 {
 
     while (intento < maxIntentos) {
       try {
-        // 🔍 Verificar si tabla existe
-        const tableExists = await this.db.schema.hasTable('sorteo_configuracion');
-        if (!tableExists) {
-          console.log('⚠️  Tabla sorteo_configuracion no existe.');
-          console.log('   Ejecuta: cd backend && node execute-persistencia-config.js');
-          throw new Error('TABLA_NO_EXISTE');
-        }
-
-        // Buscar registro con clave "config_principal"
-        const registro = await this.db('sorteo_configuracion')
-          .where('clave', 'config_principal')
-          .first()
-          .timeout(5000); // Timeout de 5 segundos
-
-        if (registro && registro.valor) {
-          this.config = typeof registro.valor === 'string' 
-            ? JSON.parse(registro.valor) 
-            : registro.valor;
-          
-          this.lastLoadTime = Date.now();
-          this.cacheVersion++;
-          
-          console.log(`✅ ConfigManagerV2: Cargado desde BD (v${this.cacheVersion})`);
+        const cargadoDesdeRifas = await this._cargarDesdeRifas();
+        if (cargadoDesdeRifas) {
           return true;
         }
 
-        // No existe registro, crear uno
-        console.log('ℹ️  Creando registro inicial en BD...');
-        const configDefault = this.getDefaultConfig();
-        
-        try {
-          await this.db('sorteo_configuracion').insert({
-            clave: 'config_principal',
-            valor: configDefault,
-            actualizado_por: 'SYSTEM_INIT'
-          });
-          console.log('✅ Registro inicial creado en BD');
-        } catch (insertError) {
-          // Si falla insert (ej: clave duplicada), actualizar
-          if (insertError.code === '23505' || insertError.message.includes('duplicate')) {
-            console.log('ℹ️  Registro ya existe, usando...');
-            const existing = await this.db('sorteo_configuracion')
-              .where('clave', 'config_principal')
-              .first();
-            if (existing) {
-              this.config = typeof existing.valor === 'string'
-                ? JSON.parse(existing.valor)
-                : existing.valor;
-            }
-          } else {
-            throw insertError;
-          }
-        }
-
-        if (!this.config) {
-          this.config = configDefault;
-        }
-        this.lastLoadTime = Date.now();
-        this.cacheVersion++;
-        return true;
+        console.log('⚠️  No se encontró una rifa activa o predeterminada para cargar configuración.');
+        throw new Error('RIFA_PRINCIPAL_NO_ENCONTRADA');
 
       } catch (err) {
         intento++;
@@ -212,45 +242,10 @@ class ConfigManagerV2 {
     }
 
     try {
-      // Intentar actualizar en BD
-      const result = await this.db('sorteo_configuracion')
-        .where('clave', 'config_principal')
-        .update({
-          valor: config,
-          actualizado_por: usuarioAdmin,
-          updated_at: this.db.fn.now(6)
-        })
-        .timeout(5000);
-
-      if (result === 0) {
-        // No existe, crear nuevo registro
-        try {
-          await this.db('sorteo_configuracion').insert({
-            clave: 'config_principal',
-            valor: config,
-            actualizado_por: usuarioAdmin
-          }).timeout(5000);
-          
-          console.log('✅ Configuración guardada en BD (nuevo registro)');
-        } catch (insertErr) {
-          if (insertErr.code === '23505' || insertErr.message.includes('duplicate')) {
-            // Clave duplicada, intentar update nuevamente
-            await this.db('sorteo_configuracion')
-              .where('clave', 'config_principal')
-              .update({ valor: config, actualizado_por: usuarioAdmin })
-              .timeout(5000);
-          } else {
-            throw insertErr;
-          }
-        }
+      const guardadoEnRifas = await this._guardarEnRifas(config, usuarioAdmin);
+      if (!guardadoEnRifas) {
+        throw new Error('RIFA_PRINCIPAL_NO_ENCONTRADA');
       }
-
-      // ✅ Guardado en BD exitoso
-      this.config = config;
-      this.lastLoadTime = Date.now();
-      this.cacheVersion++;
-      
-      console.log(`✅ Configuración guardada en BD por: ${usuarioAdmin}`);
       return true;
 
     } catch (err) {
@@ -381,6 +376,15 @@ class ConfigManagerV2 {
           enabled: false,
           reglas: []
         },
+        promocionesCombo: {
+          enabled: false,
+          reglas: []
+        },
+        maquinaSuerte: {
+          limiteBoletos: 500,
+          quickPicks: [10, 20, 50, 100],
+          mostrarNotaDisponibilidad: true
+        },
         publicacion: {
           bonos: true,
           promociones: true,
@@ -389,7 +393,8 @@ class ConfigManagerV2 {
           ruletazo: true,
           presorteo: true,
           progressBar: true,
-          progressStats: true
+          progressStats: true,
+          logoVerificadoHeader: true
         }
       },
       tema: {},

@@ -459,6 +459,9 @@
         const precioNormalDiv = document.getElementById('precioNormal');
         const precioOfertaDiv = document.getElementById('precioOferta');
         const ofertaVigenciaDiv = document.getElementById('ofertaVigencia');
+        const precioBadgeIndex = document.getElementById('precioBadgeIndex');
+        const precioBadgeIndexText = document.getElementById('precioBadgeIndexText');
+        const precioSuperBadgeIndex = document.getElementById('precioSuperBadgeIndex');
         if (!precioEl) return;
 
         const rifa = obtenerRifaPublica();
@@ -466,15 +469,41 @@
         const ahora = new Date();
         let hayPromocionActiva = false;
         let precioEspecial = precioBoleto;
+        let precioRegularReferencia = precioBoleto;
         let fechaFin = null;
         let tipoPromo = null;
+        let badgePromo = 'OFERTA';
+        let tituloPromo = 'Precio Especial';
+        let kickerPromo = 'Promocion activa';
+        let captionPromo = 'Aprovecha este precio antes de que termine';
+        const resolverVentanaPromocion = (fechaInicio, fechaFin) => {
+            const timeZone = String(rifa?.timeZone || rifa?.zonaHoraria || 'America/Mexico_City').trim() || 'America/Mexico_City';
+            const validarRango = typeof window.rifaplusConfig?.esFechaPromocionActiva === 'function'
+                ? window.rifaplusConfig.esFechaPromocionActiva
+                : null;
+            const parsearFecha = typeof window.rifaplusConfig?.parseFechaPromocion === 'function'
+                ? window.rifaplusConfig.parseFechaPromocion
+                : null;
+
+            const inicio = parsearFecha ? parsearFecha(fechaInicio, timeZone) : new Date(fechaInicio);
+            const fin = parsearFecha ? parsearFecha(fechaFin, timeZone) : new Date(fechaFin);
+            const activa = validarRango
+                ? validarRango(fechaInicio, fechaFin, ahora, timeZone)
+                : !Number.isNaN(inicio.getTime()) && !Number.isNaN(fin.getTime()) && ahora >= inicio && ahora <= fin;
+
+            return {
+                activa: Boolean(activa),
+                fin
+            };
+        };
 
         const promoTiempo = rifa?.promocionPorTiempo;
         if (promoTiempo?.enabled && promoTiempo?.precioProvisional) {
-            const fechaInicio = new Date(promoTiempo.fechaInicio);
-            const fechaFinPromo = new Date(promoTiempo.fechaFin);
-            if (ahora >= fechaInicio && ahora <= fechaFinPromo) {
+            const ventanaPromoTiempo = resolverVentanaPromocion(promoTiempo.fechaInicio, promoTiempo.fechaFin);
+            const fechaFinPromo = ventanaPromoTiempo.fin;
+            if (ventanaPromoTiempo.activa && !Number.isNaN(fechaFinPromo.getTime())) {
                 precioEspecial = promoTiempo.precioProvisional;
+                precioRegularReferencia = precioBoleto;
                 fechaFin = fechaFinPromo;
                 tipoPromo = 'tiempo';
                 hayPromocionActiva = true;
@@ -483,35 +512,95 @@
 
         const descuentoPorcentaje = rifa?.descuentoPorcentaje;
         if (descuentoPorcentaje?.enabled && descuentoPorcentaje?.porcentaje) {
-            const fechaInicio = new Date(descuentoPorcentaje.fechaInicio);
-            const fechaFinPorcentaje = new Date(descuentoPorcentaje.fechaFin);
-            if (ahora >= fechaInicio && ahora <= fechaFinPorcentaje) {
+            const ventanaDescuento = resolverVentanaPromocion(descuentoPorcentaje.fechaInicio, descuentoPorcentaje.fechaFin);
+            const fechaFinPorcentaje = ventanaDescuento.fin;
+            if (ventanaDescuento.activa && !Number.isNaN(fechaFinPorcentaje.getTime())) {
                 const descuento = (precioBoleto * descuentoPorcentaje.porcentaje) / 100;
                 const precioConPorcentaje = precioBoleto - descuento;
                 if (!hayPromocionActiva || precioConPorcentaje < precioEspecial) {
                     precioEspecial = precioConPorcentaje;
+                    precioRegularReferencia = precioBoleto;
                     fechaFin = fechaFinPorcentaje;
                     tipoPromo = 'porcentaje';
                     hayPromocionActiva = true;
+                    badgePromo = `${Math.round(((precioBoleto - precioEspecial) / precioBoleto) * 100)}% OFF`;
                 }
             }
         }
 
+        if (rifa?.promocionesCombo?.enabled === true && Array.isArray(rifa.promocionesCombo.reglas) && rifa.promocionesCombo.reglas.length > 0) {
+            const comboDestacado = rifa.promocionesCombo.reglas
+                .map((regla) => {
+                    const cantidadRecibe = Number(regla?.cantidadRecibe ?? regla?.cantidadEntrega ?? regla?.cantidad ?? 0);
+                    const cantidadPaga = Number(regla?.cantidadPaga ?? regla?.paga ?? regla?.compra ?? 0);
+                    if (!Number.isFinite(cantidadRecibe) || !Number.isFinite(cantidadPaga) || cantidadRecibe <= 1 || cantidadPaga <= 0 || cantidadPaga >= cantidadRecibe) {
+                        return null;
+                    }
+                    return {
+                        cantidadRecibe,
+                        cantidadPaga,
+                        bonificados: cantidadRecibe - cantidadPaga,
+                        etiqueta: `${cantidadRecibe}x${cantidadPaga}`
+                    };
+                })
+                .filter(Boolean)
+                .sort((a, b) => {
+                    if (b.bonificados !== a.bonificados) return b.bonificados - a.bonificados;
+                    if (a.cantidadPaga !== b.cantidadPaga) return a.cantidadPaga - b.cantidadPaga;
+                    return b.cantidadRecibe - a.cantidadRecibe;
+                })[0];
+
+            if (comboDestacado) {
+                hayPromocionActiva = true;
+                tipoPromo = 'combo';
+                precioRegularReferencia = comboDestacado.cantidadRecibe * precioBoleto;
+                precioEspecial = comboDestacado.cantidadPaga * precioBoleto;
+                fechaFin = null;
+                kickerPromo = '';
+                tituloPromo = comboDestacado.etiqueta;
+                captionPromo = `Aprovecha super promocion ${comboDestacado.etiqueta}. Recibe ${comboDestacado.cantidadRecibe} boletos y paga ${comboDestacado.cantidadPaga}`;
+            }
+        }
+
         if (hayPromocionActiva) {
+            if (tipoPromo === 'combo') {
+                if (precioNormalDiv) precioNormalDiv.style.display = 'flex';
+                if (precioOfertaDiv) precioOfertaDiv.style.display = 'none';
+                if (ofertaVigenciaDiv) ofertaVigenciaDiv.style.display = 'none';
+                if (precioBadgeIndex) precioBadgeIndex.style.display = 'flex';
+                if (precioBadgeIndexText) precioBadgeIndexText.textContent = tituloPromo || 'PROMO';
+                if (precioSuperBadgeIndex) precioSuperBadgeIndex.style.display = 'inline-flex';
+                precioEl.innerHTML = `$${precioBoleto.toFixed(2)}`;
+                programarActualizacionPrecioUnitario();
+                return;
+            }
+
+            if (precioBadgeIndex) precioBadgeIndex.style.display = 'none';
+            if (precioSuperBadgeIndex) precioSuperBadgeIndex.style.display = 'none';
             if (precioNormalDiv) precioNormalDiv.style.display = 'none';
             if (precioOfertaDiv) precioOfertaDiv.style.display = 'flex';
 
             const precioNormalOfertaEl = document.getElementById('precioNormalOferta');
             const precioEspecialOfertaEl = document.getElementById('precioEspecialOferta');
             const badgeText = document.querySelector('.oferta-badge-text');
+            const kickerEl = precioOfertaDiv?.querySelector('.precio-kicker');
+            const tituloEl = precioOfertaDiv?.querySelector('.oferta-precio-destacado h3');
+            const precioRegularTituloEl = precioOfertaDiv?.querySelector('.oferta-precio-normal h4');
+            const captionEl = document.querySelector('#precioCardMain .precio-caption');
 
-            if (precioNormalOfertaEl) precioNormalOfertaEl.textContent = `$${precioBoleto.toFixed(2)}`;
+            if (precioNormalOfertaEl) precioNormalOfertaEl.textContent = `$${precioRegularReferencia.toFixed(2)}`;
             if (precioEspecialOfertaEl) precioEspecialOfertaEl.textContent = `$${precioEspecial.toFixed(2)}`;
-            if (badgeText) {
-                badgeText.textContent = tipoPromo === 'porcentaje'
-                    ? `${Math.round(((precioBoleto - precioEspecial) / precioBoleto) * 100)}% OFF`
-                    : 'OFERTA';
+            if (badgeText) badgeText.textContent = badgePromo;
+            if (kickerEl) {
+                kickerEl.textContent = kickerPromo || '';
+                kickerEl.style.display = kickerPromo ? '' : 'none';
             }
+            if (tituloEl) tituloEl.textContent = tituloPromo;
+            if (precioRegularTituloEl) {
+                precioRegularTituloEl.textContent = 'Precio Regular';
+                precioRegularTituloEl.style.display = '';
+            }
+            if (captionEl) captionEl.textContent = captionPromo;
 
             if (ofertaVigenciaDiv && fechaFin) {
                 ofertaVigenciaDiv.style.display = 'flex';
@@ -534,6 +623,8 @@
             programarActualizacionPrecioUnitario();
         } else {
             cancelarActualizacionPrecioUnitario();
+            if (precioBadgeIndex) precioBadgeIndex.style.display = 'none';
+            if (precioSuperBadgeIndex) precioSuperBadgeIndex.style.display = 'none';
             if (precioNormalDiv) precioNormalDiv.style.display = 'flex';
             if (precioOfertaDiv) precioOfertaDiv.style.display = 'none';
             if (ofertaVigenciaDiv) ofertaVigenciaDiv.style.display = 'none';
@@ -837,6 +928,7 @@
 
         const firmaPromociones = {
             descuentos: config.descuentos || null,
+            promocionesCombo: config.promocionesCombo || null,
             promocionesOportunidades: config.promocionesOportunidades || null,
             oportunidades: config.oportunidades || null
         };

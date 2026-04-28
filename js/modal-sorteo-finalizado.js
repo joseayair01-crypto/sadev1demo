@@ -19,6 +19,28 @@ class ModalSorteoFinalizado {
         this.log('🎉 ModalSorteoFinalizado inicializado', 'constructor');
     }
 
+    esEstadoTerminal(estado) {
+        const valor = String(estado || '').trim().toLowerCase();
+        return valor === 'finalizado' || valor === 'archivada' || valor === 'depurada';
+    }
+
+    puedeAsignarPropiedad(objeto, propiedad) {
+        if (!objeto || typeof objeto !== 'object') {
+            return false;
+        }
+
+        let actual = objeto;
+        while (actual && actual !== Object.prototype) {
+            const descriptor = Object.getOwnPropertyDescriptor(actual, propiedad);
+            if (descriptor) {
+                return Boolean(descriptor.writable || descriptor.set);
+            }
+            actual = Object.getPrototypeOf(actual);
+        }
+
+        return true;
+    }
+
     /**
      * MÉTODO PRINCIPAL - Inicializa el sistema
      */
@@ -58,14 +80,39 @@ class ModalSorteoFinalizado {
                 return;
             }
 
-            const estado = config?.rifa?.estado || sorteoActivo.estado || 'activo';
+            const estadoRifa = String(config?.rifa?.estado || '').trim().toLowerCase();
+            const estado = estadoRifa || sorteoActivo.estado || 'activo';
             const ahora = Date.now();
-            const fechaCierre = new Date(sorteoActivo.fechaCierre).getTime();
+            const fechaReferencia = config?.rifa?.fechaSorteo || sorteoActivo.fechaCierre;
+            const fechaCierre = new Date(fechaReferencia).getTime();
             const tiempoRestante = fechaCierre - ahora;
 
-            // CONDICIÓN 1: Estado es directamente 'finalizado'
-            if (estado === 'finalizado') {
-                this.log('✅ Estado es FINALIZADO - Mostrando modal', 'verificacion');
+            if (!this.esEstadoTerminal(estadoRifa) && Number.isFinite(fechaCierre) && ahora < fechaCierre) {
+                if (config.sorteoActivo) {
+                    config.sorteoActivo.estado = 'activo';
+                    if (this.puedeAsignarPropiedad(config.sorteoActivo, 'fechaCierre')) {
+                        config.sorteoActivo.fechaCierre = config?.rifa?.fechaSorteo || config.sorteoActivo.fechaCierre;
+                    }
+                    config.sorteoActivo.fechaCierreFormato = config?.rifa?.fechaSorteoFormato || config.sorteoActivo.fechaCierreFormato || '';
+                }
+                if (config.rifa) {
+                    config.rifa.modalFinalizadoSnapshot = null;
+                }
+                config.permitirCompras = true;
+                return;
+            }
+
+            // CONDICIÓN 1: La rifa ya está en un estado terminal
+            if (this.esEstadoTerminal(estado)) {
+                config.permitirCompras = false;
+                if (config.sorteoActivo) {
+                    config.sorteoActivo.estado = 'finalizado';
+                }
+                if (config.rifa) {
+                    config.rifa.estado = 'finalizado';
+                }
+
+                this.log(`✅ Estado terminal detectado (${estado}) - Mostrando modal`, 'verificacion');
                 this.mostrarModal();
                 this.verificacionActiva = false;
                 return;
@@ -115,7 +162,7 @@ class ModalSorteoFinalizado {
         const sorteoActivo = config?.sorteoActivo;
         const estado = config?.rifa?.estado || sorteoActivo?.estado || 'activo';
 
-        if (estado === 'finalizado') {
+        if (this.esEstadoTerminal(estado)) {
             this.verificarEstadoSorteo();
             return;
         }
@@ -227,7 +274,7 @@ class ModalSorteoFinalizado {
     obtenerSnapshotFinalizado(config) {
         const estado = config?.rifa?.estado || config?.sorteoActivo?.estado || 'activo';
         const snapshot = config?.rifa?.modalFinalizadoSnapshot;
-        if (estado !== 'finalizado') return null;
+        if (!this.esEstadoTerminal(estado)) return null;
         if (!snapshot || typeof snapshot !== 'object') return null;
         return this.snapshotCorrespondeARifaActual(snapshot, config) ? snapshot : null;
     }

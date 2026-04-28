@@ -312,11 +312,44 @@ body.mobile-menu-open {
 }
 
 .logo-circle img {
+    position: relative;
+    z-index: 1;
     max-width: 95%;
     max-height: 95%;
     object-fit: contain;
     pointer-events: none;
     filter: drop-shadow(0 10px 20px rgba(var(--primary-rgb), 0.18));
+}
+
+.logo-verified-badge {
+    position: absolute;
+    top: 14px;
+    right: -2px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #3aa7ff 0%, #0b72ff 100%);
+    color: #ffffff;
+    border: 3px solid var(--header-bg);
+    box-shadow:
+        0 10px 22px rgba(11, 114, 255, 0.28),
+        0 0 0 1px rgba(255, 255, 255, 0.2);
+    font-size: 18px;
+    font-weight: 800;
+    line-height: 1;
+    z-index: 102;
+    pointer-events: none;
+}
+
+.logo-verified-badge.is-hidden {
+    display: none;
+}
+
+html.rifaplus-logo-verified-off .logo-verified-badge {
+    display: none;
 }
 
 body.rifaplus-logo-pending .logo-circle {
@@ -437,6 +470,14 @@ body.rifaplus-logo-ready .logo-circle img[data-dynamic-logo="true"] {
         margin: 8px 0 0 0 !important;
         padding: 0 !important;
     }
+
+    .logo-verified-badge {
+        width: 32px;
+        height: 32px;
+        top: 13px;
+        right: -1px;
+        font-size: 17px;
+    }
 }
 
 @media (max-width: 480px) {
@@ -471,6 +512,15 @@ body.rifaplus-logo-ready .logo-circle img[data-dynamic-logo="true"] {
     .logo-circle img {
         max-width: 90%;
         max-height: 90%;
+    }
+
+    .logo-verified-badge {
+        width: 30px;
+        height: 30px;
+        top: 13px;
+        right: -1px;
+        border-width: 2px;
+        font-size: 16px;
     }
 }
 
@@ -6271,6 +6321,7 @@ body.modal-scroll-locked {
 /* ============================================================ */
 
 .precio-card-main {
+    position: relative;
     width: clamp(280px, 46vw, 420px);
     margin: 0 auto 1rem;
     padding: 1.35rem 1.2rem;
@@ -6278,7 +6329,95 @@ body.modal-scroll-locked {
     background: var(--price-card-bg);
     box-shadow: var(--price-card-shadow);
     border: 1px solid var(--price-card-border);
-    overflow: hidden;
+    overflow: visible;
+}
+
+.precio-card-badge-corner {
+    position: absolute;
+    top: -0.9rem;
+    right: -0.75rem;
+    z-index: 12;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 6.1rem;
+    height: 6.1rem;
+    padding: 0.8rem;
+    background: #e10600;
+    color: #ffffff;
+    box-shadow: 0 14px 28px rgba(160, 12, 12, 0.34);
+    text-align: center;
+    transform: rotate(10deg);
+    pointer-events: none;
+    clip-path: polygon(
+        50% 0%,
+        58% 9%,
+        69% 3%,
+        74% 14%,
+        86% 10%,
+        86% 22%,
+        97% 24%,
+        91% 35%,
+        100% 43%,
+        90% 50%,
+        100% 57%,
+        91% 65%,
+        97% 76%,
+        86% 78%,
+        86% 90%,
+        74% 86%,
+        69% 97%,
+        58% 91%,
+        50% 100%,
+        42% 91%,
+        31% 97%,
+        26% 86%,
+        14% 90%,
+        14% 78%,
+        3% 76%,
+        9% 65%,
+        0% 57%,
+        10% 50%,
+        0% 43%,
+        9% 35%,
+        3% 24%,
+        14% 22%,
+        14% 10%,
+        26% 14%,
+        31% 3%,
+        42% 9%
+    );
+    isolation: isolate;
+}
+
+.precio-card-badge-corner span {
+    display: block;
+    font-size: 1.55rem;
+    line-height: 0.92;
+    font-weight: 900;
+    letter-spacing: 0;
+    white-space: nowrap;
+    transform: rotate(-10deg);
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+
+.precio-super-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    align-self: center;
+    margin-bottom: 0.1rem;
+    padding: 0.34rem 0.7rem;
+    border-radius: 999px;
+    background: rgba(239, 68, 68, 0.14);
+    border: 1px solid rgba(248, 113, 113, 0.45);
+    color: #ffd7d7;
+    font-size: 0.69rem;
+    line-height: 1;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
 }
 
 .precio-card-main:hover {
@@ -6507,6 +6646,23 @@ body.modal-scroll-locked {
         border-radius: 20px;
     }
 
+    .precio-card-badge-corner {
+        top: -0.7rem;
+        right: -0.45rem;
+        width: 5.3rem;
+        height: 5.3rem;
+        padding: 0.65rem;
+    }
+
+    .precio-card-badge-corner span {
+        font-size: 1.28rem;
+    }
+
+    .precio-super-badge {
+        font-size: 0.64rem;
+        padding: 0.3rem 0.62rem;
+    }
+
     .precio-big,
     .precio-oferta-big {
         font-size: clamp(2.1rem, 10vw, 3.15rem) !important;
@@ -6545,6 +6701,23 @@ body.modal-scroll-locked {
         padding: 0.88rem 0.8rem;
         margin: 0 auto 0.85rem;
         border-radius: 18px;
+    }
+
+    .precio-card-badge-corner {
+        top: -0.52rem;
+        right: -0.28rem;
+        width: 4.7rem;
+        height: 4.7rem;
+        padding: 0.55rem;
+    }
+
+    .precio-card-badge-corner span {
+        font-size: 1.12rem;
+    }
+
+    .precio-super-badge {
+        font-size: 0.58rem;
+        padding: 0.28rem 0.54rem;
     }
 
     .precio-kicker {
@@ -7106,6 +7279,52 @@ body.modal-scroll-locked {
     box-shadow: 0 8px 18px rgba(var(--primary-rgb), 0.07);
 }
 
+.maquina-quick-picks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    justify-content: center;
+    margin: 0.2rem auto 0.72rem;
+}
+
+.maquina-quick-pick {
+    min-width: 58px;
+    padding: 0.58rem 0.82rem;
+    border: 1px solid rgba(var(--primary-rgb), 0.1);
+    border-radius: 999px;
+    background: linear-gradient(180deg, #ffffff 0%, #f4f9fc 100%);
+    color: var(--primary-dark);
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    box-shadow: 0 8px 16px rgba(var(--primary-rgb), 0.05);
+    cursor: pointer;
+    transition: transform 140ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease, color 160ms ease;
+}
+
+.maquina-quick-pick:hover,
+.maquina-quick-pick:focus-visible {
+    transform: translateY(-1px);
+    border-color: rgba(var(--secondary-rgb), 0.42);
+    background: linear-gradient(180deg, #ffffff 0%, #ecfbf8 100%);
+    box-shadow: 0 12px 22px rgba(var(--secondary-rgb), 0.12);
+    outline: none;
+}
+
+.maquina-quick-pick.is-active {
+    background: linear-gradient(135deg, rgba(var(--secondary-rgb), 0.22) 0%, rgba(var(--secondary-rgb), 0.32) 100%);
+    border-color: rgba(var(--secondary-rgb), 0.6);
+    color: var(--primary-dark);
+    box-shadow: 0 12px 24px rgba(var(--secondary-rgb), 0.14);
+}
+
+.maquina-quick-pick.is-disabled {
+    opacity: 0.48;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
 .number-btn {
     width: 44px;
     height: 44px;
@@ -7367,6 +7586,16 @@ body.modal-scroll-locked {
         width: 68px;
         height: 40px;
         font-size: 1rem;
+    }
+
+    .maquina-quick-picks {
+        gap: 0.42rem;
+    }
+
+    .maquina-quick-pick {
+        min-width: 54px;
+        padding: 0.54rem 0.72rem;
+        font-size: 0.78rem;
     }
 
     .total-section {
@@ -7707,7 +7936,7 @@ body.modal-scroll-locked {
     height: 100%;
     background: rgba(0, 0, 0, 0.6);
     display: none;
-    z-index: 1000;
+    z-index: 2200;
     animation: fadeIn var(--transition-fast) ease;
     backdrop-filter: blur(4px);
     overscroll-behavior: contain;

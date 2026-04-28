@@ -38,14 +38,145 @@
  */
 
 let rifaplusLogoInicial = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 96'%3E%3Crect width='240' height='96' rx='20' fill='%230b2235'/%3E%3Ctext x='120' y='58' font-size='28' text-anchor='middle' fill='%23ffffff' font-family='Arial,sans-serif'%3ESorteo%3C/text%3E%3C/svg%3E";
+const RIFAPLUS_RIFA_SLUG_PARAM = 'rifa';
+
+function obtenerSlugRifaDesdeUrlRifaPlus() {
+    try {
+        const params = new URLSearchParams(window.location.search);
+        return String(params.get(RIFAPLUS_RIFA_SLUG_PARAM) || '').trim();
+    } catch (error) {
+        return '';
+    }
+}
+
+function anexarSlugRifaARutaRifaPlus(url) {
+    try {
+        const resolvedUrl = new URL(String(url || ''), window.location.href);
+        const slug = obtenerSlugRifaDesdeUrlRifaPlus();
+        if (!slug || resolvedUrl.searchParams.has('rifa') || resolvedUrl.searchParams.has('slug')) {
+            return resolvedUrl.toString();
+        }
+
+        resolvedUrl.searchParams.set(RIFAPLUS_RIFA_SLUG_PARAM, slug);
+        return resolvedUrl.toString();
+    } catch (error) {
+        return String(url || '').trim();
+    }
+}
+
+function construirUrlMisBoletosRifaPlus(opciones = {}) {
+    try {
+        const url = new URL('mis-boletos.html', window.location.href);
+        const ordenId = String(opciones.ordenId || opciones.orden || '').trim();
+        const whatsapp = String(opciones.whatsapp || '').trim();
+
+        if (ordenId) {
+            url.searchParams.set('ordenId', ordenId);
+        }
+
+        if (opciones.autoOpen !== false) {
+            url.searchParams.set('autoOpen', 'true');
+        }
+
+        if (whatsapp && whatsapp !== '-') {
+            url.searchParams.set('whatsapp', whatsapp);
+        }
+
+        return anexarSlugRifaARutaRifaPlus(url.toString());
+    } catch (error) {
+        const ordenId = String(opciones.ordenId || opciones.orden || '').trim();
+        const query = [];
+        if (ordenId) {
+            query.push(`ordenId=${encodeURIComponent(ordenId)}`);
+        }
+        if (opciones.autoOpen !== false) {
+            query.push('autoOpen=true');
+        }
+        const whatsapp = String(opciones.whatsapp || '').trim();
+        if (whatsapp && whatsapp !== '-') {
+            query.push(`whatsapp=${encodeURIComponent(whatsapp)}`);
+        }
+        const baseUrl = query.length ? `mis-boletos.html?${query.join('&')}` : 'mis-boletos.html';
+        return anexarSlugRifaARutaRifaPlus(baseUrl);
+    }
+}
+
+function construirClaveLocalRifaPlus(baseKey) {
+    const slug = obtenerSlugRifaDesdeUrlRifaPlus();
+    return slug ? `rifaplus:${slug}:${baseKey}` : baseKey;
+}
+
+function leerFlagLogoVerificadoTempranoRifaPlus() {
+    const clavesSnapshot = [
+        construirClaveLocalRifaPlus('rifaplus_public_snapshot_v1'),
+        'rifaplus_public_snapshot_v1'
+    ];
+    const clavesConfig = [
+        construirClaveLocalRifaPlus('config_actual_v2'),
+        'rifaplus_config_actual_v2'
+    ];
+
+    for (const clave of clavesSnapshot) {
+        try {
+            const raw = localStorage.getItem(clave);
+            if (!raw) continue;
+
+            const parsed = JSON.parse(raw);
+            const data = parsed?.data && typeof parsed.data === 'object' ? parsed.data : parsed;
+            const valor = data?.rifa?.publicacion?.logoVerificadoHeader;
+            if (valor !== undefined) {
+                return valor !== false;
+            }
+        } catch (error) {
+            // Ignorar errores de parseo para no romper el arranque temprano.
+        }
+    }
+
+    for (const clave of clavesConfig) {
+        try {
+            const raw = localStorage.getItem(clave);
+            if (!raw) continue;
+
+            const parsed = JSON.parse(raw);
+            const valor = parsed?.rifa?.publicacion?.logoVerificadoHeader;
+            if (valor !== undefined) {
+                return valor !== false;
+            }
+        } catch (error) {
+            // Ignorar errores de parseo para no romper el arranque temprano.
+        }
+    }
+
+    return true;
+}
+
+function aplicarClaseTempranaLogoVerificadoRifaPlus(mostrar) {
+    try {
+        document.documentElement.classList.toggle('rifaplus-logo-verified-off', mostrar === false);
+    } catch (error) {
+        // No hacer nada si el DOM aún no está listo.
+    }
+}
+
+window.__RIFAPLUS_SET_LOGO_VERIFIED_VISIBILITY__ = function(mostrar) {
+    aplicarClaseTempranaLogoVerificadoRifaPlus(mostrar !== false);
+};
 
 try {
-    const logoCacheado = localStorage.getItem('rifaplus_cached_logo') || '';
+    const logoCacheado = localStorage.getItem(construirClaveLocalRifaPlus('cached_logo'))
+        || localStorage.getItem('rifaplus_cached_logo')
+        || '';
     if (logoCacheado && logoCacheado !== 'images/placeholder-logo.svg') {
         rifaplusLogoInicial = logoCacheado;
     }
 } catch (error) {
     // localStorage puede no estar disponible en algunos contextos
+}
+
+try {
+    aplicarClaseTempranaLogoVerificadoRifaPlus(leerFlagLogoVerificadoTempranoRifaPlus());
+} catch (error) {
+    // localStorage puede no estar disponible o fallar en algunos contextos.
 }
 
 // Crear namespace global de configuración
@@ -248,7 +379,8 @@ function mezclarConfigTempranaRifaPlus(destino, origen) {
 
 function leerSnapshotPublicoInicialRifaPlus() {
     try {
-        const raw = localStorage.getItem(RIFAPLUS_PUBLIC_SNAPSHOT_KEY);
+        const raw = localStorage.getItem(construirClaveLocalRifaPlus(RIFAPLUS_PUBLIC_SNAPSHOT_KEY))
+            || localStorage.getItem(RIFAPLUS_PUBLIC_SNAPSHOT_KEY);
         if (!raw) return null;
 
         const parsed = JSON.parse(raw);
@@ -266,7 +398,11 @@ function leerSnapshotPublicoInicialRifaPlus() {
 
 window.rifaplusConfig.obtenerApiBase = resolverApiBaseRifaPlus;
 window.rifaplusConfig.obtenerSocketScriptUrl = resolverSocketScriptUrlRifaPlus;
-window.rifaplusConfig._PUBLIC_SNAPSHOT_KEY = RIFAPLUS_PUBLIC_SNAPSHOT_KEY;
+window.rifaplusConfig.obtenerSlugRifaActual = obtenerSlugRifaDesdeUrlRifaPlus;
+window.rifaplusConfig.anexarSlugRifaAUrl = anexarSlugRifaARutaRifaPlus;
+window.rifaplusConfig.construirUrlMisBoletos = construirUrlMisBoletosRifaPlus;
+window.rifaplusConfig.construirClaveLocal = construirClaveLocalRifaPlus;
+window.rifaplusConfig._PUBLIC_SNAPSHOT_KEY = construirClaveLocalRifaPlus(RIFAPLUS_PUBLIC_SNAPSHOT_KEY);
 window.rifaplusConfig.obtenerSnapshotPublicoLocal = function() {
     const data = leerSnapshotPublicoInicialRifaPlus();
     if (!data) {
@@ -278,6 +414,59 @@ window.rifaplusConfig.obtenerSnapshotPublicoLocal = function() {
         data: clonarValorSeguroRifaPlus(data)
     };
 };
+
+if (!window.__RIFAPLUS_PUBLIC_RIFA_FETCH_PATCHED__) {
+    const originalFetchRifaPlus = window.fetch.bind(window);
+    const resolveRifaScopedResource = (resource) => {
+        try {
+            const requestUrl = resource instanceof Request ? resource.url : resource;
+            const resolvedUrl = new URL(String(requestUrl), window.location.href);
+            const apiBase = resolverApiBaseRifaPlus();
+
+            if (!apiBase) {
+                return resource;
+            }
+
+            const apiUrl = new URL(String(apiBase), window.location.href);
+            if (resolvedUrl.origin !== apiUrl.origin) {
+                return resource;
+            }
+
+            const isApiRequest = resolvedUrl.pathname === '/api'
+                || resolvedUrl.pathname.startsWith('/api/');
+
+            if (!isApiRequest) {
+                return resource;
+            }
+
+            if (resolvedUrl.pathname.startsWith('/api/admin/')) {
+                return resource;
+            }
+
+            const slug = obtenerSlugRifaDesdeUrlRifaPlus();
+            if (!slug || resolvedUrl.searchParams.has('rifa') || resolvedUrl.searchParams.has('slug')) {
+                return resource;
+            }
+
+            resolvedUrl.searchParams.set('rifa', slug);
+
+            if (resource instanceof Request) {
+                return new Request(resolvedUrl.toString(), resource);
+            }
+
+            return resolvedUrl.toString();
+        } catch (error) {
+            return resource;
+        }
+    };
+
+    window.fetch = function(resource, options = {}) {
+        const scopedResource = resolveRifaScopedResource(resource);
+        const finalOptions = { ...(options || {}) };
+        return originalFetchRifaPlus(scopedResource, finalOptions);
+    };
+    window.__RIFAPLUS_PUBLIC_RIFA_FETCH_PATCHED__ = true;
+}
 
 // Versión de configuración
 window.rifaplusConfig._VERSION = '3.1.0';  // v3.1.0 = Arquitectura limpia sin duplicación
@@ -403,7 +592,8 @@ Object.assign(window.rifaplusConfig, {
             ruletazo: true,
             presorteo: true,
             progressBar: true,
-            progressStats: true
+            progressStats: true,
+            logoVerificadoHeader: true
         },  // Se sincroniza desde config.json
         bonos: {
             enabled: true,
@@ -415,6 +605,7 @@ Object.assign(window.rifaplusConfig, {
         },  // Se sincroniza desde config.json
         maquinaSuerte: {
             limiteBoletos: 500,
+            quickPicks: [10, 20, 50, 100],
             mostrarNotaDisponibilidad: true
         },  // Se sincroniza desde config.json
         sistemaPremios: {
@@ -578,6 +769,22 @@ Object.assign(window.rifaplusConfig, {
         author: "",
         autor: "",
         copyright: ""
+    },
+
+    /* ============================================================ */
+    /* SECCIÓN 9: MARKETING Y ANALÍTICA                            */
+    /* ============================================================ */
+
+    marketing: {
+        metaPixel: {
+            enabled: false,
+            pixelId: "",
+            trackPageView: true,
+            trackViewContent: true,
+            trackAddToCart: true,
+            trackInitiateCheckout: true,
+            trackPurchase: true
+        }
     }
 });
 
@@ -603,6 +810,10 @@ if (rifaplusSnapshotInicial) {
 
     if (esObjetoPlanoRifaPlus(rifaplusSnapshotInicial.tema)) {
         mezclarConfigTempranaRifaPlus(window.rifaplusConfig.tema, rifaplusSnapshotInicial.tema);
+    }
+
+    if (esObjetoPlanoRifaPlus(rifaplusSnapshotInicial.marketing)) {
+        mezclarConfigTempranaRifaPlus(window.rifaplusConfig.marketing, rifaplusSnapshotInicial.marketing);
     }
 
     if (Array.isArray(rifaplusSnapshotInicial.cuentas)) {
@@ -734,6 +945,7 @@ window.rifaplusConfig._guardarEnLocal = function() {
             _version: this._VERSION
         };
         
+        localStorage.setItem(construirClaveLocalRifaPlus('config_actual_v2'), JSON.stringify(configUserOnly));
         localStorage.setItem('rifaplus_config_actual_v2', JSON.stringify(configUserOnly));
         localStorage.removeItem('rifaplus_config_actual');
         
@@ -747,7 +959,8 @@ window.rifaplusConfig._guardarEnLocal = function() {
  */
 window.rifaplusConfig.cargarDelLocal = function() {
     try {
-        const guardada = localStorage.getItem('rifaplus_config_actual_v2');
+        const guardada = localStorage.getItem(construirClaveLocalRifaPlus('config_actual_v2'))
+            || localStorage.getItem('rifaplus_config_actual_v2');
         if (!guardada) {
             localStorage.removeItem('rifaplus_config_actual');
             return false;
@@ -794,6 +1007,7 @@ window.rifaplusConfig._validarIntegridadSorteo = function() {
 window.rifaplusConfig.limpiarParaNuevoSorteo = function() {
     try {
         console.log('🧹 Limpiando localStorage para nuevo sorteo...');
+        localStorage.removeItem(construirClaveLocalRifaPlus('config_actual_v2'));
         localStorage.removeItem('rifaplus_config_actual_v2');
         localStorage.removeItem('rifaplus_config_actual');
         console.log('✅ localStorage limpiado');
@@ -1704,7 +1918,11 @@ window.rifaplusConfig.actualizarNombreClienteEnUI = function() {
         let nombreSorteoCache = '';
 
         try {
-            nombreSorteoCache = String(localStorage.getItem('rifaplus_compra_hero_sorteo') || '').trim();
+            nombreSorteoCache = String(
+                localStorage.getItem(construirClaveLocalRifaPlus('compra_hero_sorteo'))
+                || localStorage.getItem('rifaplus_compra_hero_sorteo')
+                || ''
+            ).trim();
         } catch (error) {
             // Ignorar errores de storage para no romper la UI.
         }
@@ -1739,6 +1957,7 @@ window.rifaplusConfig.actualizarNombreClienteEnUI = function() {
 
         if (estadoSiguiente.nombreSorteo) {
             try {
+                localStorage.setItem(construirClaveLocalRifaPlus('compra_hero_sorteo'), estadoSiguiente.nombreSorteo);
                 localStorage.setItem('rifaplus_compra_hero_sorteo', estadoSiguiente.nombreSorteo);
             } catch (error) {
                 // Ignorar errores de storage para no romper la UI.

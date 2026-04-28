@@ -96,57 +96,12 @@
       ],
       "enabled": true
     },
-    "estado": "activo",
+    "estado": "borrador",
     "rangos": [
       {
-        "fin": 99999,
+        "fin": 99,
         "inicio": 0,
-        "nombre": "0 - 100K"
-      },
-      {
-        "fin": 199999,
-        "inicio": 100000,
-        "nombre": "100K - 200K"
-      },
-      {
-        "fin": 299999,
-        "inicio": 200000,
-        "nombre": "200K - 300K"
-      },
-      {
-        "fin": 399999,
-        "inicio": 300000,
-        "nombre": "300K - 400K"
-      },
-      {
-        "fin": 499999,
-        "inicio": 400000,
-        "nombre": "400K - 500K"
-      },
-      {
-        "fin": 599999,
-        "inicio": 500000,
-        "nombre": "500K - 600K"
-      },
-      {
-        "fin": 699999,
-        "inicio": 600000,
-        "nombre": "600K - 700K"
-      },
-      {
-        "fin": 799999,
-        "inicio": 700000,
-        "nombre": "700K - 800K"
-      },
-      {
-        "fin": 899999,
-        "inicio": 800000,
-        "nombre": "800K - 900K"
-      },
-      {
-        "fin": 999999,
-        "inicio": 900000,
-        "nombre": "900K - 1M"
+        "nombre": "Rango 1"
       }
     ],
     "galeria": {
@@ -200,7 +155,7 @@
           "cantidad": 500
         }
       ],
-      "enabled": true
+      "enabled": false
     },
     "horaSorteo": "21:15",
     "bonosCompra": {
@@ -228,16 +183,23 @@
       "progressBar": true,
       "promociones": true,
       "testimonios": false,
-      "progressStats": true
+      "progressStats": true,
+      "logoVerificadoHeader": true
     },
     "zonaHoraria": "Hora Centro Mexico",
     "nombreSorteo": "Cybertruck por solo $6 pesos 🤯🍀 (Sorteo Demo)",
     "precioBoleto": 6,
-    "totalBoletos": 1000000,
+    "totalBoletos": 100,
     "edicionNombre": "Edición No.1 - SaDev Demo",
     "horaPresorteo": "21:15",
     "maquinaSuerte": {
-      "limiteBoletos": 2000,
+      "quickPicks": [
+        1,
+        3,
+        5,
+        10
+      ],
+      "limiteBoletos": 10,
       "mostrarNotaDisponibilidad": false
     },
     "oportunidades": {
@@ -348,12 +310,23 @@
       ]
     },
     "busquedaBoletos": {
-      "modoAvanzado": true
+      "modoAvanzado": false
     },
     "modalidadEnlace": {
       "tipo": "facebook"
     },
     "modalidadSorteo": "Transmisión en Vivo por Facebook",
+    "promocionesCombo": {
+      "reglas": [
+        {
+          "etiqueta": "2x1",
+          "cantidadPaga": 1,
+          "cantidadRecibe": 2,
+          "boletosBonificados": 1
+        }
+      ],
+      "enabled": false
+    },
     "informacionSorteo": [
       {
         "titulo": "Fechas y cierre del sorteo",
@@ -396,161 +369,7 @@
     "tiempoApartadoHoras": 1,
     "fechaPresorteoFormato": "30 de Abril del 2026",
     "informacionSorteoIntro": "Consulta aquí la información más importante del sorteo antes de participar. Al comprar, aceptas estas condiciones.",
-    "modalFinalizadoSnapshot": {
-      "meta": {
-        "huellaRifa": "9c34dce934df06de02dea3a575e4e505e0afe36d"
-      },
-      "rifa": {
-        "nombreSorteo": "Aquí va el nombre principal de tu sorteo",
-        "sistemaPremios": {
-          "sorteo": [
-            {
-              "icono": "🥇",
-              "nombre": "Primer Lugar",
-              "premio": "Desayuno completo de la cafeteria del campus 2",
-              "posicion": 1,
-              "descripcion": "Como bono adicional te puedes llevar una bebida de tu preferencia"
-            }
-          ],
-          "enabled": true,
-          "mensaje": "Múltiples oportunidades de ganar premios extraordinarios",
-          "presorteo": [
-            {
-              "icono": "📱",
-              "nombre": "presorteo",
-              "premio": "iphone 17",
-              "posicion": 1,
-              "descripcion": "Telefono celular completamente nuevo"
-            }
-          ],
-          "ruletazos": [
-            {
-              "icono": "🎰",
-              "nombre": "Ruletazo 1",
-              "premio": "Ruletazos de $1,000 pesos cada uno",
-              "posicion": 1,
-              "descripcion": "Se jugarán 10 ruletazo en el transcurso del lanzamiento hasta el dia del sorteo"
-            },
-            {
-              "icono": "🎰",
-              "nombre": "Ruletazo 2",
-              "premio": "Ruletazos de $1,000 pesos cada uno",
-              "posicion": 2,
-              "descripcion": "Se jugarán 10 ruletazo en el transcurso del lanzamiento hasta el dia del sorteo"
-            },
-            {
-              "icono": "🎰",
-              "nombre": "Ruletazo 3",
-              "premio": "Ruletazos de $1,000 pesos cada uno",
-              "posicion": 3,
-              "descripcion": "Se jugarán 10 ruletazo en el transcurso del lanzamiento hasta el dia del sorteo"
-            },
-            {
-              "icono": "🎰",
-              "nombre": "Ruletazo 4",
-              "premio": "Ruletazos de $1,000 pesos cada uno",
-              "posicion": 4,
-              "descripcion": "Se jugarán 10 ruletazo en el transcurso del lanzamiento hasta el dia del sorteo"
-            },
-            {
-              "icono": "🎰",
-              "nombre": "Ruletazo 5",
-              "premio": "Ruletazos de $1,000 pesos cada uno",
-              "posicion": 5,
-              "descripcion": "Se jugarán 10 ruletazo en el transcurso del lanzamiento hasta el dia del sorteo"
-            },
-            {
-              "icono": "🎰",
-              "nombre": "Ruletazo 6",
-              "premio": "Ruletazos de $1,000 pesos cada uno",
-              "posicion": 6,
-              "descripcion": "Se jugarán 10 ruletazo en el transcurso del lanzamiento hasta el dia del sorteo"
-            },
-            {
-              "icono": "🎰",
-              "nombre": "Ruletazo 7",
-              "premio": "Ruletazos de $1,000 pesos cada uno",
-              "posicion": 7,
-              "descripcion": "Se jugarán 10 ruletazo en el transcurso del lanzamiento hasta el dia del sorteo"
-            },
-            {
-              "icono": "🎰",
-              "nombre": "Ruletazo 8",
-              "premio": "Ruletazos de $1,000 pesos cada uno",
-              "posicion": 8,
-              "descripcion": "Se jugarán 10 ruletazo en el transcurso del lanzamiento hasta el dia del sorteo"
-            },
-            {
-              "icono": "🎰",
-              "nombre": "Ruletazo 9",
-              "premio": "Ruletazos de $1,000 pesos cada uno",
-              "posicion": 9,
-              "descripcion": "Se jugarán 10 ruletazo en el transcurso del lanzamiento hasta el dia del sorteo"
-            },
-            {
-              "icono": "🎰",
-              "nombre": "Ruletazo 10",
-              "premio": "Ruletazos de $1,000 pesos cada uno",
-              "posicion": 10,
-              "descripcion": "Se jugarán 10 ruletazo en el transcurso del lanzamiento hasta el dia del sorteo"
-            }
-          ]
-        }
-      },
-      "tema": {
-        "preset": "dorado",
-        "colores": {
-          "danger": "#dc2626",
-          "bgLight": "#f7efe0",
-          "bgWhite": "#f7efe0",
-          "primary": "#d4a017",
-          "success": "#16a34a",
-          "textDark": "#0f172a",
-          "secondary": "#3f2d14",
-          "textLight": "#707276",
-          "colorFondo": "#f7efe0",
-          "colorTexto": "#0f172a",
-          "borderColor": "#d2ccc3",
-          "primaryDark": "#a57d12",
-          "colorAccento": "#3f2d14",
-          "primaryLight": "#f1e1bc",
-          "colorPrimario": "#d4a017",
-          "colorSecundario": "#3f2d14",
-          "colorSuperficie": "#f7efe0",
-          "colorTextoSecundario": "#707276"
-        },
-        "colorFondo": "#f7efe0",
-        "colorTexto": "#0f172a",
-        "colorAcento": "#3f2d14",
-        "colorPrimario": "#d4a017",
-        "personalizado": false,
-        "colorSuperficie": "#f7efe0"
-      },
-      "sorteo": {
-        "estado": "finalizado",
-        "nombre": "Aquí va el nombre principal de tu sorteo",
-        "documentos": {
-          "actaURL": null,
-          "videoURL": null,
-          "certificado": "Verificado por notario público"
-        },
-        "fechaCierre": "2026-04-14T10:00:00",
-        "fechaCierreFormato": "14 de Abril del 2026",
-        "mensajeAgradecimiento": "¡Agradecemos tu participación en nuestro sorteo! Tu confianza es lo más importante para nosotros."
-      },
-      "cliente": {
-        "logo": "https://res.cloudinary.com/dhwvxom01/image/upload/v1776190701/rifaplus/sorteos/logo-1776190700974-Fondo-de-5aqzh-eliminado-628fc6075b2a.webp",
-        "nombre": "Sorteos SaDev",
-        "logotipo": "https://res.cloudinary.com/dhwvxom01/image/upload/v1776190701/rifaplus/sorteos/logo-1776190700974-Fondo-de-5aqzh-eliminado-628fc6075b2a.webp"
-      },
-      "version": 1,
-      "ganadores": {
-        "sorteo": [],
-        "presorteo": [],
-        "ruletazos": []
-      },
-      "capturedAt": "2026-04-15T01:07:49.729Z"
-    },
+    "modalFinalizadoSnapshot": null,
     "intervaloLimpiezaMinutos": 10,
     "promocionesOportunidades": {
       "enabled": true,
@@ -691,6 +510,17 @@
     },
     "queryTimeout": 30000
   },
+  "marketing": {
+    "metaPixel": {
+      "enabled": false,
+      "pixelId": "",
+      "trackPageView": true,
+      "trackPurchase": true,
+      "trackAddToCart": true,
+      "trackViewContent": true,
+      "trackInitiateCheckout": true
+    }
+  },
   "rate_limits": {
     "production": {
       "login": 5,
@@ -704,5 +534,15 @@
       "ordenes": 1000,
       "windowMs": 900000
     }
+  },
+  "sorteoActivo": {
+    "estado": "activo",
+    "ganadores": {
+      "presorte": [],
+      "ruletazo": [],
+      "principal": []
+    },
+    "fechaCierre": null,
+    "fechaCierreFormato": ""
   }
 }

@@ -55,6 +55,7 @@ function cargarConfigJavaScript() {
             tiempoApartadoHoras: extraerValor('tiempoApartadoHoras'),
             intervaloLimpiezaMinutos: extraerValor('intervaloLimpiezaMinutos'),
             advertenciaExpirationHoras: extraerValor('advertenciaExpirationHoras'),
+            pushOrderWarningMinutes: [],
             maxBoletosApartadosSinPago: extraerValor('maxBoletosApartadosSinPago'),
             precioBoleto: extraerValor('precioBoleto'),
             totalBoletos: extraerValor('totalBoletos')
@@ -120,6 +121,10 @@ function obtenerConfigExpiracion() {
         advertenciaExpirationHoras: configGuardado.advertenciaExpirationHoras 
             || configDefault.advertenciaExpirationHoras 
             || 1,
+
+        pushOrderWarningMinutes: Array.isArray(configGuardado.pushOrderWarningMinutes)
+            ? configGuardado.pushOrderWarningMinutes
+            : [],
         
         maxBoletosApartadosSinPago: configGuardado.maxBoletosApartadosSinPago 
             || configDefault.maxBoletosApartadosSinPago 

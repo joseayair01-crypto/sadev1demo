@@ -42,6 +42,7 @@
     <script src="js/theme-dynamic.js?v=20260410.1"></script>
     <script src="js/boletos-loader.js"></script>
     <script src="js/modal-scroll-lock.js"></script>
+    <script src="js/push-notifications-client.js"></script>
     <script defer src="js/public-shell.js"></script>
     <!-- ⚡ PERFORMANCE OPTIMIZATION: Rendering optimizer for 50+ cards -->
     <script src="js/performance-rendering-optimizer.js"></script>
@@ -67,6 +68,7 @@
                     </script>
                     <noscript><img src="images/placeholder-logo.svg" alt="Logo del organizador" class="logo-image dynamic-logo" data-dynamic-logo="true" fetchpriority="high" loading="eager" decoding="sync" width="320" height="137"></noscript>
                 </div>
+                <span class="logo-verified-badge" aria-hidden="true">✓</span>
             </a>
 
             <nav class="nav" aria-label="Navegación principal">
@@ -1863,6 +1865,125 @@
             margin-top: 1rem;
         }
 
+        .orden-push-card {
+            margin-top: 1rem;
+            padding: 1rem 1rem 0.95rem;
+            border-radius: 18px;
+            border: 1px solid rgba(15, 58, 125, 0.14);
+            background:
+                radial-gradient(circle at top right, rgba(217, 119, 6, 0.12), transparent 42%),
+                linear-gradient(135deg, rgba(15, 58, 125, 0.06) 0%, rgba(255, 255, 255, 0.98) 48%, rgba(250, 245, 235, 0.92) 100%);
+            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+        }
+
+        .orden-push-card--active {
+            border-color: rgba(22, 163, 74, 0.2);
+            background:
+                radial-gradient(circle at top right, rgba(34, 197, 94, 0.14), transparent 40%),
+                linear-gradient(135deg, rgba(240, 253, 244, 0.96) 0%, rgba(255, 255, 255, 0.98) 100%);
+        }
+
+        .orden-push-card__eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.42rem;
+            padding: 0.34rem 0.62rem;
+            border-radius: 999px;
+            background: rgba(15, 58, 125, 0.1);
+            color: var(--primary);
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .orden-push-card--active .orden-push-card__eyebrow {
+            background: rgba(22, 163, 74, 0.12);
+            color: #166534;
+        }
+
+        .orden-push-card__title {
+            margin: 0.7rem 0 0.3rem;
+            color: var(--text-dark);
+            font-size: 1.04rem;
+            font-weight: 800;
+            line-height: 1.2;
+        }
+
+        .orden-push-card__copy {
+            margin: 0;
+            color: var(--text-light);
+            font-size: 0.9rem;
+            line-height: 1.55;
+        }
+
+        .orden-push-card__benefits {
+            margin: 0.85rem 0 0;
+            padding: 0;
+            list-style: none;
+            display: grid;
+            gap: 0.45rem;
+        }
+
+        .orden-push-card__benefits li {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.55rem;
+            color: var(--text-dark);
+            font-size: 0.85rem;
+            line-height: 1.45;
+        }
+
+        .orden-push-card__benefits i {
+            margin-top: 0.1rem;
+            color: #16a34a;
+            font-size: 0.85rem;
+        }
+
+        .orden-push-card__footer {
+            margin-top: 0.95rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+
+        .orden-push-card__button {
+            width: 100%;
+            justify-content: center;
+            gap: 0.55rem;
+            min-height: 48px;
+            font-weight: 700;
+        }
+
+        .orden-push-card__button.btn-outline {
+            background: rgba(255, 255, 255, 0.94);
+        }
+
+        .orden-push-card__meta {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .orden-push-card__hint {
+            font-size: 0.8rem;
+            line-height: 1.45;
+            color: var(--text-light);
+        }
+
+        .orden-push-card__hint strong {
+            color: var(--text-dark);
+        }
+
+        .orden-push-card__warning {
+            padding: 0.72rem 0.78rem;
+            border-radius: 12px;
+            font-size: 0.78rem;
+            line-height: 1.45;
+            border: 1px solid rgba(29, 78, 216, 0.12);
+            background: rgba(239, 246, 255, 0.92);
+        }
+
         .orden-acciones .btn {
             flex: 1;
             min-width: 120px;
@@ -1949,6 +2070,25 @@
 
             .orden-acciones-wrap {
                 margin-top: 0.52rem;
+            }
+
+            .orden-push-card {
+                margin-top: 0.72rem;
+                padding: 0.9rem 0.9rem 0.85rem;
+                border-radius: 16px;
+            }
+
+            .orden-push-card__title {
+                margin-top: 0.62rem;
+                font-size: 0.96rem;
+            }
+
+            .orden-push-card__copy {
+                font-size: 0.84rem;
+            }
+
+            .orden-push-card__benefits li {
+                font-size: 0.8rem;
             }
         }
 
@@ -2644,7 +2784,14 @@
             isLoading: false,
             ordenesDescargando: new Set(),
             pendingFocusOrdenId: null,
-            pendingFocusToken: 0
+            pendingFocusToken: 0,
+            pushStatusByOrder: {},
+            realtimeSocket: null,
+            realtimeScriptPromise: null,
+            realtimeRefreshLocks: {},
+            lastRealtimeEventByOrder: {},
+            lastConfirmationFeedbackByOrder: {},
+            pushAutoAttemptedByOrder: {}
         };
         window.appState = appState;
 
@@ -2702,6 +2849,555 @@
 
             setupModalHandlers();
             setupCopiarInlineButtons();
+
+            if (window.RifaPlusPushClient?.init) {
+                window.RifaPlusPushClient.init().catch((error) => {
+                    console.warn('[Push] No fue posible inicializar notificaciones:', error?.message || error);
+                });
+            }
+
+            iniciarTiempoRealMisBoletos().catch((error) => {
+                console.warn('[Realtime] No fue posible inicializar el tiempo real de Mis Boletos:', error?.message || error);
+            });
+
+            document.addEventListener('rifaplus:push-message', manejarMensajePushRecibido);
+            window.addEventListener('focus', () => {
+                sincronizarEstadoPushOrdenesVisibles().catch((error) => {
+                    console.warn('[Push] No fue posible refrescar estado de notificaciones al volver a la pestaña:', error?.message || error);
+                });
+            });
+        }
+
+        async function cargarSocketIoMisBoletos() {
+            if (typeof window.io !== 'undefined') {
+                return true;
+            }
+
+            if (appState.realtimeScriptPromise) {
+                return appState.realtimeScriptPromise;
+            }
+
+            const scriptUrl = window.RIFAPLUS_ENV?.socketUrl
+                || window.rifaplusConfig?.obtenerSocketScriptUrl?.()
+                || 'https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.8.1/socket.io.min.js';
+
+            appState.realtimeScriptPromise = new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = scriptUrl;
+                script.async = true;
+                script.onload = () => resolve(typeof window.io !== 'undefined');
+                script.onerror = () => reject(new Error('No se pudo cargar socket.io para mis-boletos'));
+                document.head.appendChild(script);
+            });
+
+            return appState.realtimeScriptPromise;
+        }
+
+        function obtenerClaveEventoTiempoReal(ordenId, estado, updatedAt) {
+            return [normalizarIdentificadorOrden(ordenId), String(estado || ''), String(updatedAt || '')].join('|');
+        }
+
+        async function refrescarOrdenDesdeTiempoReal(ordenId, estado) {
+            const ordenIdNormalizado = normalizarIdentificadorOrden(ordenId);
+            if (!ordenIdNormalizado || !appState.currentWhatsapp) {
+                return;
+            }
+
+            if (appState.realtimeRefreshLocks[ordenIdNormalizado]) {
+                return;
+            }
+
+            appState.realtimeRefreshLocks[ordenIdNormalizado] = true;
+
+            try {
+                buscarOrdenes();
+
+                const estadoNormalizado = String(estado || '').trim().toLowerCase();
+                if (estadoNormalizado === 'confirmada') {
+                    window.setTimeout(() => {
+                        notificarConfirmacionOrdenLocal(ordenIdNormalizado);
+                    }, 700);
+                } else if (estadoNormalizado === 'cancelada') {
+                    window.setTimeout(() => {
+                        notificarCancelacionOrdenLocal(ordenIdNormalizado);
+                    }, 700);
+                }
+            } finally {
+                window.setTimeout(() => {
+                    delete appState.realtimeRefreshLocks[ordenIdNormalizado];
+                }, 1200);
+            }
+        }
+
+        function manejarEventoTiempoRealOrden(evento) {
+            const ordenEvento = evento?.orden || {};
+            const orderId = normalizarIdentificadorOrden(ordenEvento?.numero_orden || ordenEvento?.id || '');
+            if (!orderId) {
+                return;
+            }
+
+            const ordenLocal = obtenerOrdenPorId(orderId);
+            const coincideObjetivo = normalizarIdentificadorOrden(appState.targetOrdenId) === orderId;
+            if (!ordenLocal && !coincideObjetivo) {
+                return;
+            }
+
+            const estado = String(ordenEvento?.estado || '').trim().toLowerCase();
+            const eventoKey = obtenerClaveEventoTiempoReal(orderId, estado, ordenEvento?.updated_at);
+            if (appState.lastRealtimeEventByOrder[orderId] === eventoKey) {
+                return;
+            }
+
+            appState.lastRealtimeEventByOrder[orderId] = eventoKey;
+            refrescarOrdenDesdeTiempoReal(orderId, estado).catch((error) => {
+                console.warn('[Realtime] No fue posible refrescar la orden por evento en vivo:', orderId, error?.message || error);
+            });
+        }
+
+        async function iniciarTiempoRealMisBoletos() {
+            try {
+                const socketDisponible = await cargarSocketIoMisBoletos();
+                if (!socketDisponible || typeof window.io === 'undefined') {
+                    return false;
+                }
+            } catch (error) {
+                return false;
+            }
+
+            if (appState.realtimeSocket) {
+                try {
+                    appState.realtimeSocket.disconnect();
+                } catch (error) {
+                    // Ignorar errores al reciclar el socket.
+                }
+                appState.realtimeSocket = null;
+            }
+
+            const apiBase = window.RIFAPLUS_ENV?.apiBase
+                || window.rifaplusConfig?.backend?.apiBase
+                || window.rifaplusConfig?.obtenerApiBase?.()
+                || window.location.origin;
+
+            appState.realtimeSocket = window.io(`${apiBase}/boletos`, {
+                reconnection: true,
+                reconnectionAttempts: 10,
+                reconnectionDelay: 2000,
+                reconnectionDelayMax: 15000,
+                transports: ['websocket', 'polling'],
+                autoConnect: true
+            });
+
+            appState.realtimeSocket.on('connect_error', (error) => {
+                console.warn('[Realtime] Error conectando Mis Boletos al tiempo real:', error?.message || error);
+            });
+
+            appState.realtimeSocket.on('ordenEstadoActualizadoPublico', manejarEventoTiempoRealOrden);
+            return true;
+        }
+
+        function obtenerEstadoPushOrden(ordenId) {
+            return appState.pushStatusByOrder[normalizarIdentificadorOrden(ordenId)] || {};
+        }
+
+        function guardarEstadoPushOrden(ordenId, patch = {}) {
+            const clave = normalizarIdentificadorOrden(ordenId);
+            if (!clave) return;
+            appState.pushStatusByOrder[clave] = {
+                ...appState.pushStatusByOrder[clave],
+                ...patch
+            };
+        }
+
+        function ordenEsElegibleParaAutoPush(orden) {
+            const estadoValidado = validarEstadoOrden(orden?.estado);
+            const pushMeta = orden?.push_notificaciones || {};
+            return estadoValidado === 'pendiente'
+                && pushMeta.enabled === true
+                && pushMeta.canSubscribe === true
+                && Boolean(pushMeta.token);
+        }
+
+        async function intentarAutoSuscribirPushOrdenes() {
+            if (!window.RifaPlusPushClient?.suscribirseOrden || !Array.isArray(appState.ordenes) || !appState.ordenes.length) {
+                return;
+            }
+
+            if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
+                return;
+            }
+
+            let cambios = false;
+            for (const orden of appState.ordenes) {
+                const ordenId = normalizarIdentificadorOrden(orden?.id || orden?.numero_orden || '');
+                if (!ordenId || !ordenEsElegibleParaAutoPush(orden)) {
+                    continue;
+                }
+
+                const estadoRuntime = obtenerEstadoPushOrden(ordenId);
+                const estadoLocal = window.RifaPlusPushClient?.obtenerEstadoLocal?.(ordenId) || {};
+                const yaActiva = estadoRuntime.active === true || estadoLocal.active === true;
+                const yaIntentada = appState.pushAutoAttemptedByOrder[ordenId] === true;
+
+                if (yaActiva || estadoRuntime.loading === true || yaIntentada) {
+                    continue;
+                }
+
+                appState.pushAutoAttemptedByOrder[ordenId] = true;
+                guardarEstadoPushOrden(ordenId, { loading: true });
+                cambios = true;
+
+                try {
+                    await window.RifaPlusPushClient.suscribirseOrden(orden);
+                    guardarEstadoPushOrden(ordenId, {
+                        active: true,
+                        loading: false,
+                        autoSubscribed: true,
+                        autoSubscribeError: null
+                    });
+                } catch (error) {
+                    guardarEstadoPushOrden(ordenId, {
+                        loading: false,
+                        autoSubscribed: false,
+                        autoSubscribeError: error?.message || 'AUTO_PUSH_SUBSCRIBE_FAILED'
+                    });
+                    console.warn('[Push] No fue posible autoactivar notificaciones para la orden:', ordenId, error?.message || error);
+                }
+            }
+
+            if (cambios) {
+                renderizarOrdenes(appState.ordenes);
+            }
+        }
+
+        async function sincronizarEstadoPushOrdenesVisibles() {
+            if (!window.RifaPlusPushClient?.sincronizarEstadoLocalOrden || !Array.isArray(appState.ordenes) || !appState.ordenes.length) {
+                return;
+            }
+
+            let cambios = false;
+            for (const orden of appState.ordenes) {
+                const ordenId = normalizarIdentificadorOrden(orden?.id || orden?.numero_orden || '');
+                if (!ordenId) continue;
+
+                try {
+                    const estadoSincronizado = await window.RifaPlusPushClient.sincronizarEstadoLocalOrden(ordenId);
+                    const estadoActual = obtenerEstadoPushOrden(ordenId);
+                    const active = estadoSincronizado.active === true;
+                    if (!active) {
+                        delete appState.pushAutoAttemptedByOrder[ordenId];
+                    }
+                    if (estadoActual.active !== active) {
+                        guardarEstadoPushOrden(ordenId, { active });
+                        cambios = true;
+                    }
+                } catch (error) {
+                    console.warn('[Push] No fue posible sincronizar estado local de la orden:', ordenId, error?.message || error);
+                }
+            }
+
+            if (cambios) {
+                renderizarOrdenes(appState.ordenes);
+                return;
+            }
+
+            await intentarAutoSuscribirPushOrdenes();
+        }
+
+        function obtenerEstadoPermisoPushNavegador() {
+            if (typeof Notification === 'undefined') {
+                return 'unsupported';
+            }
+
+            return String(Notification.permission || 'default').trim().toLowerCase();
+        }
+
+        function construirAvisoPermisoPush() {
+            const permission = obtenerEstadoPermisoPushNavegador();
+
+            if (permission === 'denied') {
+                return {
+                    text: 'Las notificaciones están bloqueadas en este navegador. Debes habilitarlas en la configuración del sitio para recibir avisos.',
+                    color: '#b45309'
+                };
+            }
+
+            if (permission === 'default') {
+                return {
+                    text: 'Este navegador todavía no tiene permiso para mostrar notificaciones. Al activarlas, Chrome o Safari te pedirá autorización.',
+                    color: '#1d4ed8'
+                };
+            }
+
+            return null;
+        }
+
+        function construirAccionesPushOrden(orden, estadoValidado, comprobanteSubido) {
+            if (estadoValidado !== 'pendiente') {
+                return '';
+            }
+
+            const pushMeta = orden?.push_notificaciones || {};
+            if (!pushMeta.enabled || !pushMeta.canSubscribe) {
+                return '';
+            }
+
+            const ordenId = normalizarIdentificadorOrden(orden.id || orden.numero_orden || '');
+            const estadoRuntime = obtenerEstadoPushOrden(ordenId);
+            const estadoLocal = window.RifaPlusPushClient?.obtenerEstadoLocal?.(ordenId) || {};
+            const active = estadoRuntime.active === true || (estadoRuntime.active !== false && estadoLocal.active === true);
+            const loading = estadoRuntime.loading === true;
+            const buttonLabel = loading
+                ? 'Procesando...'
+                : active
+                    ? 'Dejar de recibir avisos aquí'
+                    : 'Activar avisos de esta orden';
+            const buttonClass = active ? 'btn btn-outline orden-push-card__button' : 'btn btn-primary orden-push-card__button';
+            const buttonIcon = active ? 'fa-bell-slash' : 'fa-bell';
+            const avisoPermiso = construirAvisoPermisoPush();
+            const title = active
+                ? 'Tus avisos ya están activos en este navegador'
+                : 'Recibe avisos importantes de esta orden';
+            const note = active
+                ? (comprobanteSubido
+                    ? 'Te avisaremos aquí cuando el pago quede confirmado o si la orden llega a cancelarse.'
+                    : 'Te avisaremos si está por vencer, cuando confirmemos tu pago o si la orden cambia de estado.')
+                : (comprobanteSubido
+                    ? 'Actívalos para enterarte aquí mismo cuando validemos tu pago o si la orden cambia.'
+                    : 'Actívalos para que no se te pase la expiración y para enterarte en cuanto haya cambios.');
+            const hint = active
+                ? 'Si cambias de opinión, puedes desactivarlos en cualquier momento desde esta misma tarjeta.'
+                : (comprobanteSubido
+                    ? 'Ideal si ya subiste tu comprobante y quieres enterarte apenas revisemos el pago.'
+                    : 'Recomendado si todavía vas a pagar o subir tu comprobante más tarde.');
+            const benefits = comprobanteSubido
+                ? [
+                    'Te avisamos cuando confirmemos tu pago.',
+                    'Recibes alerta si la orden cambia o se cancela.',
+                    'La notificación llega directo a este navegador.'
+                ]
+                : [
+                    'Recibes recordatorio antes de que venza tu orden.',
+                    'Te avisamos cuando confirmemos tu pago.',
+                    'Sabrás si la orden se cancela o cambia de estado.'
+                ];
+            const warningHtml = avisoPermiso ? `
+                <div class="orden-push-card__warning" style="color: ${avisoPermiso.color};">
+                    ${avisoPermiso.text}
+                </div>
+            ` : '';
+
+            return `
+                <section class="orden-push-card ${active ? 'orden-push-card--active' : ''}" aria-label="Notificaciones de la orden">
+                    <div class="orden-push-card__eyebrow">
+                        <i class="fas ${active ? 'fa-circle-check' : 'fa-bell'}"></i>
+                        ${active ? 'Avisos activos' : 'Recomendado'}
+                    </div>
+                    <h4 class="orden-push-card__title">${title}</h4>
+                    <p class="orden-push-card__copy">${note}</p>
+                    <ul class="orden-push-card__benefits">
+                        ${benefits.map((benefit) => `
+                            <li><i class="fas fa-check-circle" aria-hidden="true"></i><span>${benefit}</span></li>
+                        `).join('')}
+                    </ul>
+                    <div class="orden-push-card__footer">
+                        <button
+                            type="button"
+                            class="${buttonClass}"
+                            data-push-order="${ordenId}"
+                            data-push-action="${active ? 'disable' : 'enable'}"
+                            ${loading ? 'disabled' : ''}>
+                            <i class="fas ${buttonIcon}"></i> ${buttonLabel}
+                        </button>
+                        <div class="orden-push-card__meta">
+                            <div class="orden-push-card__hint">
+                                <strong>${active ? 'Listo:' : '¿Por qué activarlos?'}</strong> ${hint}
+                            </div>
+                            ${warningHtml}
+                        </div>
+                    </div>
+                </section>
+            `;
+        }
+
+        async function manejarAccionPushOrden(event) {
+            const button = event.currentTarget;
+            const ordenId = normalizarIdentificadorOrden(button?.dataset?.pushOrder || '');
+            const accion = String(button?.dataset?.pushAction || 'enable').trim();
+            const orden = obtenerOrdenPorId(ordenId);
+
+            if (!orden || !window.RifaPlusPushClient) {
+                mostrarFeedback('❌ No encontramos la orden para activar notificaciones.', 'error');
+                return;
+            }
+
+            try {
+                guardarEstadoPushOrden(ordenId, { loading: true });
+                renderizarOrdenes(appState.ordenes);
+
+                if (accion === 'disable') {
+                    const confirmado = window.confirm('¿Seguro que quieres desactivar las notificaciones para esta orden en este navegador?');
+                    if (!confirmado) {
+                        guardarEstadoPushOrden(ordenId, { loading: false });
+                        renderizarOrdenes(appState.ordenes);
+                        return;
+                    }
+
+                    await window.RifaPlusPushClient.desuscribirseOrden(orden);
+                    guardarEstadoPushOrden(ordenId, { active: false, loading: false });
+                    mostrarFeedback('🔕 Notificaciones desactivadas para esta orden.', 'success');
+                } else {
+                    const permissionAntesDeActivar = obtenerEstadoPermisoPushNavegador();
+                    if (permissionAntesDeActivar === 'default') {
+                        mostrarFeedback('ℹ️ Tu navegador te pedirá permiso para mostrar notificaciones. Si no aceptas, no podremos avisarte aquí.', 'info');
+                    }
+
+                    await window.RifaPlusPushClient.suscribirseOrden(orden);
+                    guardarEstadoPushOrden(ordenId, { active: true, loading: false });
+                    mostrarFeedback('🔔 Notificaciones activadas. Te avisaremos sobre esta orden en este navegador.', 'success');
+                }
+            } catch (error) {
+                guardarEstadoPushOrden(ordenId, { loading: false });
+
+                const mensaje = ({
+                    PUSH_NOT_CONFIGURED: 'Las notificaciones push todavía no están disponibles en este sitio.',
+                    PUSH_NOT_SUPPORTED: 'Tu navegador no soporta notificaciones push.',
+                    PUSH_REQUIRES_HTTPS: 'Las notificaciones requieren HTTPS o localhost.',
+                    PUSH_PERMISSION_DENIED: 'Tienes bloqueadas las notificaciones en este navegador.',
+                    PUSH_PERMISSION_DISMISSED: 'No se concedió permiso para mostrar notificaciones.',
+                    PUSH_NOT_ALLOWED_FOR_ORDER: 'Esta orden ya no permite activar notificaciones.',
+                    PUSH_SUBSCRIBE_FAILED: 'No pudimos activar las notificaciones en este momento.',
+                    PUSH_UNSUBSCRIBE_FAILED: 'No pudimos desactivar las notificaciones en este momento.'
+                })[error?.message] || `No pudimos activar la notificación: ${error?.message || 'Error desconocido'}`;
+
+                mostrarFeedback(`⚠️ ${mensaje}`, 'warning');
+            } finally {
+                renderizarOrdenes(appState.ordenes);
+            }
+        }
+
+        function configurarBotonesPushOrdenes() {
+            const botones = document.querySelectorAll('[data-push-order]');
+            botones.forEach((button) => {
+                if (button.dataset.pushBound === 'true') return;
+                button.dataset.pushBound = 'true';
+                button.addEventListener('click', manejarAccionPushOrden);
+            });
+        }
+
+        let audioContextPushConfirmacion = null;
+
+        function reproducirSonidoPushConfirmacion() {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) return;
+
+            try {
+                if (!audioContextPushConfirmacion) {
+                    audioContextPushConfirmacion = new AudioCtx();
+                }
+
+                const ctx = audioContextPushConfirmacion;
+                const ahora = ctx.currentTime;
+                const envolvente = ctx.createGain();
+                const tonoA = ctx.createOscillator();
+                const tonoB = ctx.createOscillator();
+
+                tonoA.type = 'sine';
+                tonoA.frequency.setValueAtTime(880, ahora);
+                tonoA.frequency.exponentialRampToValueAtTime(1320, ahora + 0.16);
+
+                tonoB.type = 'triangle';
+                tonoB.frequency.setValueAtTime(660, ahora + 0.08);
+                tonoB.frequency.exponentialRampToValueAtTime(990, ahora + 0.28);
+
+                envolvente.gain.setValueAtTime(0.0001, ahora);
+                envolvente.gain.exponentialRampToValueAtTime(0.18, ahora + 0.03);
+                envolvente.gain.exponentialRampToValueAtTime(0.0001, ahora + 0.42);
+
+                tonoA.connect(envolvente);
+                tonoB.connect(envolvente);
+                envolvente.connect(ctx.destination);
+
+                tonoA.start(ahora);
+                tonoB.start(ahora + 0.08);
+                tonoA.stop(ahora + 0.28);
+                tonoB.stop(ahora + 0.42);
+            } catch (error) {
+                console.warn('[Push] No fue posible reproducir sonido local de confirmacion:', error?.message || error);
+            }
+        }
+
+        function notificarConfirmacionOrdenLocal(orderId) {
+            const orderIdNormalizado = normalizarIdentificadorOrden(orderId);
+            if (!orderIdNormalizado) {
+                return;
+            }
+
+            const ahora = Date.now();
+            const ultimoFeedback = Number(appState.lastConfirmationFeedbackByOrder[orderIdNormalizado] || 0);
+            if (ultimoFeedback && (ahora - ultimoFeedback) < 2500) {
+                return;
+            }
+
+            appState.lastConfirmationFeedbackByOrder[orderIdNormalizado] = ahora;
+            reproducirSonidoPushConfirmacion();
+            mostrarFeedback('✅ Tu pago fue confirmado. Ya actualizamos el estado de tu orden.', 'success');
+        }
+
+        function notificarCancelacionOrdenLocal(orderId) {
+            const orderIdNormalizado = normalizarIdentificadorOrden(orderId);
+            if (!orderIdNormalizado) {
+                return;
+            }
+
+            const ahora = Date.now();
+            const ultimoFeedback = Number(appState.lastConfirmationFeedbackByOrder[`cancel:${orderIdNormalizado}`] || 0);
+            if (ultimoFeedback && (ahora - ultimoFeedback) < 2500) {
+                return;
+            }
+
+            appState.lastConfirmationFeedbackByOrder[`cancel:${orderIdNormalizado}`] = ahora;
+            mostrarFeedback('⚠️ Tu orden fue cancelada y tus boletos ya se liberaron.', 'warning');
+        }
+
+        function notificarAvisoPorVencerLocal(orderId, warningMinutes) {
+            const orderIdNormalizado = normalizarIdentificadorOrden(orderId);
+            if (!orderIdNormalizado) {
+                return;
+            }
+
+            const clave = `warn:${orderIdNormalizado}:${warningMinutes}`;
+            const ahora = Date.now();
+            const ultimoFeedback = Number(appState.lastConfirmationFeedbackByOrder[clave] || 0);
+            if (ultimoFeedback && (ahora - ultimoFeedback) < 2500) {
+                return;
+            }
+
+            appState.lastConfirmationFeedbackByOrder[clave] = ahora;
+            mostrarFeedback(`⏳ Tu orden está por vencer. Quedan menos de ${warningMinutes} minuto${warningMinutes === 1 ? '' : 's'} para completar tu pago.`, 'warning');
+        }
+
+        function manejarMensajePushRecibido(event) {
+            const payload = event?.detail || {};
+            const eventType = String(payload?.type || '').trim().toLowerCase();
+            const orderId = normalizarIdentificadorOrden(payload?.orderId || payload?.data?.orderId || '');
+            if (!orderId) return;
+
+            const ordenLocal = obtenerOrdenPorId(orderId);
+            if (!ordenLocal) return;
+
+            if (eventType === 'orden_cancelada') {
+                notificarCancelacionOrdenLocal(orderId);
+            } else if (eventType === 'orden_por_vencer') {
+                notificarAvisoPorVencerLocal(orderId, Number.parseInt(payload?.data?.warningMinutes || payload?.warningMinutes, 10) || 0);
+            } else {
+                notificarConfirmacionOrdenLocal(orderId);
+            }
+
+            if (appState.currentWhatsapp) {
+                window.setTimeout(() => {
+                    buscarOrdenes();
+                }, 900);
+            }
         }
 
         // ============================================
@@ -2896,31 +3592,46 @@
         }
 
         function validarTipoArchivo(file) {
-            const tiposValidos = [
-                'image/jpeg',
-                'image/png',
-                'image/webp',
-                'image/heic',
-                'image/heif',
-                'application/pdf'
-            ];
             const extensionesValidas = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif', 'pdf'];
-
-            // Validar MIME type
-            if (file.type && !tiposValidos.includes(file.type)) {
+            
+            // 1️⃣ PRIMERO: Validar por extensión (más confiable entre navegadores)
+            const ext = file.name.split('.').pop().toLowerCase();
+            if (!extensionesValidas.includes(ext)) {
+                console.warn(`[Upload Debug] ❌ Extensión rechazada: ${ext} | Nombre: ${file.name}`);
                 return {
                     valido: false,
-                    error: `⚠️ Tipo de archivo no permitido. Usa JPG, PNG, WEBP, HEIC, HEIF o PDF.`
+                    error: `⚠️ Extensión de archivo no permitida. Usa: .jpg, .png, .webp, .heic, .heif o .pdf`
                 };
             }
 
-            // Validar extensión como fallback
-            const ext = file.name.split('.').pop().toLowerCase();
-            if (!extensionesValidas.includes(ext)) {
-                return {
-                    valido: false,
-                    error: `⚠️ Extensión de archivo no permitida. Usa .jpg, .png, .webp, .heic, .heif o .pdf`
-                };
+            // 2️⃣ SEGUNDO: Si tiene MIME type, validarlo (pero ser tolerante)
+            // Safari/Firefox a veces reportan tipos diferentes para el mismo archivo
+            const tiposValidos = [
+                'image/jpeg',
+                'image/png', 
+                'image/webp',
+                'image/heic',
+                'image/heif',
+                'application/pdf',
+                // Tipos alternativos que algunos navegadores reportan:
+                'image/jpg',
+                'application/octet-stream',  // Cuando navegador no puede determinar
+                'image/x-heic',
+                'image/x-heif'
+            ];
+
+            if (file.type && !tiposValidos.includes(file.type)) {
+                console.warn(
+                    `[Upload Debug] ⚠️ MIME type no reconocido`,
+                    `{ archivo: "${file.name}", mimeType: "${file.type}", extension: ".${ext}" }`
+                );
+                // NO rechazo si la extensión es válida - dejar que pase
+                console.info(`[Upload Debug] ℹ️ Permitiendo por extensión válida (.${ext})`);
+            } else {
+                console.info(
+                    `[Upload Debug] ✅ Validación OK`,
+                    `{ archivo: "${file.name}", size: "${(file.size/1024).toFixed(1)}KB", mimeType: "${file.type || 'sin-tipo'}" }`
+                );
             }
 
             return { valido: true };
@@ -4293,6 +5004,8 @@
                     `;
                 }
 
+                const accionesPushHtml = construirAccionesPushOrden(orden, estadoValidado, comprobanteSubido);
+
                 // Construir HTML de forma segura con todas las secciones
                 ordenCard.innerHTML = `
                     <!-- Header Superior Compacto: Logo | ID/Fecha -->
@@ -4571,6 +5284,8 @@
                         `}
 
                         <!-- SECCIÓN: ACCIONES -->
+                        ${accionesPushHtml}
+
                         <div class="orden-acciones-wrap">
                             ${botonesAccion}
                         </div>
@@ -4580,6 +5295,10 @@
                 listaOrdenes.appendChild(ordenCard);
             });
             
+            configurarBotonesPushOrdenes();
+            sincronizarEstadoPushOrdenesVisibles().catch((error) => {
+                console.warn('[Push] No fue posible sincronizar botones de notificaciones:', error?.message || error);
+            });
             // Actualizar visibilidad del botón flotante basado en órdenes pendientes
             actualizarBtnFlotante();
         }
@@ -4778,13 +5497,13 @@
                 return;
             }
 
+            const extension = (file.name.split('.').pop() || '').toLowerCase();
+            const esHeic = extension === 'heic' || extension === 'heif' || file.type === 'image/heic' || file.type === 'image/heif';
+
             // Mostrar vista previa
             vistaPreviaDiv.style.display = 'block';
             imagenPrevia.style.display = 'none';
             pdfPrevia.style.display = 'none';
-
-            const extension = (file.name.split('.').pop() || '').toLowerCase();
-            const esHeic = extension === 'heic' || extension === 'heif' || file.type === 'image/heic' || file.type === 'image/heif';
 
             if (file.type.startsWith('image/') && !esHeic) {
                 const reader = new FileReader();
@@ -4799,10 +5518,11 @@
                 };
                 reader.readAsDataURL(file);
             } else if (esHeic) {
+                // HEIC sin heic2any disponible (navegadores no-Safari)
                 pdfPrevia.innerHTML = `
                     <i class="fas fa-image" style="font-size: 2rem; color: var(--primary);"></i>
                     <p style="margin-top: 0.5rem; color: var(--text-light);">Archivo HEIC/HEIF seleccionado</p>
-                    <small style="color: var(--text-light); display: block; margin-top: 0.35rem;">La vista previa puede no estar disponible en este navegador, pero el archivo sí se enviará.</small>
+                    <small style="color: var(--text-light); display: block; margin-top: 0.35rem;">La vista previa puede no estar disponible, pero el archivo sí se enviará.</small>
                 `;
                 pdfPrevia.style.display = 'block';
             } else if (file.type === 'application/pdf') {

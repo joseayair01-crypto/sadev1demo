@@ -49,6 +49,10 @@
       "enabled": false,
       "reglas": []
     },
+    "promocionesCombo": {
+      "enabled": false,
+      "reglas": []
+    },
     "promocionesOportunidades": {
       "enabled": true,
       "ejemplos": []
@@ -118,10 +122,13 @@
       "testimonios": false,
       "ruletazo": true,
       "presorteo": true,
-      "progressStats": true
+      "progressStats": true,
+      "logoVerificadoHeader": true
     },
     "maquinaSuerte": {
-      "limiteBoletos": 10
+      "limiteBoletos": 10,
+      "quickPicks": [10],
+      "mostrarNotaDisponibilidad": true
     },
     "busquedaBoletos": {
       "modoAvanzado": true
@@ -143,6 +150,18 @@
           "descripcion": "Descripción del bono"
         }
       ]
+    }
+  },
+  "marketing": {
+    "pushCampaigns": {
+      "nuevaRifa": {
+        "enabled": true,
+        "autoSendOnPublicActivation": true,
+        "title": "Nuevo sorteo disponible",
+        "body": "{organizerName} ya abrió {rifaNombre}. Entra ahora y aparta tus boletos.",
+        "useCustomUrl": false,
+        "customUrl": ""
+      }
     }
   },
   "tecnica": {

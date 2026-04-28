@@ -336,6 +336,28 @@
         return `Vigencia hasta: ${dia}/${mes}/${anio} a las ${String(hora).padStart(2, '0')}:${minutos} ${ampm}`;
     }
 
+    function resolverVentanaPromocion(rifa, fechaInicio, fechaFin, ahora = new Date()) {
+        const timeZone = String(rifa?.timeZone || rifa?.zonaHoraria || 'America/Mexico_City').trim() || 'America/Mexico_City';
+        const validarRango = typeof window.rifaplusConfig?.esFechaPromocionActiva === 'function'
+            ? window.rifaplusConfig.esFechaPromocionActiva
+            : null;
+        const parsearFecha = typeof window.rifaplusConfig?.parseFechaPromocion === 'function'
+            ? window.rifaplusConfig.parseFechaPromocion
+            : null;
+
+        const inicio = parsearFecha ? parsearFecha(fechaInicio, timeZone) : new Date(fechaInicio);
+        const fin = parsearFecha ? parsearFecha(fechaFin, timeZone) : new Date(fechaFin);
+        const activa = validarRango
+            ? validarRango(fechaInicio, fechaFin, ahora, timeZone)
+            : !Number.isNaN(inicio.getTime()) && !Number.isNaN(fin.getTime()) && ahora >= inicio && ahora <= fin;
+
+        return {
+            activa: Boolean(activa),
+            inicio,
+            fin
+        };
+    }
+
     function resolverPromocionActiva(rifa) {
         const precioBase = Number(rifa?.precioBoleto);
         if (!Number.isFinite(precioBase) || precioBase <= 0) {
@@ -344,46 +366,96 @@
                 precioBase: 0,
                 precioFinal: 0,
                 etiqueta: 'OFERTA',
-                vigencia: ''
+                vigencia: '',
+                precioRegularReferencia: 0,
+                tipo: 'ninguna',
+                kicker: 'Promocion activa',
+                titulo: 'Precio Especial',
+                caption: 'Aprovecha este precio antes de que termine'
             };
         }
 
         const ahora = new Date();
         const promoTiempo = rifa?.promocionPorTiempo;
         const descuentoPorcentaje = rifa?.descuentoPorcentaje;
+        const combos = Array.isArray(rifa?.promocionesCombo?.reglas) ? rifa.promocionesCombo.reglas : [];
         let mejorPrecio = precioBase;
+        let precioRegularReferencia = precioBase;
         let etiqueta = 'OFERTA';
         let vigencia = '';
         let activa = false;
+        let tipo = 'ninguna';
+        let kicker = 'Promocion activa';
+        let titulo = 'Precio Especial';
+        let caption = 'Aprovecha este precio antes de que termine';
 
         if (promoTiempo?.enabled && promoTiempo?.precioProvisional !== null && promoTiempo?.precioProvisional !== undefined) {
-            const inicio = new Date(promoTiempo.fechaInicio);
-            const fin = new Date(promoTiempo.fechaFin);
+            const ventanaPromoTiempo = resolverVentanaPromocion(rifa, promoTiempo.fechaInicio, promoTiempo.fechaFin, ahora);
+            const fin = ventanaPromoTiempo.fin;
 
-            if (!Number.isNaN(inicio.getTime()) && !Number.isNaN(fin.getTime()) && ahora >= inicio && ahora <= fin) {
+            if (ventanaPromoTiempo.activa && !Number.isNaN(fin.getTime())) {
                 const precioTiempo = Number(promoTiempo.precioProvisional);
                 if (Number.isFinite(precioTiempo) && precioTiempo >= 0 && precioTiempo < mejorPrecio) {
                     mejorPrecio = precioTiempo;
+                    precioRegularReferencia = precioBase;
                     activa = true;
                     etiqueta = 'OFERTA';
                     vigencia = formatearVigencia(fin);
+                    tipo = 'tiempo';
                 }
             }
         }
 
         if (descuentoPorcentaje?.enabled && descuentoPorcentaje?.porcentaje) {
-            const inicio = new Date(descuentoPorcentaje.fechaInicio);
-            const fin = new Date(descuentoPorcentaje.fechaFin);
+            const ventanaDescuento = resolverVentanaPromocion(rifa, descuentoPorcentaje.fechaInicio, descuentoPorcentaje.fechaFin, ahora);
+            const fin = ventanaDescuento.fin;
 
-            if (!Number.isNaN(inicio.getTime()) && !Number.isNaN(fin.getTime()) && ahora >= inicio && ahora <= fin) {
+            if (ventanaDescuento.activa && !Number.isNaN(fin.getTime())) {
                 const porcentaje = Number(descuentoPorcentaje.porcentaje);
                 const precioConDescuento = precioBase - ((precioBase * porcentaje) / 100);
                 if (Number.isFinite(precioConDescuento) && precioConDescuento >= 0 && precioConDescuento < mejorPrecio) {
                     mejorPrecio = precioConDescuento;
+                    precioRegularReferencia = precioBase;
                     activa = true;
                     etiqueta = `${Math.round(((precioBase - precioConDescuento) / precioBase) * 100)}% OFF`;
                     vigencia = formatearVigencia(fin);
+                    tipo = 'porcentaje';
                 }
+            }
+        }
+
+        if (rifa?.promocionesCombo?.enabled === true && combos.length > 0) {
+            const comboDestacado = combos
+                .map((regla) => {
+                    const cantidadRecibe = Number(regla?.cantidadRecibe ?? regla?.cantidadEntrega ?? regla?.cantidad ?? 0);
+                    const cantidadPaga = Number(regla?.cantidadPaga ?? regla?.paga ?? regla?.compra ?? 0);
+                    if (!Number.isFinite(cantidadRecibe) || !Number.isFinite(cantidadPaga) || cantidadRecibe <= 1 || cantidadPaga <= 0 || cantidadPaga >= cantidadRecibe) {
+                        return null;
+                    }
+                    return {
+                        cantidadRecibe,
+                        cantidadPaga,
+                        bonificados: cantidadRecibe - cantidadPaga,
+                        etiqueta: `${cantidadRecibe}x${cantidadPaga}`
+                    };
+                })
+                .filter(Boolean)
+                .sort((a, b) => {
+                    if (b.bonificados !== a.bonificados) return b.bonificados - a.bonificados;
+                    if (a.cantidadPaga !== b.cantidadPaga) return a.cantidadPaga - b.cantidadPaga;
+                    return b.cantidadRecibe - a.cantidadRecibe;
+                })[0];
+
+            if (comboDestacado) {
+                activa = true;
+                tipo = 'combo';
+                etiqueta = comboDestacado.etiqueta;
+                precioRegularReferencia = comboDestacado.cantidadRecibe * precioBase;
+                mejorPrecio = comboDestacado.cantidadPaga * precioBase;
+                vigencia = '';
+                kicker = '';
+                titulo = comboDestacado.etiqueta;
+                caption = `Aprovecha super promocion ${comboDestacado.etiqueta}. Recibe ${comboDestacado.cantidadRecibe} boletos y paga ${comboDestacado.cantidadPaga}`;
             }
         }
 
@@ -392,7 +464,12 @@
             precioBase,
             precioFinal: mejorPrecio,
             etiqueta,
-            vigencia
+            vigencia,
+            precioRegularReferencia,
+            tipo,
+            kicker,
+            titulo,
+            caption
         };
     }
 
@@ -478,6 +555,7 @@
         }
 
         const descuentosConfig = rifa?.descuentos;
+        const combosConfig = rifa?.promocionesCombo;
         const oportunidadesConfig = rifa?.oportunidades;
         const promosOportunidadesConfig = rifa?.promocionesOportunidades;
         const oportunidadesActivas = oportunidadesConfig?.enabled === true &&
@@ -682,10 +760,17 @@
         const precioNormalCompra = document.getElementById('precioNormalCompra');
         const precioOfertaCompra = document.getElementById('precioOfertaCompra');
         const ofertaVigenciaCompra = document.getElementById('ofertaVigenciaCompra');
+        const precioBadgeCompra = document.getElementById('precioBadgeCompra');
+        const precioBadgeCompraText = document.getElementById('precioBadgeCompraText');
+        const precioSuperBadgeCompra = document.getElementById('precioSuperBadgeCompra');
         const precioNormalOfertaCompra = document.getElementById('precioNormalOfertaCompra');
         const precioEspecialOfertaCompra = document.getElementById('precioEspecialOfertaCompra');
         const badgeText = document.querySelector('.oferta-badge-text');
         const vigenciaOfertaCompra = document.getElementById('vigenciaOfertaCompra');
+        const kickerOferta = precioOfertaCompra?.querySelector('.precio-kicker');
+        const tituloOferta = precioOfertaCompra?.querySelector('.oferta-precio-destacado h3');
+        const subtituloNormal = precioOfertaCompra?.querySelector('.oferta-precio-normal h4');
+        const captionOferta = precioOfertaCompra?.querySelector('.precio-caption');
 
         if (!precioDinamico) {
             return;
@@ -706,7 +791,7 @@
             return;
         }
 
-        precioDinamico.textContent = formatearMoneda(promo.precioFinal);
+        precioDinamico.textContent = formatearMoneda(promo.tipo === 'combo' ? (promo.precioBase || precioFinal) : precioFinal);
         if (precioCardCompra) {
             precioCardCompra.classList.remove('loading');
             precioCardCompra.setAttribute('aria-busy', 'false');
@@ -717,14 +802,38 @@
             if (precioNormalCompra) precioNormalCompra.style.display = 'flex';
             if (precioOfertaCompra) precioOfertaCompra.style.display = 'none';
             if (ofertaVigenciaCompra) ofertaVigenciaCompra.style.display = 'none';
+            if (precioBadgeCompra) precioBadgeCompra.style.display = 'none';
+            if (precioSuperBadgeCompra) precioSuperBadgeCompra.style.display = 'none';
             return;
         }
 
+        if (promo.tipo === 'combo') {
+            if (precioNormalCompra) precioNormalCompra.style.display = 'flex';
+            if (precioOfertaCompra) precioOfertaCompra.style.display = 'none';
+            if (ofertaVigenciaCompra) ofertaVigenciaCompra.style.display = 'none';
+            if (precioBadgeCompra) precioBadgeCompra.style.display = 'flex';
+            if (precioBadgeCompraText) precioBadgeCompraText.textContent = promo.titulo || promo.etiqueta || 'PROMO';
+            if (precioSuperBadgeCompra) precioSuperBadgeCompra.style.display = 'inline-flex';
+            return;
+        }
+
+        if (precioBadgeCompra) precioBadgeCompra.style.display = 'none';
+        if (precioSuperBadgeCompra) precioSuperBadgeCompra.style.display = 'none';
         if (precioNormalCompra) precioNormalCompra.style.display = 'none';
         if (precioOfertaCompra) precioOfertaCompra.style.display = 'flex';
-        if (precioNormalOfertaCompra) precioNormalOfertaCompra.textContent = formatearMoneda(promo.precioBase);
+        if (precioNormalOfertaCompra) precioNormalOfertaCompra.textContent = formatearMoneda(promo.precioRegularReferencia || promo.precioBase);
         if (precioEspecialOfertaCompra) precioEspecialOfertaCompra.textContent = formatearMoneda(promo.precioFinal);
         if (badgeText) badgeText.textContent = promo.etiqueta;
+        if (kickerOferta) {
+            kickerOferta.textContent = promo.kicker || '';
+            kickerOferta.style.display = promo.kicker ? '' : 'none';
+        }
+        if (tituloOferta) tituloOferta.textContent = promo.titulo || 'Precio Especial';
+        if (subtituloNormal) {
+            subtituloNormal.textContent = 'Precio Regular';
+            subtituloNormal.style.display = '';
+        }
+        if (captionOferta) captionOferta.textContent = promo.caption || 'Aprovecha este precio antes de que termine';
 
         if (ofertaVigenciaCompra && vigenciaOfertaCompra && promo.vigencia) {
             ofertaVigenciaCompra.style.display = 'flex';

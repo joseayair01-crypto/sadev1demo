@@ -16,6 +16,14 @@ function normalizarTextoModalOrden(valor, fallback = '-') {
 }
 
 function construirUrlMisBoletosOrdenConfirmada(ordenId, whatsapp) {
+    if (typeof window.rifaplusConfig?.construirUrlMisBoletos === 'function') {
+        return window.rifaplusConfig.construirUrlMisBoletos({
+            ordenId,
+            whatsapp,
+            autoOpen: true
+        });
+    }
+
     const query = [`ordenId=${encodeURIComponent(ordenId)}`, 'autoOpen=true'];
 
     if (whatsapp && whatsapp !== '-') {
@@ -91,11 +99,13 @@ function mostrarModalOrdenConfirmada(datosOrden) {
         const subtotal = subtotalRaw.toFixed(2);
         const descuento = descuentoRaw.toFixed(2);
         const total = totalRaw.toFixed(2);
+        const comboInfo = datosOrden.totales?.combo || null;
         const tiempoApartadoHoras = Number(window.rifaplusConfig?.rifa?.tiempoApartadoHoras || 0);
         const tiempoApartadoTexto = tiempoApartadoHoras > 0
             ? `${tiempoApartadoHoras} hora${tiempoApartadoHoras === 1 ? '' : 's'}`
             : '';
         const nombreVisible = nombre.trim() || 'Participante';
+        const urlMisBoletos = construirUrlMisBoletosOrdenConfirmada(ordenId, whatsapp);
 
         // ✅ 2. CREAR O REUTILIZAR MODAL
         let modal = document.getElementById('modalOrdenConfirmada');
@@ -165,12 +175,29 @@ function mostrarModalOrdenConfirmada(datosOrden) {
                                     <span class="dato-valor">-$${descuento}</span>
                                 </div>
                             ` : ''}
+                            ${comboInfo?.applied ? `
+                                <div class="dato-fila">
+                                    <span class="dato-label">Promo combo</span>
+                                    <span class="dato-valor">Pagas ${Number(comboInfo.boletosPagados || boletos)} y recibes ${Number(comboInfo.boletosEntregados || boletos)}</span>
+                                </div>
+                            ` : ''}
                         </div>
 
                         <div class="aviso-confirmada">
                             ${tiempoApartadoTexto
                                 ? `Tus boletos se mantienen apartados por <strong>${tiempoApartadoTexto}</strong>.`
                                 : 'Revisa tu orden y completa el pago lo antes posible para conservar tus boletos.'}
+                        </div>
+
+                        <div class="push-invite-confirmada">
+                            <div class="push-invite-confirmada__icon">
+                                <i class="fas fa-bell"></i>
+                            </div>
+                            <div class="push-invite-confirmada__content">
+                                <strong>Activa avisos en Mis Boletos</strong>
+                                <span>Ahí podrás recibir notificaciones cuando confirmemos tu pago o si tu orden está por vencer.</span>
+                            </div>
+                            <a href="${urlMisBoletos}" class="push-invite-confirmada__link">Ver orden y activar avisos</a>
                         </div>
 
                         <button id="btnIrAPagar" class="btn-ir-pagar">IR A PAGAR</button>
@@ -196,7 +223,7 @@ function mostrarModalOrdenConfirmada(datosOrden) {
             // Redirigir después de 300ms para UX fluida
             setTimeout(() => {
                 prepararRedireccionSinShellMisBoletos();
-                window.location.href = construirUrlMisBoletosOrdenConfirmada(ordenId, whatsapp);
+                window.location.href = urlMisBoletos;
             }, 300);
         };
 

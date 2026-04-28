@@ -129,6 +129,7 @@ function inicializarEventosWebSocket(io, options = {}) {
             tipo: 'adminOrdenCreada',
             orden: {
                 numero_orden: numeroOrden,
+                rifa_id: Number.parseInt(orden.rifa_id, 10) || null,
                 nombre_cliente: orden.nombre_cliente || '',
                 telefono_cliente: orden.telefono_cliente || '',
                 estado: orden.estado || 'pendiente',
@@ -160,8 +161,15 @@ function inicializarEventosWebSocket(io, options = {}) {
             tipo: 'adminOrdenActualizada',
             orden: {
                 numero_orden: numeroOrden,
+                rifa_id: Number.parseInt(orden.rifa_id, 10) || null,
+                nombre_cliente: orden.nombre_cliente || '',
+                telefono_cliente: orden.telefono_cliente || '',
                 estado: orden.estado || null,
+                estado_anterior: orden.estado_anterior || null,
+                cantidad_boletos: Number(orden.cantidad_boletos || orden.cantidad || 0),
+                total: Number(orden.total || orden.totalFinal || 0),
                 comprobante_path: orden.comprobante_path || null,
+                created_at: orden.created_at || null,
                 updated_at: orden.updated_at || new Date().toISOString()
             }
         };
@@ -173,6 +181,34 @@ function inicializarEventosWebSocket(io, options = {}) {
         });
 
         adminOrdersNamespace.emit('adminOrdenActualizada', evento);
+    }
+
+    function emitirOrdenActualizadaPublica(orden = {}) {
+        const numeroOrden = orden.numero_orden || orden.ordenId || orden.id || null;
+        if (!numeroOrden) {
+            console.warn('⚠️ [WebSocket][Publico] Orden actualizada sin numero_orden; evento omitido');
+            return;
+        }
+
+        const evento = {
+            timestamp: new Date().toISOString(),
+            tipo: 'ordenEstadoActualizadoPublico',
+            orden: {
+                numero_orden: numeroOrden,
+                rifa_id: Number.parseInt(orden.rifa_id, 10) || null,
+                estado: orden.estado || null,
+                estado_anterior: orden.estado_anterior || null,
+                updated_at: orden.updated_at || new Date().toISOString()
+            }
+        };
+
+        console.log(`📤 [WebSocket][Publico] Emitiendo actualización pública de orden:`, {
+            numero_orden: numeroOrden,
+            estado: evento.orden.estado,
+            clientes: boletosNamespace.sockets.size
+        });
+
+        boletosNamespace.emit('ordenEstadoActualizadoPublico', evento);
     }
 
     /**
@@ -218,6 +254,7 @@ function inicializarEventosWebSocket(io, options = {}) {
         emitirNuevaOrden,
         emitirNuevaOrdenAdmin,
         emitirOrdenActualizadaAdmin,
+        emitirOrdenActualizadaPublica,
         emitirOrdenCancelada,
         obtenerEstadisticas,
         boletosNamespace,

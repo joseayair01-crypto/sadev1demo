@@ -2,8 +2,17 @@ const db = require('../db');
 const { randomInt } = require('crypto');
 const { resolverConfigOportunidades } = require('../oportunidades-config');
 const BoletoService = require('./boletoService');
+const { normalizeRifaContext, applyRifaScope } = require('./rifaScope');
 
 class OportunidadesInventoryService {
+  static _normalizarContextoRifa(contexto = {}) {
+    return normalizeRifaContext(contexto);
+  }
+
+  static _whereRifa(query, contexto = {}) {
+    return applyRifaScope(query, contexto);
+  }
+
   static _barajarEnSitio(array) {
     const copia = [...array];
     for (let i = copia.length - 1; i > 0; i -= 1) {
@@ -73,8 +82,8 @@ class OportunidadesInventoryService {
     return asignaciones;
   }
 
-  static async _obtenerBoletosVisibles(rangoVisible, totalEsperado, runner = db) {
-    const boletos = await runner('boletos_estado')
+  static async _obtenerBoletosVisibles(rangoVisible, totalEsperado, runner = db, contexto = {}) {
+    const boletos = await this._whereRifa(runner('boletos_estado'), contexto)
       .whereBetween('numero', [rangoVisible.inicio, rangoVisible.fin])
       .select('numero')
       .orderBy('numero', 'asc');
@@ -99,9 +108,9 @@ class OportunidadesInventoryService {
     };
   }
 
-  static async _obtenerEstadisticasTabla(config, runner = db) {
+  static async _obtenerEstadisticasTabla(config, runner = db, contexto = {}) {
     const subqueryBoletosConCantidadCorrecta = config.rangoVisible
-      ? runner('orden_oportunidades')
+      ? this._whereRifa(runner('orden_oportunidades'), contexto)
         .whereBetween('numero_boleto', [config.rangoVisible.inicio, config.rangoVisible.fin])
         .select('numero_boleto')
         .count('* as oportunidades')
@@ -110,7 +119,7 @@ class OportunidadesInventoryService {
       : null;
 
     const [global, hidden, visibleAgg, visiblesConCantidadCorrecta] = await Promise.all([
-      runner('orden_oportunidades')
+      this._whereRifa(runner('orden_oportunidades'), contexto)
         .select(
           runner.raw('COUNT(*)::int AS total'),
           runner.raw('COUNT(DISTINCT numero_oportunidad)::int AS distinct_oportunidades'),
@@ -121,7 +130,7 @@ class OportunidadesInventoryService {
         )
         .first(),
       config.rangoOculto
-        ? runner('orden_oportunidades')
+        ? this._whereRifa(runner('orden_oportunidades'), contexto)
           .whereBetween('numero_oportunidad', [config.rangoOculto.inicio, config.rangoOculto.fin])
           .select(
             runner.raw('COUNT(*)::int AS total'),
@@ -130,7 +139,7 @@ class OportunidadesInventoryService {
           .first()
         : Promise.resolve({ total: 0, distinct_oportunidades: 0 }),
       config.rangoVisible
-        ? runner('orden_oportunidades')
+        ? this._whereRifa(runner('orden_oportunidades'), contexto)
           .whereBetween('numero_boleto', [config.rangoVisible.inicio, config.rangoVisible.fin])
           .select(
             runner.raw('COUNT(DISTINCT numero_boleto)::int AS boletos_con_oportunidades'),
@@ -213,10 +222,10 @@ class OportunidadesInventoryService {
     return checklist;
   }
 
-  static async obtenerResumen(configBase, runner = db) {
+  static async obtenerResumen(configBase, runner = db, contexto = {}) {
     const config = this._resolverConfig(configBase);
     const boletosBase = config.rangoVisible
-      ? await this._obtenerBoletosVisibles(config.rangoVisible, config.totalBoletosVisibles, runner)
+      ? await this._obtenerBoletosVisibles(config.rangoVisible, config.totalBoletosVisibles, runner, contexto)
       : {
         numeros: [],
         encontrados: 0,
@@ -226,7 +235,7 @@ class OportunidadesInventoryService {
         ejemplosFaltantes: []
       };
 
-    const stats = await this._obtenerEstadisticasTabla(config, runner);
+    const stats = await this._obtenerEstadisticasTabla(config, runner, contexto);
     const prerequisitos = this._construirPrerequisitos(config, boletosBase, stats);
     const prerequisitosOk = prerequisitos.every((item) => item.ok === true);
 
@@ -284,9 +293,10 @@ class OportunidadesInventoryService {
 
   static async poblarDesdeConfig(configBase, options = {}) {
     const shuffle = options.shuffle !== false;
+    const contexto = this._normalizarContextoRifa(options);
 
     return this._conLockInventario(async (trx) => {
-      const resumen = await this.obtenerResumen(configBase, trx);
+      const resumen = await this.obtenerResumen(configBase, trx, contexto);
 
       if (resumen.alreadyPopulated) {
         return {
@@ -305,7 +315,7 @@ class OportunidadesInventoryService {
       }
 
       const config = this._resolverConfig(configBase);
-      const boletosBase = await this._obtenerBoletosVisibles(config.rangoVisible, config.totalBoletosVisibles, trx);
+      const boletosBase = await this._obtenerBoletosVisibles(config.rangoVisible, config.totalBoletosVisibles, trx, contexto);
       const oportunidadesOcultas = this._construirOportunidades(config.rangoOculto);
       if ((resumen?.oportunidades?.totalGlobal || 0) === 0) {
         await BoletoService.reiniciarSecuenciaId('orden_oportunidades', trx);
@@ -315,7 +325,10 @@ class OportunidadesInventoryService {
         oportunidadesOcultas,
         config.multiplicador,
         shuffle
-      );
+      ).map((item) => ({
+        ...item,
+        rifa_id: contexto.rifaId
+      }));
 
       const batchSize = 10000;
       for (let inicio = 0; inicio < asignaciones.length; inicio += batchSize) {
@@ -325,7 +338,7 @@ class OportunidadesInventoryService {
 
       await BoletoService.sincronizarSecuenciaId('orden_oportunidades', trx);
 
-      const resumenFinal = await this.obtenerResumen(configBase, trx);
+      const resumenFinal = await this.obtenerResumen(configBase, trx, contexto);
       if (!resumenFinal.alreadyPopulated) {
         const error = new Error('La validación final del poblado de oportunidades falló');
         error.code = 'VALIDACION_FINAL_OPORTUNIDADES';

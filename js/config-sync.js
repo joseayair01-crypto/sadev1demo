@@ -29,6 +29,70 @@ window.rifaplusConfig._publicSnapshotLoaded = false;
 const RIFAPLUS_SYNC_DEBUG = ['localhost', '127.0.0.1'].includes(window.location.hostname);
 const RIFAPLUS_PUBLIC_SNAPSHOT_VERSION = 1;
 
+function syncEsPaginaAdminRifaPlus() {
+    const pathname = String(window.location.pathname || '').toLowerCase();
+    const filename = pathname.split('/').pop() || '';
+    return filename.startsWith('admin-') || pathname.includes('/admin');
+}
+
+function syncObtenerAdminTokenRifaPlus() {
+    try {
+        return localStorage.getItem('rifaplus_token')
+            || localStorage.getItem('rifaplus_admin_token')
+            || localStorage.getItem('admin_token')
+            || localStorage.getItem('token')
+            || '';
+    } catch (error) {
+        return '';
+    }
+}
+
+function syncObtenerAdminRifaIdActivaRifaPlus() {
+    try {
+        const raw = localStorage.getItem('rifaplus_admin_rifa_id');
+        const parsed = Number.parseInt(raw, 10);
+        return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+    } catch (error) {
+        return null;
+    }
+}
+
+function syncConstruirHeadersAdminRifaPlus(extraHeaders = {}) {
+    const headers = {
+        'Content-Type': 'application/json',
+        ...extraHeaders
+    };
+    const token = syncObtenerAdminTokenRifaPlus();
+    const rifaIdActiva = syncObtenerAdminRifaIdActivaRifaPlus();
+
+    if (token) {
+        headers.Authorization = `Bearer ${token}`;
+    }
+
+    if (rifaIdActiva) {
+        headers['x-rifaplus-rifa-id'] = String(rifaIdActiva);
+    }
+
+    return headers;
+}
+
+function syncConstruirUrlPublicaContextualRifaPlus(apiBase, path) {
+    const url = new URL(String(path || ''), String(apiBase || window.location.origin));
+
+    if (syncEsPaginaAdminRifaPlus()) {
+        const adminSlug = String(window.rifaplusConfig?._adminRifaContext?.slug || '').trim();
+        if (adminSlug && !url.searchParams.has('rifa') && !url.searchParams.has('slug')) {
+            url.searchParams.set('rifa', adminSlug);
+        }
+    }
+
+    return url.toString();
+}
+
+function syncDebePersistirCachesLocalesRifaPlus() {
+    return !syncEsPaginaAdminRifaPlus();
+}
+
 function syncDebug(...args) {
     if (RIFAPLUS_SYNC_DEBUG) {
         console.debug(...args);
@@ -105,9 +169,32 @@ function syncConstruirSnapshotPublico(config) {
             rifa: syncSanitizarRifaParaSnapshot(cfg.rifa || {}),
             seo: syncClonarValor(cfg.seo || {}),
             tema: syncClonarValor(cfg.tema || {}),
+            marketing: syncClonarValor(cfg.marketing || {}),
             cuentas: Array.isArray(cfg.tecnica?.bankAccounts) ? syncClonarValor(cfg.tecnica.bankAccounts) : []
         }
     };
+}
+
+function syncEsEstadoTerminalRifa(estado) {
+    const valor = String(estado || '').trim().toLowerCase();
+    return valor === 'finalizado' || valor === 'archivada' || valor === 'depurada';
+}
+
+function syncPuedeAsignarPropiedad(objeto, propiedad) {
+    if (!objeto || typeof objeto !== 'object') {
+        return false;
+    }
+
+    let actual = objeto;
+    while (actual && actual !== Object.prototype) {
+        const descriptor = Object.getOwnPropertyDescriptor(actual, propiedad);
+        if (descriptor) {
+            return Boolean(descriptor.writable || descriptor.set);
+        }
+        actual = Object.getPrototypeOf(actual);
+    }
+
+    return true;
 }
 
 function syncPersistirCachesDerivadas(snapshotData) {
@@ -118,44 +205,49 @@ function syncPersistirCachesDerivadas(snapshotData) {
     const cliente = snapshotData.cliente || {};
     const rifa = snapshotData.rifa || {};
     const logo = String(cliente.logo || cliente.logotipo || '').trim();
+    const key = (suffix) => window.rifaplusConfig?.construirClaveLocal
+        ? window.rifaplusConfig.construirClaveLocal(suffix)
+        : suffix;
 
     if (logo) {
+        localStorage.setItem(key('cached_logo'), logo);
         localStorage.setItem('rifaplus_cached_logo', logo);
     }
 
     if (Array.isArray(rifa.galeria?.imagenes)) {
-        localStorage.setItem('rifaplus_cached_gallery_v1', JSON.stringify(syncClonarValor(rifa.galeria.imagenes)));
+        localStorage.setItem(key('cached_gallery_v1'), JSON.stringify(syncClonarValor(rifa.galeria.imagenes)));
     }
 
     if (String(rifa.edicionNombre || '').trim()) {
-        localStorage.setItem('rifaplus_index_hero_edicion', String(rifa.edicionNombre).trim());
+        localStorage.setItem(key('index_hero_edicion'), String(rifa.edicionNombre).trim());
     }
 
     if (String(rifa.nombreSorteo || '').trim()) {
-        localStorage.setItem('rifaplus_index_hero_nombre', String(rifa.nombreSorteo).trim());
-        localStorage.setItem('rifaplus_compra_hero_sorteo', String(rifa.nombreSorteo).trim());
+        localStorage.setItem(key('index_hero_nombre'), String(rifa.nombreSorteo).trim());
+        localStorage.setItem(key('compra_hero_sorteo'), String(rifa.nombreSorteo).trim());
     }
 
     if (String(rifa.descripcion || '').trim()) {
-        localStorage.setItem('rifaplus_index_hero_descripcion', String(rifa.descripcion).trim());
+        localStorage.setItem(key('index_hero_descripcion'), String(rifa.descripcion).trim());
     }
 
     const precioBoleto = Number(rifa.precioBoleto);
     if (Number.isFinite(precioBoleto) && precioBoleto > 0) {
-        localStorage.setItem('rifaplus_compra_precio_cache_v1', JSON.stringify({
+        localStorage.setItem(key('compra_precio_cache_v1'), JSON.stringify({
             precio: precioBoleto,
             timestamp: Date.now()
         }));
     }
 
-    localStorage.setItem('rifaplus_config_actual_v2', JSON.stringify({
+    localStorage.setItem(key('config_actual_v2'), JSON.stringify({
         cliente: syncClonarValor(cliente),
         rifa: syncClonarValor(rifa),
         tecnica: {
             bankAccounts: Array.isArray(snapshotData.cuentas) ? syncClonarValor(snapshotData.cuentas) : []
         },
         seo: syncClonarValor(snapshotData.seo || {}),
-        tema: syncClonarValor(snapshotData.tema || {})
+        tema: syncClonarValor(snapshotData.tema || {}),
+        marketing: syncClonarValor(snapshotData.marketing || {})
     }));
 }
 
@@ -199,6 +291,13 @@ window.rifaplusConfig.aplicarSnapshotPublicoLocal = function(snapshotData, opcio
         }
     }
 
+    if (syncEsObjetoPlano(snapshotData.marketing)) {
+        this.marketing = Object.assign({}, this.marketing || {}, syncClonarValor(snapshotData.marketing));
+        if (syncEsObjetoPlano(snapshotData.marketing.metaPixel)) {
+            this.marketing.metaPixel = Object.assign({}, this.marketing.metaPixel || {}, syncClonarValor(snapshotData.marketing.metaPixel));
+        }
+    }
+
     if (Array.isArray(snapshotData.cuentas)) {
         this.tecnica.bankAccounts = syncClonarValor(snapshotData.cuentas);
     }
@@ -210,6 +309,37 @@ window.rifaplusConfig.aplicarSnapshotPublicoLocal = function(snapshotData, opcio
     }
 
     return true;
+};
+
+window.rifaplusConfig.sincronizarEstadoSorteoDesdeRifa = function() {
+    const rifaEstado = String(this.rifa?.estado || '').trim().toLowerCase();
+    const fechaSorteo = String(this.rifa?.fechaSorteo || '').trim();
+    const fechaCierre = fechaSorteo ? new Date(fechaSorteo).getTime() : Number.NaN;
+    const sorteoActivo = this.sorteoActivo || {};
+
+    if (!syncEsEstadoTerminalRifa(rifaEstado)) {
+        if (sorteoActivo && typeof sorteoActivo === 'object') {
+            sorteoActivo.estado = 'activo';
+            if (fechaSorteo) {
+                if (syncPuedeAsignarPropiedad(sorteoActivo, 'fechaCierre')) {
+                    sorteoActivo.fechaCierre = fechaSorteo;
+                }
+                sorteoActivo.fechaCierreFormato = this.obtenerFechaSorteoFormato?.() || this.rifa?.fechaSorteoFormato || '';
+            }
+        }
+
+        this.permitirCompras = !Number.isFinite(fechaCierre) || Date.now() < fechaCierre;
+
+        if (this.rifa && this.rifa.modalFinalizadoSnapshot && !syncEsEstadoTerminalRifa(rifaEstado)) {
+            this.rifa.modalFinalizadoSnapshot = null;
+        }
+        return;
+    }
+
+    if (sorteoActivo && typeof sorteoActivo === 'object') {
+        sorteoActivo.estado = 'finalizado';
+    }
+    this.permitirCompras = false;
 };
 
 window.rifaplusConfig.debeSincronizarEstadoAutomaticamente = function() {
@@ -228,6 +358,7 @@ window.rifaplusConfig.obtenerConfigPublicaCompartida = async function(opciones =
     const force = opciones?.force === true;
     const maxAgeMs = Number.isFinite(Number(opciones?.maxAgeMs)) ? Number(opciones.maxAgeMs) : 30000;
     const ahora = Date.now();
+    const usarConfigAdmin = syncEsPaginaAdminRifaPlus() && Boolean(syncObtenerAdminTokenRifaPlus());
 
     if (!force && this._configPublicaCache && (ahora - this._configPublicaCacheTime) < maxAgeMs) {
         return this._configPublicaCache;
@@ -241,9 +372,11 @@ window.rifaplusConfig.obtenerConfigPublicaCompartida = async function(opciones =
         || this.obtenerApiBase?.()
         || window.location.origin;
 
-    this._configPublicaPromise = fetch(`${apiBase}/api/public/config`, {
+    this._configPublicaPromise = fetch(usarConfigAdmin ? `${apiBase}/api/admin/config` : `${apiBase}/api/public/config`, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
+        headers: usarConfigAdmin
+            ? syncConstruirHeadersAdminRifaPlus()
+            : { 'Content-Type': 'application/json' }
     })
         .then(async (response) => {
             if (!response.ok) {
@@ -255,16 +388,47 @@ window.rifaplusConfig.obtenerConfigPublicaCompartida = async function(opciones =
                 throw new Error(result?.message || 'Configuración pública inválida');
             }
 
-            const data = result.data;
+            const data = usarConfigAdmin
+                ? {
+                    cliente: syncClonarValor(result.data?.cliente || {}),
+                    rifa: syncClonarValor(result.data?.rifa || {}),
+                    seo: syncClonarValor(result.data?.seo || {}),
+                    tema: syncClonarValor(result.data?.tema || {}),
+                    marketing: syncClonarValor(result.data?.marketing || {}),
+                    cuentas: Array.isArray(result.data?.cuentas) ? syncClonarValor(result.data.cuentas) : [],
+                    totalBoletos: result.data?.totalBoletos,
+                    precioBoleto: result.data?.precioBoleto,
+                    tiempoApartadoHoras: result.data?.tiempoApartadoHoras
+                }
+                : result.data;
             this._configPublicaCache = data;
             this._configPublicaCacheTime = Date.now();
+
+            if (usarConfigAdmin) {
+                this._adminRifaContext = syncClonarValor(result?.rifaContext || result?.data?.rifaContext || null);
+            }
+
+            if (data.cliente && typeof data.cliente === 'object') {
+                syncMezclar(this.cliente, data.cliente);
+            }
 
             if (data.rifa && typeof data.rifa === 'object') {
                 Object.assign(this.rifa, data.rifa);
             }
 
+            if (typeof this.sincronizarEstadoSorteoDesdeRifa === 'function') {
+                this.sincronizarEstadoSorteoDesdeRifa();
+            }
+
             if (Array.isArray(data.cuentas)) {
                 this.tecnica.bankAccounts = data.cuentas;
+            }
+
+            if (data.marketing && typeof data.marketing === 'object') {
+                this.marketing = Object.assign({}, this.marketing || {}, syncClonarValor(data.marketing));
+                if (data.marketing.metaPixel && typeof data.marketing.metaPixel === 'object') {
+                    this.marketing.metaPixel = Object.assign({}, this.marketing.metaPixel || {}, syncClonarValor(data.marketing.metaPixel));
+                }
             }
 
             if (Number.isFinite(Number(data.totalBoletos)) && Number(data.totalBoletos) > 0) {
@@ -275,7 +439,9 @@ window.rifaplusConfig.obtenerConfigPublicaCompartida = async function(opciones =
                 this.rifa.precioBoleto = Number(data.precioBoleto);
             }
 
-            this.persistirSnapshotPublicoLocal(this);
+            if (syncDebePersistirCachesLocalesRifaPlus()) {
+                this.persistirSnapshotPublicoLocal(this);
+            }
 
             return data;
         })
@@ -292,6 +458,7 @@ window.rifaplusConfig.obtenerConfigPublicaCompartida = async function(opciones =
                 intervaloLimpiezaMinutos: Number.isFinite(Number(this.rifa?.intervaloLimpiezaMinutos)) ? Number(this.rifa.intervaloLimpiezaMinutos) : null,
                 sistemaPremios: this.rifa?.sistemaPremios || null,
                 rifa: this.rifa && typeof this.rifa === 'object' ? { ...this.rifa } : {},
+                marketing: this.marketing && typeof this.marketing === 'object' ? syncClonarValor(this.marketing) : {},
                 cuentas: Array.isArray(this.tecnica?.bankAccounts) ? [...this.tecnica.bankAccounts] : []
             };
 
@@ -323,6 +490,13 @@ window.rifaplusConfig.obtenerConfigPublicaCompartida = async function(opciones =
  */
 window.rifaplusConfig.sincronizarConfigDelBackend = async function(opciones = {}) {
     const force = opciones?.force === true;
+    const usarConfigAdmin = syncEsPaginaAdminRifaPlus() && Boolean(syncObtenerAdminTokenRifaPlus());
+    const rifaActivaAdmin = usarConfigAdmin ? syncObtenerAdminRifaIdActivaRifaPlus() : null;
+
+    if (usarConfigAdmin && !rifaActivaAdmin) {
+        syncDebug('ℹ️ Sin rifa activa en admin; se omite sincronización de /api/admin/config para evitar 409');
+        return false;
+    }
 
     // Evitar sincronizaciones simultáneas
     if (this._sincronizandoBackend) {
@@ -348,15 +522,18 @@ window.rifaplusConfig.sincronizarConfigDelBackend = async function(opciones = {}
     try {
         this._sincronizandoBackend = true;
         const apiBase = this.backend.apiBase;
+        const endpoint = usarConfigAdmin ? `${apiBase}/api/admin/config` : `${apiBase}/api/cliente`;
         
         // 🚨 TIMEOUT REAL: AbortController (5 segundos)
         timeoutId = setTimeout(() => {
             controller.abort();
         }, 5000);
         
-        const response = await fetch(`${apiBase}/api/cliente`, {
+        const response = await fetch(endpoint, {
             method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
+            headers: usarConfigAdmin
+                ? syncConstruirHeadersAdminRifaPlus()
+                : { 'Content-Type': 'application/json' },
             signal: controller.signal,
             cache: 'no-store'  // No cachear para asegurar datos frescos
         });
@@ -393,6 +570,10 @@ window.rifaplusConfig.sincronizarConfigDelBackend = async function(opciones = {}
         const result = await response.json();
         
         if (result.success && result.data) {
+            if (usarConfigAdmin) {
+                this._adminRifaContext = syncClonarValor(result?.rifaContext || result?.data?.rifaContext || null);
+            }
+
             // Fusionar configuración del backend
             if (result.data.cliente) {
                 const clienteCopy = Object.assign({}, result.data.cliente);
@@ -432,6 +613,17 @@ window.rifaplusConfig.sincronizarConfigDelBackend = async function(opciones = {}
                 }
             }
 
+            if (typeof this.sincronizarEstadoSorteoDesdeRifa === 'function') {
+                this.sincronizarEstadoSorteoDesdeRifa();
+            }
+
+            if (result.data.marketing && typeof result.data.marketing === 'object') {
+                this.marketing = Object.assign({}, this.marketing || {}, syncClonarValor(result.data.marketing));
+                if (result.data.marketing.metaPixel && typeof result.data.marketing.metaPixel === 'object') {
+                    this.marketing.metaPixel = Object.assign({}, this.marketing.metaPixel || {}, syncClonarValor(result.data.marketing.metaPixel));
+                }
+            }
+
             if (result.data.seo) {
                 this.seo = Object.assign({}, this.seo || {}, result.data.seo);
             }
@@ -453,7 +645,9 @@ window.rifaplusConfig.sincronizarConfigDelBackend = async function(opciones = {}
                 this.actualizarNombreClienteEnUI();
             }
 
-            this.persistirSnapshotPublicoLocal(this);
+            if (syncDebePersistirCachesLocalesRifaPlus()) {
+                this.persistirSnapshotPublicoLocal(this);
+            }
             
             // Resetear reintentos fallidos cuando funciona
             this._reintentosFallidos = 0;
@@ -511,7 +705,8 @@ window.rifaplusConfig.sincronizarEstadoBackend = async function() {
             controller.abort();
         }, 2000); // 2 segundos timeout
         
-        const statsResponse = await fetch(`${this.backend.apiBase}/api/public/boletos/stats`, {
+        const statsUrl = syncConstruirUrlPublicaContextualRifaPlus(this.backend.apiBase, '/api/public/boletos/stats');
+        const statsResponse = await fetch(statsUrl, {
             signal: controller.signal
         });
         
@@ -580,7 +775,7 @@ window.rifaplusConfig._cargarDatosCompletosEnBackground = async function() {
         const fin = Math.max(inicio, Math.min(finPreferido, inicio + 1999));
 
         const respuesta = await fetch(
-            `${this.backend.apiBase}/api/public/boletos?inicio=${inicio}&fin=${fin}`,
+            syncConstruirUrlPublicaContextualRifaPlus(this.backend.apiBase, `/api/public/boletos?inicio=${inicio}&fin=${fin}`),
             { priority: 'low' }
         );
         
