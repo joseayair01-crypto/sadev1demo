@@ -836,12 +836,19 @@
 
         @keyframes pulse {
             0% {
+                transform: translateY(0) scale(1);
                 box-shadow: 0 0 0 0 rgba(var(--primary-rgb, 66, 135, 245), 0.7);
             }
-            50% {
-                box-shadow: 0 0 0 10px rgba(var(--primary-rgb, 66, 135, 245), 0);
+            35% {
+                transform: translateY(-2px) scale(1.03);
+                box-shadow: 0 0 0 10px rgba(var(--primary-rgb, 66, 135, 245), 0.1);
+            }
+            70% {
+                transform: translateY(0) scale(1);
+                box-shadow: 0 0 0 14px rgba(var(--primary-rgb, 66, 135, 245), 0);
             }
             100% {
+                transform: translateY(0) scale(1);
                 box-shadow: 0 0 0 0 rgba(var(--primary-rgb, 66, 135, 245), 0);
             }
         }
@@ -861,7 +868,7 @@
         }
 
         .btn-pulse {
-            animation: pulse 2s infinite;
+            animation: pulse 1.5s ease-in-out infinite;
         }
 
         .orden-acciones-wrap .btn-pulse {
@@ -869,6 +876,8 @@
             align-items: center;
             justify-content: center;
             gap: 0.5rem;
+            width: min(100%, 360px);
+            margin: 0 auto;
         }
 
         /* ACORDEÓN DE INSTRUCCIONES */
@@ -1429,9 +1438,9 @@
             background: #111111;
             border: 1px solid #111111;
             color: #ffffff;
-            padding: 0.4rem 0.75rem;
+            padding: 0.32rem 0.62rem;
             border-radius: var(--radius-sm);
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             cursor: pointer;
             transition: all var(--transition-fast);
             display: inline-block;
@@ -1806,6 +1815,8 @@
 
         .orden-acciones-wrap {
             margin-top: 0.65rem;
+            display: flex;
+            justify-content: center;
         }
 
         /* Enlace a más opciones de pago */
@@ -1863,125 +1874,6 @@
 
         .orden-acciones-wrap {
             margin-top: 1rem;
-        }
-
-        .orden-push-card {
-            margin-top: 1rem;
-            padding: 1rem 1rem 0.95rem;
-            border-radius: 18px;
-            border: 1px solid rgba(15, 58, 125, 0.14);
-            background:
-                radial-gradient(circle at top right, rgba(217, 119, 6, 0.12), transparent 42%),
-                linear-gradient(135deg, rgba(15, 58, 125, 0.06) 0%, rgba(255, 255, 255, 0.98) 48%, rgba(250, 245, 235, 0.92) 100%);
-            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
-        }
-
-        .orden-push-card--active {
-            border-color: rgba(22, 163, 74, 0.2);
-            background:
-                radial-gradient(circle at top right, rgba(34, 197, 94, 0.14), transparent 40%),
-                linear-gradient(135deg, rgba(240, 253, 244, 0.96) 0%, rgba(255, 255, 255, 0.98) 100%);
-        }
-
-        .orden-push-card__eyebrow {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.42rem;
-            padding: 0.34rem 0.62rem;
-            border-radius: 999px;
-            background: rgba(15, 58, 125, 0.1);
-            color: var(--primary);
-            font-size: 0.72rem;
-            font-weight: 800;
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-        }
-
-        .orden-push-card--active .orden-push-card__eyebrow {
-            background: rgba(22, 163, 74, 0.12);
-            color: #166534;
-        }
-
-        .orden-push-card__title {
-            margin: 0.7rem 0 0.3rem;
-            color: var(--text-dark);
-            font-size: 1.04rem;
-            font-weight: 800;
-            line-height: 1.2;
-        }
-
-        .orden-push-card__copy {
-            margin: 0;
-            color: var(--text-light);
-            font-size: 0.9rem;
-            line-height: 1.55;
-        }
-
-        .orden-push-card__benefits {
-            margin: 0.85rem 0 0;
-            padding: 0;
-            list-style: none;
-            display: grid;
-            gap: 0.45rem;
-        }
-
-        .orden-push-card__benefits li {
-            display: flex;
-            align-items: flex-start;
-            gap: 0.55rem;
-            color: var(--text-dark);
-            font-size: 0.85rem;
-            line-height: 1.45;
-        }
-
-        .orden-push-card__benefits i {
-            margin-top: 0.1rem;
-            color: #16a34a;
-            font-size: 0.85rem;
-        }
-
-        .orden-push-card__footer {
-            margin-top: 0.95rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.6rem;
-        }
-
-        .orden-push-card__button {
-            width: 100%;
-            justify-content: center;
-            gap: 0.55rem;
-            min-height: 48px;
-            font-weight: 700;
-        }
-
-        .orden-push-card__button.btn-outline {
-            background: rgba(255, 255, 255, 0.94);
-        }
-
-        .orden-push-card__meta {
-            display: flex;
-            flex-direction: column;
-            gap: 0.4rem;
-        }
-
-        .orden-push-card__hint {
-            font-size: 0.8rem;
-            line-height: 1.45;
-            color: var(--text-light);
-        }
-
-        .orden-push-card__hint strong {
-            color: var(--text-dark);
-        }
-
-        .orden-push-card__warning {
-            padding: 0.72rem 0.78rem;
-            border-radius: 12px;
-            font-size: 0.78rem;
-            line-height: 1.45;
-            border: 1px solid rgba(29, 78, 216, 0.12);
-            background: rgba(239, 246, 255, 0.92);
         }
 
         .orden-acciones .btn {
@@ -2072,23 +1964,8 @@
                 margin-top: 0.52rem;
             }
 
-            .orden-push-card {
-                margin-top: 0.72rem;
-                padding: 0.9rem 0.9rem 0.85rem;
-                border-radius: 16px;
-            }
-
-            .orden-push-card__title {
-                margin-top: 0.62rem;
-                font-size: 0.96rem;
-            }
-
-            .orden-push-card__copy {
-                font-size: 0.84rem;
-            }
-
-            .orden-push-card__benefits li {
-                font-size: 0.8rem;
+            .orden-acciones-wrap .btn-pulse {
+                width: min(100%, 320px);
             }
         }
 
@@ -3132,91 +3009,7 @@
         }
 
         function construirAccionesPushOrden(orden, estadoValidado, comprobanteSubido) {
-            if (estadoValidado !== 'pendiente') {
-                return '';
-            }
-
-            const pushMeta = orden?.push_notificaciones || {};
-            if (!pushMeta.enabled || !pushMeta.canSubscribe) {
-                return '';
-            }
-
-            const ordenId = normalizarIdentificadorOrden(orden.id || orden.numero_orden || '');
-            const estadoRuntime = obtenerEstadoPushOrden(ordenId);
-            const estadoLocal = window.RifaPlusPushClient?.obtenerEstadoLocal?.(ordenId) || {};
-            const active = estadoRuntime.active === true || (estadoRuntime.active !== false && estadoLocal.active === true);
-            const loading = estadoRuntime.loading === true;
-            const buttonLabel = loading
-                ? 'Procesando...'
-                : active
-                    ? 'Dejar de recibir avisos aquí'
-                    : 'Activar avisos de esta orden';
-            const buttonClass = active ? 'btn btn-outline orden-push-card__button' : 'btn btn-primary orden-push-card__button';
-            const buttonIcon = active ? 'fa-bell-slash' : 'fa-bell';
-            const avisoPermiso = construirAvisoPermisoPush();
-            const title = active
-                ? 'Tus avisos ya están activos en este navegador'
-                : 'Recibe avisos importantes de esta orden';
-            const note = active
-                ? (comprobanteSubido
-                    ? 'Te avisaremos aquí cuando el pago quede confirmado o si la orden llega a cancelarse.'
-                    : 'Te avisaremos si está por vencer, cuando confirmemos tu pago o si la orden cambia de estado.')
-                : (comprobanteSubido
-                    ? 'Actívalos para enterarte aquí mismo cuando validemos tu pago o si la orden cambia.'
-                    : 'Actívalos para que no se te pase la expiración y para enterarte en cuanto haya cambios.');
-            const hint = active
-                ? 'Si cambias de opinión, puedes desactivarlos en cualquier momento desde esta misma tarjeta.'
-                : (comprobanteSubido
-                    ? 'Ideal si ya subiste tu comprobante y quieres enterarte apenas revisemos el pago.'
-                    : 'Recomendado si todavía vas a pagar o subir tu comprobante más tarde.');
-            const benefits = comprobanteSubido
-                ? [
-                    'Te avisamos cuando confirmemos tu pago.',
-                    'Recibes alerta si la orden cambia o se cancela.',
-                    'La notificación llega directo a este navegador.'
-                ]
-                : [
-                    'Recibes recordatorio antes de que venza tu orden.',
-                    'Te avisamos cuando confirmemos tu pago.',
-                    'Sabrás si la orden se cancela o cambia de estado.'
-                ];
-            const warningHtml = avisoPermiso ? `
-                <div class="orden-push-card__warning" style="color: ${avisoPermiso.color};">
-                    ${avisoPermiso.text}
-                </div>
-            ` : '';
-
-            return `
-                <section class="orden-push-card ${active ? 'orden-push-card--active' : ''}" aria-label="Notificaciones de la orden">
-                    <div class="orden-push-card__eyebrow">
-                        <i class="fas ${active ? 'fa-circle-check' : 'fa-bell'}"></i>
-                        ${active ? 'Avisos activos' : 'Recomendado'}
-                    </div>
-                    <h4 class="orden-push-card__title">${title}</h4>
-                    <p class="orden-push-card__copy">${note}</p>
-                    <ul class="orden-push-card__benefits">
-                        ${benefits.map((benefit) => `
-                            <li><i class="fas fa-check-circle" aria-hidden="true"></i><span>${benefit}</span></li>
-                        `).join('')}
-                    </ul>
-                    <div class="orden-push-card__footer">
-                        <button
-                            type="button"
-                            class="${buttonClass}"
-                            data-push-order="${ordenId}"
-                            data-push-action="${active ? 'disable' : 'enable'}"
-                            ${loading ? 'disabled' : ''}>
-                            <i class="fas ${buttonIcon}"></i> ${buttonLabel}
-                        </button>
-                        <div class="orden-push-card__meta">
-                            <div class="orden-push-card__hint">
-                                <strong>${active ? 'Listo:' : '¿Por qué activarlos?'}</strong> ${hint}
-                            </div>
-                            ${warningHtml}
-                        </div>
-                    </div>
-                </section>
-            `;
+            return '';
         }
 
         async function manejarAccionPushOrden(event) {

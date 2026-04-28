@@ -58,7 +58,7 @@ function obtenerPrecioDinamico() {
 var selectedNumbersGlobal = new Set();
 
 // Guardar estado del filtro de disponibles (persiste al cambiar rangos)
-var filtroDisponiblesActivo = false;
+var filtroDisponiblesActivo = true;
 var resumenPersistidoSnapshot = '';
 var rangoInitSuscrito = false;
 var validacionesSeleccionPendientes = new Map();
@@ -1118,14 +1118,24 @@ async function inicializarSistemaCompra() {
     }
     
     // ⭐ IMPORTANTE: Restaurar estado del filtro desde localStorage
-    const filtroGuardado = localStorage.getItem('rifaplusFiltroDisponibles');
-    if (filtroGuardado !== null) {
+    // Nuevo comportamiento:
+    // - Por defecto: solo disponibles (filtro activo)
+    // - Toggle activo: mostrar todos (filtro inactivo)
+    const mostrarTodosGuardado = localStorage.getItem('rifaplusMostrarTodosBoletos');
+    const filtroGuardadoLegacy = localStorage.getItem('rifaplusFiltroDisponibles');
+    if (mostrarTodosGuardado !== null || filtroGuardadoLegacy !== null) {
         try {
-            filtroDisponiblesActivo = JSON.parse(filtroGuardado);
-            // Sincronizar checkbox con estado guardado
+            if (mostrarTodosGuardado !== null) {
+                const mostrarTodos = JSON.parse(mostrarTodosGuardado) === true;
+                filtroDisponiblesActivo = !mostrarTodos;
+            } else {
+                // Compatibilidad con estado guardado anterior.
+                filtroDisponiblesActivo = JSON.parse(filtroGuardadoLegacy) === true;
+            }
+            // Sincronizar checkbox con estado guardado (checked = mostrar todos)
             const checkboxFiltro = document.getElementById('filtroDisponibles');
             if (checkboxFiltro) {
-                checkboxFiltro.checked = filtroDisponiblesActivo;
+                checkboxFiltro.checked = !filtroDisponiblesActivo;
             }
         } catch (error) {
             console.error('Error al restaurar estado del filtro:', error);
@@ -1619,7 +1629,7 @@ function obtenerUniversoMaquinaSuerteCompra() {
 }
 
 const MAQUINA_SUERTE_MAXIMA_SOLICITUD = 5000;
-const MAQUINA_SUERTE_QUICK_PICKS_MAXIMO = 8;
+const MAQUINA_SUERTE_QUICK_PICKS_MAXIMO = 12;
 const MAQUINA_SUERTE_QUICK_PICKS_DEFAULT = Object.freeze([10, 20, 50, 100]);
 
 function obtenerLimiteConfiguradoMaquinaSuerte() {
@@ -1646,6 +1656,7 @@ function normalizarCantidadMaquinaSuerte(valor, permitirCero = true) {
 
 function normalizarQuickPicksMaquinaSuerte(valor, opciones = {}) {
     const fallbackBase = opciones.fallback ?? MAQUINA_SUERTE_QUICK_PICKS_DEFAULT;
+    const permitirVacio = opciones.permitirVacio === true;
     const limiteMaximo = Number.isFinite(Number(opciones.limiteMaximo)) && Number(opciones.limiteMaximo) > 0
         ? Math.min(Math.floor(Number(opciones.limiteMaximo)), MAQUINA_SUERTE_MAXIMA_SOLICITUD)
         : obtenerMaximoPermitidoMaquinaSuerte();
@@ -1673,8 +1684,12 @@ function normalizarQuickPicksMaquinaSuerte(valor, opciones = {}) {
     };
 
     const quickPicks = normalizarLista(valor);
+    const entradaFueProvista = valor !== undefined && valor !== null;
     if (quickPicks.length > 0) {
         return quickPicks;
+    }
+    if (permitirVacio && entradaFueProvista) {
+        return [];
     }
 
     const fallbackNormalizado = normalizarLista(fallbackBase);
@@ -1689,7 +1704,8 @@ function obtenerQuickPicksMaquinaSuerte() {
     return normalizarQuickPicksMaquinaSuerte(
         window.rifaplusConfig?.rifa?.maquinaSuerte?.quickPicks,
         {
-            limiteMaximo: obtenerMaximoPermitidoMaquinaSuerte()
+            limiteMaximo: obtenerMaximoPermitidoMaquinaSuerte(),
+            permitirVacio: true
         }
     );
 }
@@ -2278,7 +2294,8 @@ function configurarEventListeners() {
     const filtroDisponibles = document.getElementById('filtroDisponibles');
     if (filtroDisponibles) {
         filtroDisponibles.addEventListener('change', function() {
-            aplicarFiltroDisponibles(this.checked, {
+            const mostrarTodos = this.checked === true;
+            aplicarFiltroDisponibles(!mostrarTodos, {
                 refrescarGridPrincipal: true,
                 preservarScroll: true
             });
@@ -4066,12 +4083,24 @@ function aplicarFiltroDisponibles(activo, opciones = {}) {
     // ⭐ IMPORTANTE: Guardar estado en localStorage para persistencia entre recargas
     if (persistir) {
         localStorage.setItem('rifaplusFiltroDisponibles', JSON.stringify(activo));
+        localStorage.setItem('rifaplusMostrarTodosBoletos', JSON.stringify(!activo));
     }
 
-    // ⭐ IMPORTANTE: Sincronizar checkbox UI con estado
+    // ⭐ IMPORTANTE: Sincronizar checkbox UI con estado (checked = mostrar todos)
     const checkboxFiltro = document.getElementById('filtroDisponibles');
     if (checkboxFiltro) {
-        checkboxFiltro.checked = activo;
+        checkboxFiltro.checked = !activo;
+    }
+
+    const labelFiltro = document.getElementById('filtroDisponiblesLabel');
+    const helpFiltro = document.getElementById('filtroDisponiblesHelp');
+    if (labelFiltro) {
+        labelFiltro.textContent = activo ? 'Solo disponibles' : 'Mostrar todos';
+    }
+    if (helpFiltro) {
+        helpFiltro.textContent = activo
+            ? 'Recomendado: muestra solo boletos que puedes elegir ahora.'
+            : 'Incluye también boletos apartados y vendidos para ver el panorama completo.';
     }
 
     if (refrescarGridPrincipal && !estaVistaBusquedaActiva()) {

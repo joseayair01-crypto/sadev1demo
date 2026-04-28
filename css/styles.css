@@ -426,6 +426,7 @@ body.rifaplus-logo-ready .logo-circle img[data-dynamic-logo="true"] {
         justify-content: center;
         height: auto;
         transform: none;
+        margin-top: 4px;
     }
 
     .logo-image {
@@ -437,7 +438,7 @@ body.rifaplus-logo-ready .logo-circle img[data-dynamic-logo="true"] {
         height: 132px;
         position: relative;
         transform: none;
-        margin: 10px 0 0 0;
+        margin: 12px 0 0 0;
     }
 
     .hamburger {
@@ -458,7 +459,7 @@ body.rifaplus-logo-ready .logo-circle img[data-dynamic-logo="true"] {
         justify-content: center;
         width: 135px;
         height: 135px;
-        margin: 0;
+        margin: 3px 0 0 0;
         padding: 0;
     }
 
@@ -467,7 +468,7 @@ body.rifaplus-logo-ready .logo-circle img[data-dynamic-logo="true"] {
         height: 118px !important;
         position: relative !important;
         transform: none !important;
-        margin: 8px 0 0 0 !important;
+        margin: 10px 0 0 0 !important;
         padding: 0 !important;
     }
 
@@ -496,7 +497,7 @@ body.rifaplus-logo-ready .logo-circle img[data-dynamic-logo="true"] {
         justify-content: center;
         width: 120px;
         height: 120px;
-        margin: 0;
+        margin: 2px 0 0 0;
         padding: 0;
     }
 
@@ -505,7 +506,7 @@ body.rifaplus-logo-ready .logo-circle img[data-dynamic-logo="true"] {
         height: 112px !important;
         position: relative !important;
         transform: none !important;
-        margin: 8px 0 0 0 !important;
+        margin: 10px 0 0 0 !important;
         padding: 0 !important;
     }
 

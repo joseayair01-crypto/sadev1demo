@@ -641,10 +641,39 @@ function resolverEstadoSuscripcionCampana(existing = null, data = {}) {
     };
 }
 
+function construirUrlMisBoletosPush(orden = {}, opciones = {}) {
+    const numeroOrden = String(orden.numero_orden || orden.id || '').trim().toUpperCase();
+    const autoOpen = opciones.autoOpen !== false;
+    const rifaSlug = String(
+        orden.rifa_slug
+        || orden.rifaSlug
+        || opciones.rifaSlug
+        || ''
+    ).trim();
+    const rifaId = Number.parseInt(
+        orden.rifa_id
+        || orden.rifaId
+        || opciones.rifaId,
+        10
+    ) || null;
+
+    const query = [];
+    if (numeroOrden) query.push(`ordenId=${encodeURIComponent(numeroOrden)}`);
+    if (autoOpen) query.push('autoOpen=true');
+    if (rifaSlug) {
+        query.push(`rifa=${encodeURIComponent(rifaSlug)}`);
+    } else if (rifaId) {
+        query.push(`rifa_id=${encodeURIComponent(String(rifaId))}`);
+    }
+
+    return `/mis-boletos.html${query.length ? `?${query.join('&')}` : ''}`;
+}
+
 function construirPayloadPushOrdenConfirmada(orden = {}) {
     const numeroOrden = String(orden.numero_orden || orden.id || '').trim().toUpperCase();
     const cantidadBoletos = Number(orden.cantidad_boletos || 0) || 0;
     const logoUrl = String(orden.logo || orden.logotipo || '/images/placeholder-logo.svg').trim() || '/images/placeholder-logo.svg';
+    const destinationUrl = construirUrlMisBoletosPush(orden, { autoOpen: true });
 
     return {
         type: PUSH_EVENT_TYPE_CONFIRMADA,
@@ -653,7 +682,7 @@ function construirPayloadPushOrdenConfirmada(orden = {}) {
         body: cantidadBoletos > 0
             ? `Tu orden ${numeroOrden} fue confirmada. Tus ${cantidadBoletos} boletos ya están listos.`
             : `Tu orden ${numeroOrden} fue confirmada. Tus boletos ya están listos.`,
-        url: `/mis-boletos.html?ordenId=${encodeURIComponent(numeroOrden)}&autoOpen=true`,
+        url: destinationUrl,
         tag: `${RIFAPLUS_PUSH_TOPIC_PREFIX}${numeroOrden}`,
         requireInteraction: true,
         renotify: true,
@@ -670,6 +699,7 @@ function construirPayloadPushOrdenConfirmada(orden = {}) {
 function construirPayloadPushOrdenCancelada(orden = {}, options = {}) {
     const numeroOrden = String(orden.numero_orden || orden.id || '').trim().toUpperCase();
     const logoUrl = String(orden.logo || orden.logotipo || '/images/placeholder-logo.svg').trim() || '/images/placeholder-logo.svg';
+    const destinationUrl = construirUrlMisBoletosPush(orden, { autoOpen: true });
     const cancelReason = String(options.reason || 'manual').trim().toLowerCase();
     const reasonLabel = cancelReason === 'expired'
         ? 'Tu orden venció porque no recibimos tu pago a tiempo.'
@@ -680,7 +710,7 @@ function construirPayloadPushOrdenCancelada(orden = {}, options = {}) {
         orderId: numeroOrden,
         title: 'Orden cancelada',
         body: `${reasonLabel} Si todavía te interesa participar, puedes generar una nueva orden.`,
-        url: `/mis-boletos.html?ordenId=${encodeURIComponent(numeroOrden)}&autoOpen=true`,
+        url: destinationUrl,
         tag: `${RIFAPLUS_PUSH_TOPIC_PREFIX}${numeroOrden}-cancelada`,
         requireInteraction: true,
         renotify: true,
@@ -698,6 +728,7 @@ function construirPayloadPushOrdenCancelada(orden = {}, options = {}) {
 function construirPayloadPushOrdenPorVencer(orden = {}, options = {}) {
     const numeroOrden = String(orden.numero_orden || orden.id || '').trim().toUpperCase();
     const logoUrl = String(orden.logo || orden.logotipo || '/images/placeholder-logo.svg').trim() || '/images/placeholder-logo.svg';
+    const destinationUrl = construirUrlMisBoletosPush(orden, { autoOpen: true });
     const warningMinutes = Math.max(1, Number.parseInt(options.warningMinutes, 10) || 0);
     const plural = warningMinutes === 1 ? '' : 's';
 
@@ -706,7 +737,7 @@ function construirPayloadPushOrdenPorVencer(orden = {}, options = {}) {
         orderId: numeroOrden,
         title: 'Tu orden está por vencer',
         body: `A tu orden ${numeroOrden} le quedan menos de ${warningMinutes} minuto${plural}. Completa tu pago para no perder tus boletos.`,
-        url: `/mis-boletos.html?ordenId=${encodeURIComponent(numeroOrden)}&autoOpen=true`,
+        url: destinationUrl,
         tag: `${RIFAPLUS_PUSH_TOPIC_PREFIX}${numeroOrden}-por-vencer-${warningMinutes}`,
         requireInteraction: warningMinutes <= 15,
         renotify: true,
@@ -1505,7 +1536,25 @@ async function enviarPushEventoOrden(knex, orden = {}, eventType, options = {}) 
         };
     }
 
-    const payloadData = construirPayloadEventoPushOrden(eventType, orden, options);
+    let rifaSlug = String(orden?.rifa_slug || orden?.rifaSlug || '').trim();
+    if (!rifaSlug) {
+        try {
+            const rifa = await knex('rifas')
+                .where('id', rifaId)
+                .first('slug');
+            rifaSlug = String(rifa?.slug || '').trim();
+        } catch (error) {
+            rifaSlug = '';
+        }
+    }
+
+    const ordenConContexto = {
+        ...orden,
+        rifa_id: rifaId,
+        rifa_slug: rifaSlug
+    };
+
+    const payloadData = construirPayloadEventoPushOrden(eventType, ordenConContexto, options);
     const payload = JSON.stringify(payloadData);
     const summary = {
         enabled: true,

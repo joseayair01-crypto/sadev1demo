@@ -9964,7 +9964,8 @@
                 limiteBoletos: limiteResuelto,
                 quickPicks: normalizarQuickPicksMaquinaSuerte(rifa?.maquinaSuerte?.quickPicks, {
                     limiteMaximo: limiteResuelto,
-                    fallback: fallback?.maquinaSuerte?.quickPicks
+                    fallback: fallback?.maquinaSuerte?.quickPicks,
+                    permitirVacio: true
                 }),
                 mostrarNotaDisponibilidad: typeof rifa?.maquinaSuerte?.mostrarNotaDisponibilidad === 'boolean'
                     ? rifa.maquinaSuerte.mostrarNotaDisponibilidad
@@ -10278,7 +10279,8 @@
             const inputQuickPicks = document.getElementById('maquina-suerte-quick-picks');
             if (inputQuickPicks) {
                 inputQuickPicks.value = formatearQuickPicksMaquinaSuerte(rifa?.maquinaSuerte?.quickPicks, {
-                    limiteMaximo: maquinaSuerteLimiteTemporal
+                    limiteMaximo: maquinaSuerteLimiteTemporal,
+                    permitirVacio: true
                 });
             }
             actualizarAyudaLimiteMaquinaSuerte();
@@ -11304,7 +11306,8 @@
                     document.getElementById('maquina-suerte-quick-picks')?.value,
                     {
                         limiteMaximo: limiteMaquinaSuerte,
-                        fallback: window.rifaplusConfig?.rifa?.maquinaSuerte?.quickPicks
+                        fallback: window.rifaplusConfig?.rifa?.maquinaSuerte?.quickPicks,
+                        permitirVacio: true
                     }
                 );
                 const maquinaSuerteMostrarNotaDisponibilidad = document.getElementById('maquina-suerte-mostrar-nota-disponibilidad')?.checked !== false;
@@ -11347,7 +11350,8 @@
                 const inputQuickPicks = document.getElementById('maquina-suerte-quick-picks');
                 if (inputQuickPicks) {
                     inputQuickPicks.value = formatearQuickPicksMaquinaSuerte(quickPicksMaquinaSuerte, {
-                        limiteMaximo: limiteMaquinaSuerte
+                        limiteMaximo: limiteMaquinaSuerte,
+                        permitirVacio: true
                     });
                 }
 
@@ -16821,7 +16825,7 @@
         let bonosCompraHabilitado = false;
         let maquinaSuerteLimiteTemporal = 500;
         const MAQUINA_SUERTE_LIMITE_MAXIMO = 5000;
-        const MAQUINA_SUERTE_QUICK_PICKS_MAXIMO = 8;
+        const MAQUINA_SUERTE_QUICK_PICKS_MAXIMO = 12;
         const MAQUINA_SUERTE_QUICK_PICKS_DEFAULT = Object.freeze([10, 20, 50, 100]);
 
         function obtenerMostrarNotaDisponibilidadMaquinaSuerte(valor, fallback = true) {
@@ -16882,8 +16886,12 @@
             };
 
             const quickPicks = normalizarLista(valor);
-            if (quickPicks.length > 0 || permitirVacio) {
+            const entradaFueProvista = valor !== undefined && valor !== null;
+            if (quickPicks.length > 0) {
                 return quickPicks;
+            }
+            if (permitirVacio && entradaFueProvista) {
+                return [];
             }
 
             const fallbackNormalizado = normalizarLista(fallbackBase);
@@ -16907,7 +16915,8 @@
 
             return formatearQuickPicksMaquinaSuerte(input?.value || '', {
                 limiteMaximo: limiteActual,
-                fallback: window.rifaplusConfig?.rifa?.maquinaSuerte?.quickPicks
+                fallback: window.rifaplusConfig?.rifa?.maquinaSuerte?.quickPicks,
+                permitirVacio: true
             });
         }
 
@@ -16922,9 +16931,13 @@
             );
             const quickPicks = normalizarQuickPicksMaquinaSuerte(input.value, {
                 limiteMaximo: limiteActual,
-                fallback: window.rifaplusConfig?.rifa?.maquinaSuerte?.quickPicks
+                fallback: window.rifaplusConfig?.rifa?.maquinaSuerte?.quickPicks,
+                permitirVacio: true
             });
-
+            if (!quickPicks.length) {
+                help.textContent = 'No se mostrarán números rápidos. Puedes dejar el campo vacío si así lo deseas.';
+                return;
+            }
             help.textContent = `Se mostrarán ${quickPicks.join(', ')}. Se guardan como enteros únicos, ordenados y nunca mayores a ${limiteActual}.`;
         }
 
@@ -16955,7 +16968,10 @@
             if (inputQuickPicks) {
                 inputQuickPicks.value = formatearQuickPicksMaquinaSuerte(
                     window.rifaplusConfig?.rifa?.maquinaSuerte?.quickPicks,
-                    { limiteMaximo: maquinaSuerteLimiteTemporal }
+                    {
+                        limiteMaximo: maquinaSuerteLimiteTemporal,
+                        permitirVacio: true
+                    }
                 );
             }
             const toggle = document.getElementById('maquina-suerte-mostrar-nota-disponibilidad');
@@ -16978,7 +16994,8 @@
                     document.getElementById('maquina-suerte-quick-picks')?.value,
                     {
                         limiteMaximo: limite,
-                        fallback: window.rifaplusConfig?.rifa?.maquinaSuerte?.quickPicks
+                        fallback: window.rifaplusConfig?.rifa?.maquinaSuerte?.quickPicks,
+                        permitirVacio: true
                     }
                 );
                 const mostrarNotaDisponibilidad = document.getElementById('maquina-suerte-mostrar-nota-disponibilidad')?.checked !== false;

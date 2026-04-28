@@ -4564,14 +4564,15 @@ app.delete('/api/admin/cloudinary-image', verificarToken, async (req, res) => {
  * - Transacciones atómicas (o-todo-o-nada)
  */
 const MAQUINA_SUERTE_LIMITE_MAXIMO = 5000;
-const MAQUINA_SUERTE_QUICK_PICKS_MAXIMO = 8;
+const MAQUINA_SUERTE_QUICK_PICKS_MAXIMO = 12;
 const MAQUINA_SUERTE_QUICK_PICKS_DEFAULT = Object.freeze([10, 20, 50, 100]);
 const PROMOCIONES_COMBO_MAXIMO_REGLAS = 24;
 
-function normalizarQuickPicksMaquinaSuerteConfig(valor, limiteMaximo = 500, fallback = MAQUINA_SUERTE_QUICK_PICKS_DEFAULT) {
+function normalizarQuickPicksMaquinaSuerteConfig(valor, limiteMaximo = 500, fallback = MAQUINA_SUERTE_QUICK_PICKS_DEFAULT, opciones = {}) {
     const limiteSeguro = Number.isFinite(Number(limiteMaximo)) && Number(limiteMaximo) > 0
         ? Math.min(Math.floor(Number(limiteMaximo)), MAQUINA_SUERTE_LIMITE_MAXIMO)
         : 500;
+    const permitirVacio = opciones.permitirVacio === true;
 
     const normalizarLista = (entrada) => {
         let candidatos = [];
@@ -4596,8 +4597,12 @@ function normalizarQuickPicksMaquinaSuerteConfig(valor, limiteMaximo = 500, fall
     };
 
     const quickPicks = normalizarLista(valor);
+    const entradaFueProvista = valor !== undefined && valor !== null;
     if (quickPicks.length > 0) {
         return quickPicks;
+    }
+    if (permitirVacio && entradaFueProvista) {
+        return [];
     }
 
     const fallbackNormalizado = normalizarLista(fallback);
@@ -5290,7 +5295,8 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
                 const quickPicksNormalizados = normalizarQuickPicksMaquinaSuerteConfig(
                     req.body.rifa.maquinaSuerte?.quickPicks,
                     limiteNormalizado,
-                    config.rifa.maquinaSuerte?.quickPicks
+                    config.rifa.maquinaSuerte?.quickPicks,
+                    { permitirVacio: true }
                 );
 
                 config.rifa.maquinaSuerte = {

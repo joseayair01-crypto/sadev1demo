@@ -96,7 +96,7 @@
       ],
       "enabled": true
     },
-    "estado": "borrador",
+    "estado": "activo",
     "rangos": [
       {
         "fin": 99,
@@ -157,7 +157,7 @@
       ],
       "enabled": false
     },
-    "horaSorteo": "",
+    "horaSorteo": "21:15",
     "bonosCompra": {
       "items": [
         {
@@ -174,7 +174,7 @@
       "enabled": true
     },
     "descripcion": "Sorteo de lujo este 30 de mayo, también tenemos presorteo el 30 de abril y 10 ruletazos. No pierdas la oportunidad de participar por solo 6 pesitos y con excelentes promociones si compras más boletos.",
-    "fechaSorteo": "",
+    "fechaSorteo": "2026-05-30T21:15:00",
     "publicacion": {
       "bonos": true,
       "ruletazo": true,
@@ -184,22 +184,19 @@
       "promociones": true,
       "testimonios": false,
       "progressStats": true,
-      "logoVerificadoHeader": false
+      "logoVerificadoHeader": true
     },
     "zonaHoraria": "Hora Centro Mexico",
     "nombreSorteo": "Cybertruck por solo $6 pesos 🤯🍀 (Sorteo Demo)",
     "precioBoleto": 6,
     "totalBoletos": 100,
     "edicionNombre": "Edición No.1 - SaDev Demo",
-    "horaPresorteo": "",
+    "horaPresorteo": "21:15",
     "maquinaSuerte": {
       "quickPicks": [
-        1,
-        3,
-        5,
-        10
+        1
       ],
-      "limiteBoletos": 10,
+      "limiteBoletos": 100,
       "mostrarNotaDisponibilidad": false
     },
     "oportunidades": {
@@ -209,9 +206,12 @@
         "inicio": 0
       },
       "multiplicador": 4,
-      "rango_visible": false
+      "rango_visible": {
+        "fin": 0,
+        "inicio": 0
+      }
     },
-    "fechaPresorteo": "",
+    "fechaPresorteo": "2026-04-30T21:15:00",
     "sistemaPremios": {
       "sorteo": [
         {
@@ -350,7 +350,7 @@
         "descripcion": "Las promociones, bonos y beneficios aplican según las condiciones publicadas. Cualquier cambio relevante o aviso oficial se dará a conocer en la plataforma y redes oficiales.\n\n"
       }
     ],
-    "fechaSorteoFormato": "",
+    "fechaSorteoFormato": "30 de Mayo del 2026",
     "promocionPorTiempo": {
       "enabled": false,
       "fechaFin": null,
@@ -364,9 +364,12 @@
       "fechaInicio": "2026-03-31T19:03"
     },
     "tiempoApartadoHoras": 1,
-    "fechaPresorteoFormato": "24 de Abril del 2026",
+    "fechaPresorteoFormato": "30 de Abril del 2026",
     "informacionSorteoIntro": "Consulta aquí la información más importante del sorteo antes de participar. Al comprar, aceptas estas condiciones.",
     "modalFinalizadoSnapshot": null,
+    "pushOrderWarningMinutes": [
+      30
+    ],
     "intervaloLimpiezaMinutos": 10,
     "promocionesOportunidades": {
       "enabled": true,
@@ -516,6 +519,36 @@
       "trackAddToCart": true,
       "trackViewContent": true,
       "trackInitiateCheckout": true
+    },
+    "pushCampaigns": {
+      "audience": {
+        "marketingRecencyDays": 120
+      },
+      "nuevaRifa": {
+        "body": "No pierdas esta nueva oportunidad de ganar",
+        "title": "Nuevo sorteo disponible",
+        "enabled": true,
+        "customUrl": "",
+        "useCustomUrl": false,
+        "autoSendOnPublicActivation": true
+      },
+      "eventReminders": {
+        "enabled": true,
+        "sorteoMinutes": [
+          30
+        ],
+        "presorteoMinutes": [
+          30
+        ]
+      },
+      "resultsAvailable": {
+        "body": "{organizerName} ya publicó los resultados de {rifaNombre}. Entra a revisar si ganaste.",
+        "title": "Resultados disponibles",
+        "enabled": true,
+        "customUrl": "",
+        "useCustomUrl": false,
+        "autoSendOnFirstPublication": true
+      }
     }
   },
   "rate_limits": {

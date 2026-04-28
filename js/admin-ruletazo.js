@@ -536,8 +536,211 @@ function filtrarNumerosValidosRuletazo(numeros, totalBoletos) {
     )).sort((a, b) => a - b);
 }
 
+const RULETAZO_TICKET_THEME_STORAGE_KEY = 'rifaplus_admin_ruletazo_ticket_card_theme_v1';
+const RULETAZO_TICKET_THEME_DEFAULT = Object.freeze({
+    primary: '#0b2238',
+    primaryDark: '#153e5c',
+    tint: 'rgba(11, 34, 56, 0.08)',
+    border: 'rgba(11, 34, 56, 0.18)'
+});
+
+function normalizarColorHexRuletazo(valor, fallback = '') {
+    const normalizador = typeof window.normalizarHexColorSeguro === 'function'
+        ? window.normalizarHexColorSeguro
+        : (input, localFallback = '') => {
+            const limpio = String(input || '').trim();
+            const match = limpio.match(/^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/);
+            if (!match) return localFallback;
+            const hex = match[1];
+            if (hex.length === 3) {
+                return `#${hex.split('').map((char) => char + char).join('').toLowerCase()}`;
+            }
+            return `#${hex.toLowerCase()}`;
+        };
+
+    return normalizador(valor, fallback);
+}
+
+function enriquecerTemaRuletazoTicketCard(primary, primaryDark) {
+    const rgb = typeof window.hexToRgbSeguro === 'function'
+        ? window.hexToRgbSeguro(primary)
+        : null;
+
+    if (!rgb || !Number.isFinite(rgb.r) || !Number.isFinite(rgb.g) || !Number.isFinite(rgb.b)) {
+        return {
+            primary,
+            primaryDark,
+            tint: RULETAZO_TICKET_THEME_DEFAULT.tint,
+            border: RULETAZO_TICKET_THEME_DEFAULT.border
+        };
+    }
+
+    return {
+        primary,
+        primaryDark,
+        tint: `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.08)`,
+        border: `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.18)`
+    };
+}
+
+function leerTemaPublicoCacheadoRuletazoTicketCard() {
+    try {
+        const bruto = localStorage.getItem(RULETAZO_TICKET_THEME_STORAGE_KEY);
+        if (!bruto) return null;
+        const tema = JSON.parse(bruto);
+        const primary = normalizarColorHexRuletazo(tema?.primary, '');
+        if (!primary) return null;
+        const primaryDark = normalizarColorHexRuletazo(
+            tema?.primaryDark,
+            typeof window.ajustarLuminosidadHex === 'function'
+                ? window.ajustarLuminosidadHex(primary, -0.22)
+                : primary
+        );
+        return enriquecerTemaRuletazoTicketCard(primary, primaryDark);
+    } catch (error) {
+        return null;
+    }
+}
+
+function resolverTemaPublicoRuletazoTicketCard(config = window.rifaplusConfig || {}) {
+    const temaConfig = config?.tema || {};
+    const coloresTema = temaConfig?.colores || {};
+    const clienteConfig = config?.cliente || {};
+    const clienteColores = clienteConfig?.colores || {};
+    const temaPersonalizadoActivo = temaConfig?.personalizado === true;
+
+    const candidatosPrimary = temaPersonalizadoActivo
+        ? [
+            temaConfig?.colorPrimario,
+            coloresTema?.colorPrimario,
+            coloresTema?.primary,
+            clienteConfig?.colorPrimario,
+            clienteColores?.colorPrimario,
+            clienteColores?.primary,
+            RULETAZO_TICKET_THEME_DEFAULT.primary
+        ]
+        : [
+            clienteConfig?.colorPrimario,
+            clienteColores?.colorPrimario,
+            clienteColores?.primary,
+            RULETAZO_TICKET_THEME_DEFAULT.primary
+        ];
+
+    const primary = candidatosPrimary
+        .map((valor) => normalizarColorHexRuletazo(valor, ''))
+        .find(Boolean) || RULETAZO_TICKET_THEME_DEFAULT.primary;
+
+    const primaryDarkFallback = typeof window.ajustarLuminosidadHex === 'function'
+        ? window.ajustarLuminosidadHex(primary, -0.22)
+        : primary;
+
+    const candidatosPrimaryDark = temaPersonalizadoActivo
+        ? [
+            temaConfig?.colorPrimarioOscuro,
+            coloresTema?.colorPrimarioOscuro,
+            coloresTema?.primaryDark,
+            clienteConfig?.colorPrimarioDark,
+            clienteColores?.colorPrimarioDark,
+            clienteColores?.primaryDark,
+            primaryDarkFallback
+        ]
+        : [
+            clienteConfig?.colorPrimarioDark,
+            clienteColores?.colorPrimarioDark,
+            clienteColores?.primaryDark,
+            primaryDarkFallback
+        ];
+
+    const primaryDark = candidatosPrimaryDark
+        .map((valor) => normalizarColorHexRuletazo(valor, ''))
+        .find(Boolean) || primaryDarkFallback;
+
+    return enriquecerTemaRuletazoTicketCard(primary, primaryDark);
+}
+
+function aplicarTemaResueltoRuletazoTicketCard(tema) {
+    const root = document.documentElement;
+    root.style.setProperty('--ticket-card-public-primary', tema.primary);
+    root.style.setProperty('--ticket-card-public-primary-dark', tema.primaryDark);
+    root.style.setProperty('--ticket-card-public-primary-tint', tema.tint || RULETAZO_TICKET_THEME_DEFAULT.tint);
+    root.style.setProperty('--ticket-card-public-primary-border', tema.border || RULETAZO_TICKET_THEME_DEFAULT.border);
+    root.dataset.ticketCardPublicPrimary = tema.primary;
+    window.__rifaplusRuletazoTicketCardPublicTheme = tema;
+
+    try {
+        localStorage.setItem(RULETAZO_TICKET_THEME_STORAGE_KEY, JSON.stringify({
+            primary: tema.primary,
+            primaryDark: tema.primaryDark
+        }));
+    } catch (error) {
+        // ignore
+    }
+}
+
+function aplicarColorPublicoTicketCardRuletazo(config = window.rifaplusConfig || {}) {
+    try {
+        const temaResuelto = resolverTemaPublicoRuletazoTicketCard(config)
+            || window.__rifaplusRuletazoTicketCardPublicTheme
+            || leerTemaPublicoCacheadoRuletazoTicketCard()
+            || RULETAZO_TICKET_THEME_DEFAULT;
+        aplicarTemaResueltoRuletazoTicketCard(temaResuelto);
+    } catch (error) {
+        aplicarTemaResueltoRuletazoTicketCard(
+            window.__rifaplusRuletazoTicketCardPublicTheme
+            || leerTemaPublicoCacheadoRuletazoTicketCard()
+            || RULETAZO_TICKET_THEME_DEFAULT
+        );
+    }
+}
+
+function enmascararTelefonoRuletazo(numero = '') {
+    const digits = String(numero || '').replace(/[^0-9]/g, '');
+    if (!digits) return 'No disponible';
+    return `••••••••${digits.slice(-2)}`;
+}
+
+function abrirWhatsappRuletazo(numeroWhatsapp, estado) {
+    let numero = String(numeroWhatsapp || '').trim().replace(/[^0-9]/g, '');
+    if (numero.length < 10) return;
+    numero = numero.slice(-10);
+
+    const estadoLower = String(estado || '').trim().toLowerCase();
+    const prefijo = estadoLower === 'estados unidos' ? '+1' : '+52';
+    const url = `https://wa.me/${prefijo}${numero}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+}
+
+function toggleWhatsappRuletazo(elementId, numeroWhatsapp) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    const digits = String(numeroWhatsapp || '').replace(/[^0-9]/g, '');
+    if (!digits) return;
+
+    const isVisible = el.dataset.visible === 'true';
+    el.textContent = isVisible ? enmascararTelefonoRuletazo(digits) : digits;
+    el.dataset.visible = isVisible ? 'false' : 'true';
+
+    const btn = document.querySelector(`button[data-whatsapp-toggle-id="${elementId}"]`);
+    const icon = btn?.querySelector('i');
+    if (icon) {
+        icon.classList.toggle('fa-eye', isVisible);
+        icon.classList.toggle('fa-eye-slash', !isVisible);
+    }
+
+    if (!isVisible) {
+        el.style.cursor = 'pointer';
+        el.style.color = '#0084ff';
+        el.style.textDecoration = 'underline';
+    } else {
+        el.style.removeProperty('cursor');
+        el.style.removeProperty('color');
+        el.style.removeProperty('text-decoration');
+    }
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     machine = new RuletazoMachine();
+    aplicarColorPublicoTicketCardRuletazo();
 
     if (window.GanadoresManager?.refrescarDesdeServidor) {
         try {
@@ -600,6 +803,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ===================================
     if (window.rifaplusConfig && typeof window.rifaplusConfig.onChange === 'function') {
         window.rifaplusConfig.onChange(function(cambio) {
+            if (cambio.seccion === 'tema' || cambio.seccion === 'cliente') {
+                aplicarColorPublicoTicketCardRuletazo();
+            }
             // Si cambia el total de boletos, recargar rifa
             if (cambio.seccion === 'rifa' && cambio.campo === 'totalBoletos') {
                 if (typeof loadCurrentRifa === 'function') {
@@ -617,6 +823,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     window.addEventListener('configSyncCompleto', () => {
+        aplicarColorPublicoTicketCardRuletazo();
         if (typeof loadCurrentRifa === 'function') {
             loadCurrentRifa();
         }
@@ -1074,7 +1281,14 @@ function buildRuletazoTicketCard({
         : 'N/A';
     const estadoCliente = orden?.estado_cliente || 'N/A';
     const ciudadCliente = orden?.ciudad_cliente || 'N/A';
-    const whatsapp = orden?.whatsapp || orden?.telefono_cliente || 'N/A';
+    const whatsapp = orden?.whatsapp || orden?.telefono_cliente || '';
+    const whatsappDigits = String(whatsapp || '').replace(/[^0-9]/g, '');
+    const whatsappValido = whatsappDigits.length >= 10;
+    const whatsappMasked = whatsappValido ? enmascararTelefonoRuletazo(whatsappDigits) : (whatsappDigits ? 'Inválido' : 'No disponible');
+    const whatsappId = `ruletazo-whatsapp-${ticketNumber}-${Date.now()}`;
+    const whatsappOnClick = whatsappValido
+        ? `abrirWhatsappRuletazo('${whatsappDigits}', '${String(estadoCliente || '').replace(/'/g, "\\'")}')`
+        : '';
     const cantidad = orden?.cantidad_boletos || '1';
     const total = orden?.total
         ? `$${Number(orden.total).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -1149,7 +1363,23 @@ function buildRuletazoTicketCard({
                             </div>
                             <div class="orden-dato orden-dato-full">
                                 <span class="orden-dato-label">WhatsApp</span>
-                                <span class="orden-dato-valor">${whatsapp}</span>
+                                <div class="whatsapp-toggle-container">
+                                    <span
+                                        class="orden-dato-valor whatsapp-valor"
+                                        id="${whatsappId}"
+                                        data-visible="false"
+                                        ${whatsappValido ? `onclick="${whatsappOnClick}" style="cursor: pointer; color: #0084ff; text-decoration: underline;"` : 'style="opacity: 0.7;"'}>
+                                        ${whatsappMasked}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        class="whatsapp-toggle-btn"
+                                        data-whatsapp-toggle-id="${whatsappId}"
+                                        onclick="toggleWhatsappRuletazo('${whatsappId}', '${String(whatsappDigits).replace(/'/g, "\\'")}')"
+                                        title="Mostrar/Ocultar WhatsApp">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>

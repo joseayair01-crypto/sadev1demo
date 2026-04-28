@@ -50,6 +50,27 @@ function prepararRedireccionSinShellMisBoletos() {
     }
 }
 
+async function solicitarPermisoNotificacionesOrdenConfirmada() {
+    try {
+        if (typeof window === 'undefined' || !('Notification' in window)) {
+            return { supported: false, permission: 'unsupported' };
+        }
+
+        if (Notification.permission === 'granted') {
+            return { supported: true, permission: 'granted' };
+        }
+
+        if (Notification.permission === 'denied') {
+            return { supported: true, permission: 'denied' };
+        }
+
+        const permission = await Notification.requestPermission();
+        return { supported: true, permission };
+    } catch (error) {
+        return { supported: true, permission: 'error' };
+    }
+}
+
 /**
  * mostrarModalOrdenConfirmada - Abre modal con datos de orden
  * @param {Object} datosOrden - Datos de la orden
@@ -189,15 +210,9 @@ function mostrarModalOrdenConfirmada(datosOrden) {
                                 : 'Revisa tu orden y completa el pago lo antes posible para conservar tus boletos.'}
                         </div>
 
-                        <div class="push-invite-confirmada">
-                            <div class="push-invite-confirmada__icon">
-                                <i class="fas fa-bell"></i>
-                            </div>
-                            <div class="push-invite-confirmada__content">
-                                <strong>Activa avisos en Mis Boletos</strong>
-                                <span>Ahí podrás recibir notificaciones cuando confirmemos tu pago o si tu orden está por vencer.</span>
-                            </div>
-                            <a href="${urlMisBoletos}" class="push-invite-confirmada__link">Ver orden y activar avisos</a>
+                        <div class="push-consent-confirmada" role="note" aria-live="polite">
+                            <i class="fas fa-bell" aria-hidden="true"></i>
+                            <span>Permite las notificaciones para recibir avisos sobre la confirmación de tu pago y el estado de tu orden.</span>
                         </div>
 
                         <button id="btnIrAPagar" class="btn-ir-pagar">IR A PAGAR</button>
@@ -214,11 +229,13 @@ function mostrarModalOrdenConfirmada(datosOrden) {
         const btnPagar = modal.querySelector('#btnIrAPagar');
         
         // Event handler
-        const handleClick = (e) => {
+        const handleClick = async (e) => {
             e.preventDefault();
             // Deshabilitar para evitar múltiples clicks
             btnPagar.disabled = true;
-            btnPagar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Redirigiendo...';
+            btnPagar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Preparando...';
+
+            await solicitarPermisoNotificacionesOrdenConfirmada();
 
             // Redirigir después de 300ms para UX fluida
             setTimeout(() => {

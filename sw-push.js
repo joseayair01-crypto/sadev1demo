@@ -76,16 +76,30 @@ self.addEventListener('notificationclick', (event) => {
 
     event.waitUntil((async () => {
         const clientsList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-        for (const client of clientsList) {
-            const clientUrl = client?.url ? new URL(client.url, self.location.origin).toString() : '';
-            if ('focus' in client) {
-                await client.focus();
-                if ('navigate' in client) {
-                    await client.navigate(destination);
-                }
-                if (clientUrl.includes('/mis-boletos.html')) {
-                    return;
-                }
+        const clientConRutaExacta = clientsList.find((client) => {
+            try {
+                const clientUrl = new URL(client?.url || '', self.location.origin).toString();
+                return clientUrl === destination;
+            } catch (error) {
+                return false;
+            }
+        });
+
+        const clientMisBoletos = clientsList.find((client) => {
+            try {
+                const pathname = new URL(client?.url || '', self.location.origin).pathname;
+                return esVistaMisBoletos(pathname);
+            } catch (error) {
+                return false;
+            }
+        });
+
+        const clientCandidato = clientConRutaExacta || clientMisBoletos || clientsList[0] || null;
+        if (clientCandidato && 'focus' in clientCandidato) {
+            await clientCandidato.focus();
+            if ('navigate' in clientCandidato) {
+                await clientCandidato.navigate(destination);
+                return;
             }
         }
 

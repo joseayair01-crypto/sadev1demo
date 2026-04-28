@@ -2,6 +2,13 @@
    ADMIN RULETAZO - ESTILOS
    ==================================== */
 
+:root {
+    --ticket-card-public-primary: #0b2238;
+    --ticket-card-public-primary-dark: #153e5c;
+    --ticket-card-public-primary-tint: rgba(11, 34, 56, 0.08);
+    --ticket-card-public-primary-border: rgba(11, 34, 56, 0.18);
+}
+
 .container {
     max-width: 1800px;
     margin: 0 auto;
@@ -2124,8 +2131,8 @@
     justify-content: space-between;
     align-items: flex-start;
     padding: 1rem 1.2rem;
-    background: linear-gradient(135deg, rgba(59, 89, 152, 0.08) 0%, rgba(255, 255, 255, 0.92) 100%);
-    border-bottom: 2px solid rgba(59, 89, 152, 0.18);
+    background: linear-gradient(135deg, var(--ticket-card-public-primary) 0%, var(--ticket-card-public-primary-dark) 100%);
+    border-bottom: 2px solid var(--ticket-card-public-primary-border);
     gap: 1rem;
 }
 
@@ -2143,7 +2150,7 @@
     border-radius: 10px;
     background: white;
     padding: 0.45rem;
-    border: 1px solid rgba(59, 89, 152, 0.12);
+    border: 1px solid var(--ticket-card-public-primary-border);
     flex-shrink: 0;
 }
 
@@ -2189,13 +2196,13 @@
 .orden-id-numero {
     font-size: 1.55rem;
     font-weight: 900;
-    color: #254f93;
+    color: #ffffff;
     letter-spacing: 0.02em;
 }
 
 .orden-fecha-hora {
     font-size: 0.75rem;
-    color: #6b7280;
+    color: rgba(255, 255, 255, 0.86);
     font-weight: 500;
     text-align: right;
 }
@@ -2326,6 +2333,38 @@
     font-weight: 700;
     color: #1f2937;
     word-break: break-word;
+}
+
+.whatsapp-toggle-container {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+
+.whatsapp-valor {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #1f2937;
+    letter-spacing: 0.04em;
+}
+
+.whatsapp-toggle-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    border: 1px solid var(--ticket-card-public-primary-border);
+    background: var(--ticket-card-public-primary-tint);
+    color: var(--ticket-card-public-primary-dark);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.15s ease, background 0.2s ease;
+}
+
+.whatsapp-toggle-btn:hover {
+    transform: translateY(-1px);
 }
 
 .orden-dato-valor-muted {
