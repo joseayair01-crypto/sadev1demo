@@ -2044,15 +2044,59 @@
         }
 
         // ===== FETCH WITH AUTH =====
+        /**
+         * 🔐 Obtiene y valida el ID de la rifa seleccionada con máxima robustez
+         * Prioridad: Selector DOM > adminLayout > localStorage > fallback
+         */
+        function obtenerRifaIdSeleccionada() {
+            let rifaId = null;
+            const selectElement = document.getElementById('adminRifaSelect');
+            
+            // 1️⃣ Fuente más confiable: el selector DOM (lo que el usuario seleccionó)
+            if (selectElement?.value) {
+                rifaId = String(selectElement.value).trim();
+                if (rifaId && /^\d+$/.test(rifaId)) {
+                    console.log(`📋 AdminBoletos: ✅ RifaId desde SELECTOR DOM: ${rifaId}`);
+                    return Number.parseInt(rifaId, 10);
+                }
+            }
+            
+            // 2️⃣ Fuente secundaria: adminLayout API
+            if (window.adminLayout?.getActiveRifaId) {
+                try {
+                    rifaId = window.adminLayout.getActiveRifaId();
+                    if (rifaId && /^\d+$/.test(String(rifaId))) {
+                        console.log(`📋 AdminBoletos: ✅ RifaId desde adminLayout: ${rifaId}`);
+                        return Number.parseInt(String(rifaId), 10);
+                    }
+                } catch (e) {
+                    console.warn(`⚠️ AdminBoletos: Error en adminLayout.getActiveRifaId():`, e.message);
+                }
+            }
+            
+            // 3️⃣ Fuente de último recurso: localStorage
+            if (!rifaId) {
+                rifaId = localStorage.getItem('rifaplus_rifa_activa');
+                if (rifaId && /^\d+$/.test(String(rifaId))) {
+                    console.log(`📋 AdminBoletos: ✅ RifaId desde localStorage: ${rifaId}`);
+                    return Number.parseInt(String(rifaId), 10);
+                }
+            }
+            
+            // 4️⃣ Fallback final
+            console.warn(`⚠️ AdminBoletos: No se pudo determinar RifaId, usando fallback: 1`);
+            return 1;
+        }
+
         async function fetchWithAuth(url, opts = {}) {
             const token = getToken();
             opts.headers = opts.headers || {};
             opts.headers['Content-Type'] = 'application/json';
             if (token) opts.headers['Authorization'] = 'Bearer ' + token;
 
-            // Agregar header X-Rifa-Id para aislamiento multirifa
-            const rifaIdSeleccionada = localStorage.getItem('rifaplus_rifa_activa');
-            if (rifaIdSeleccionada) {
+            // Agregar header X-Rifa-Id para aislamiento multirifa (ROBUSTO)
+            const rifaIdSeleccionada = obtenerRifaIdSeleccionada();
+            if (rifaIdSeleccionada && rifaIdSeleccionada > 0) {
                 opts.headers['X-Rifa-Id'] = String(rifaIdSeleccionada);
             }
 
@@ -2091,16 +2135,27 @@
 
         // ===== ACTUALIZAR ESTADÍSTICAS =====
         function actualizarEstadisticas() {
+            // ✅ VALIDAR que obtenemos stats de la rifa correcta
+            const rifaIdActual = obtenerRifaIdSeleccionada();
+            console.log(`📊 AdminBoletos: Actualizando stats para rifa ID=${rifaIdActual}`);
+            
             // Card 1: Nombre del sorteo desde config
             const statSorteoNombre = document.getElementById('statSorteoNombre');
             const nombreSorteo = window.rifaplusConfig?.obtenerNombreSorteo?.() || window.rifaplusConfig?.rifa?.nombreSorteo;
             if (statSorteoNombre && nombreSorteo) {
                 statSorteoNombre.textContent = nombreSorteo;
+                console.log(`✅ AdminBoletos: Nombre sorteo = ${nombreSorteo}`);
             }
 
-            // Card 2: Total de boletos desde config
+            // Card 2: Total de boletos desde config (VALIDAR que sea de la rifa correcta)
             if (window.rifaplusConfig?.rifa?.totalBoletos) {
-                document.getElementById('statTotalBoletos').textContent = window.rifaplusConfig.rifa.totalBoletos;
+                const totalBoletos = Number(window.rifaplusConfig.rifa.totalBoletos);
+                if (Number.isFinite(totalBoletos) && totalBoletos > 0) {
+                    document.getElementById('statTotalBoletos').textContent = totalBoletos;
+                    console.log(`✅ AdminBoletos: Total boletos = ${totalBoletos}`);
+                } else {
+                    console.warn(`⚠️ AdminBoletos: totalBoletos inválido: ${totalBoletos}`);
+                }
             }
 
             // Card 3: Boletos vendidos (confirmados) - contar desde las órdenes confirmadas
@@ -3034,6 +3089,49 @@
                 const searchInput = document.getElementById('searchBoleto');
                 if (searchInput) {
                     searchInput.focus();
+                }
+                
+                // ===================================
+                // 🔥 SISTEMA REACTIVO: Escuchar cambios en el selector de rifas
+                // ===================================
+                const adminRifaSelect = document.getElementById('adminRifaSelect');
+                if (adminRifaSelect) {
+                    console.log(`✅ AdminBoletos: Event listener agregado a adminRifaSelect`);
+                    
+                    adminRifaSelect.addEventListener('change', async (e) => {
+                        const nuevaRifaId = e.target.value;
+                        console.log(`🔄 AdminBoletos: CAMBIO DE RIFA DETECTADO - Nueva ID: ${nuevaRifaId}`);
+                        
+                        // Validar que la nueva rifa ID sea válida
+                        if (nuevaRifaId && /^\d+$/.test(String(nuevaRifaId))) {
+                            // Guardar en localStorage como referencia
+                            localStorage.setItem('rifaplus_rifa_activa', String(nuevaRifaId));
+                            console.log(`✅ AdminBoletos: localStorage actualizado con rifaId: ${nuevaRifaId}`);
+                            
+                            // Recargar boletos de la rifa seleccionada
+                            console.log(`⏳ AdminBoletos: Recargando boletos para rifa ${nuevaRifaId}...`);
+                            await cargarBoletos();
+                            actualizarEstadisticas();
+                            inicializarSearchContainer();
+                            
+                            // Limpiar el resultado anterior
+                            const ticketResult = document.getElementById('ticketResult');
+                            if (ticketResult) {
+                                ticketResult.classList.remove('active');
+                            }
+                            const searchInput = document.getElementById('searchBoleto');
+                            if (searchInput) {
+                                searchInput.value = '';
+                                searchInput.focus();
+                            }
+                            
+                            console.log(`✅ AdminBoletos: Rifa ${nuevaRifaId} cargada correctamente`);
+                        } else {
+                            console.warn(`⚠️ AdminBoletos: RifaId inválida en onChange: ${nuevaRifaId}`);
+                        }
+                    });
+                } else {
+                    console.warn(`⚠️ AdminBoletos: No se encontró elemento adminRifaSelect`);
                 }
             } catch (error) {
                 console.error('❌ Error al cargar boletos:', error);
