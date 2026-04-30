@@ -789,6 +789,50 @@ function toggleWhatsappRuletazo(elementId, numeroWhatsapp) {
     }
 }
 
+/**
+ * 🔒 Obtiene y valida el ID de la rifa seleccionada con máxima robustez
+ * Prioridad: Selector DOM > adminLayout > localStorage > fallback
+ */
+function obtenerRifaIdSeleccionada() {
+    let rifaId = null;
+    const selectElement = document.getElementById('adminRifaSelect');
+    
+    // 1️⃣ Fuente más confiable: el selector DOM (lo que el usuario seleccionó)
+    if (selectElement?.value) {
+        rifaId = String(selectElement.value).trim();
+        if (rifaId && /^\d+$/.test(rifaId)) {
+            console.log(`📋 Ruletazo: ✅ RifaId desde SELECTOR DOM: ${rifaId}`);
+            return Number.parseInt(rifaId, 10);
+        }
+    }
+    
+    // 2️⃣ Fuente secundaria: adminLayout API
+    if (window.adminLayout?.getActiveRifaId) {
+        try {
+            rifaId = window.adminLayout.getActiveRifaId();
+            if (rifaId && /^\d+$/.test(String(rifaId))) {
+                console.log(`📋 Ruletazo: ✅ RifaId desde adminLayout: ${rifaId}`);
+                return Number.parseInt(String(rifaId), 10);
+            }
+        } catch (e) {
+            console.warn(`⚠️ Ruletazo: Error en adminLayout.getActiveRifaId():`, e.message);
+        }
+    }
+    
+    // 3️⃣ Fuente de último recurso: localStorage
+    if (!rifaId) {
+        rifaId = localStorage.getItem('rifaplus_rifa_activa');
+        if (rifaId && /^\d+$/.test(String(rifaId))) {
+            console.log(`📋 Ruletazo: ✅ RifaId desde localStorage: ${rifaId}`);
+            return Number.parseInt(String(rifaId), 10);
+        }
+    }
+    
+    // 4️⃣ Fallback final
+    console.warn(`⚠️ Ruletazo: No se pudo determinar RifaId, usando fallback: 1`);
+    return 1;
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     machine = new RuletazoMachine();
     aplicarColorPublicoTicketCardRuletazo();
@@ -838,6 +882,39 @@ document.addEventListener('DOMContentLoaded', async () => {
             updateMachineAvailability();
         });
     });
+    
+    // ===================================
+    // 🔥 SISTEMA REACTIVO: Escuchar cambios en el selector de rifas
+    // ===================================
+    const adminRifaSelect = document.getElementById('adminRifaSelect');
+    if (adminRifaSelect) {
+        console.log(`✅ Ruletazo: Event listener agregado a adminRifaSelect`);
+        
+        adminRifaSelect.addEventListener('change', async (e) => {
+            const nuevaRifaId = e.target.value;
+            console.log(`🔄 Ruletazo: CAMBIO DE RIFA DETECTADO - Nueva ID: ${nuevaRifaId}`);
+            
+            // Validar que la nueva rifa ID sea válida
+            if (nuevaRifaId && /^\d+$/.test(String(nuevaRifaId))) {
+                // Guardar en localStorage como referencia
+                localStorage.setItem('rifaplus_rifa_activa', String(nuevaRifaId));
+                console.log(`✅ Ruletazo: localStorage actualizado con rifaId: ${nuevaRifaId}`);
+                
+                // Recargar datos de la rifa seleccionada
+                console.log(`⏳ Ruletazo: Recargando datos de rifa ${nuevaRifaId}...`);
+                await loadCurrentRifa();
+                console.log(`✅ Ruletazo: Rifa ${nuevaRifaId} cargada correctamente`);
+            } else {
+                console.warn(`⚠️ Ruletazo: RifaId inválida en onChange: ${nuevaRifaId}`);
+            }
+        });
+        
+        // Cargar rifa inicial
+        console.log(`⏳ Ruletazo: Cargando rifa inicial...`);
+        await loadCurrentRifa();
+    } else {
+        console.warn(`⚠️ Ruletazo: No se encontró elemento adminRifaSelect`);
+    }
 
     // Cerrar modal al hacer click fuera del contenido
     const ticketModal = document.getElementById('ticketModal');
@@ -895,32 +972,11 @@ async function loadCurrentRifa() {
             attempts++;
         }
         
-        // ⚠️ OBTENER RIFA SELECCIONADA DEL SELECTOR ADMIN (MÚLTIPLES FUENTES)
-        let rifaIdSeleccionada = null;
+        // ✅ OBTENER RIFA SELECCIONADA DE FORMA ROBUSTA Y VALIDADA
+        const rifaIdSeleccionada = obtenerRifaIdSeleccionada();
         
-        // Fuente 1: Selector DOM (MÁS CONFIABLE - lo que tú realmente seleccionaste)
-        const selectElement = document.getElementById('adminRifaSelect');
-        if (selectElement && selectElement.value) {
-            rifaIdSeleccionada = Number.parseInt(selectElement.value, 10);
-            console.log(`📋 Ruletazo: Rifa ID desde SELECTOR DOM: ${rifaIdSeleccionada}`);
-        }
-        
-        // Fuente 2: adminLayout API (si selector no tiene valor)
-        if (!rifaIdSeleccionada && window.adminLayout?.getActiveRifaId) {
-            rifaIdSeleccionada = window.adminLayout.getActiveRifaId();
-            console.log(`📋 Ruletazo: Rifa ID desde adminLayout: ${rifaIdSeleccionada}`);
-        }
-        
-        // Fuente 3: localStorage (fallback de último recurso)
-        if (!rifaIdSeleccionada) {
-            rifaIdSeleccionada = localStorage.getItem('rifaplus_rifa_activa');
-            console.log(`📋 Ruletazo: Rifa ID desde localStorage (fallback): ${rifaIdSeleccionada}`);
-        }
-        
-        // Fallback final
-        if (!rifaIdSeleccionada) {
-            rifaIdSeleccionada = '1';
-            console.warn(`⚠️ Ruletazo: No se pudo determinar rifa, usando fallback: ${rifaIdSeleccionada}`);
+        if (!rifaIdSeleccionada || rifaIdSeleccionada <= 0) {
+            throw new Error(`❌ Ruletazo: RifaId inválido: ${rifaIdSeleccionada}`);
         }
 
         console.log(`🎡 Ruletazo: Cargando rifa seleccionada ID=${rifaIdSeleccionada}`);
@@ -1071,10 +1127,10 @@ async function loadCurrentRifa() {
             console.warn(`⚠️ Ruletazo: Usando totalBoletos por defecto (${totalNumbers})`);
         }
         
-        // Fallback 3: Valor por defecto
-        if (!totalNumbers || totalNumbers <= 0) {
-            totalNumbers = 25000; // Valor más común para rifas grandes
-            console.warn(`⚠️ Ruletazo: Usando totalBoletos por defecto (${totalNumbers})`);
+        // ✅ VALIDAR totalNumbers es un número válido y razonable
+        if (!Number.isFinite(totalNumbers) || totalNumbers <= 0 || totalNumbers > 1000000) {
+            console.error(`❌ Ruletazo: totalNumbers inválido: ${totalNumbers}, usando fallback 25000`);
+            totalNumbers = 25000;
         }
         
         const config = window.rifaplusConfig || {};
@@ -1159,6 +1215,14 @@ async function loadCurrentRifa() {
             - soldNumbers.length: ${soldNumbers.length}
             - rifaData?.nombre: ${rifaData?.nombre}`);
         
+        // ✅ VALIDAR que machine.currentRifa será correcto ANTES de asignarlo
+        if (!Number.isFinite(rifaIdSeleccionada) || rifaIdSeleccionada <= 0) {
+            throw new Error(`❌ RifaId inválido para machine.currentRifa: ${rifaIdSeleccionada}`);
+        }
+        if (!Number.isFinite(totalNumbers) || totalNumbers <= 0) {
+            throw new Error(`❌ totalNumbers inválido para machine.currentRifa: ${totalNumbers}`);
+        }
+        
         machine.currentRifa = {
             id: rifaIdSeleccionada,
             name: rifaTitle,
@@ -1166,6 +1230,13 @@ async function loadCurrentRifa() {
             soldNumbers: filtrarNumerosValidosRuletazo(soldNumbers, totalNumbers),
             reservedNumbers: filtrarNumerosValidosRuletazo(reservedNumbers, totalNumbers)
         };
+        
+        // ✅ VALIDAR que machine.currentRifa fue asignado correctamente
+        if (!machine.currentRifa || 
+            machine.currentRifa.id !== rifaIdSeleccionada || 
+            machine.currentRifa.totalNumbers !== totalNumbers) {
+            throw new Error(`❌ machine.currentRifa no fue asignado correctamente`);
+        }
 
         // ✅ Guardar totalBoletos en localStorage para referencia futura
         try {
@@ -1179,6 +1250,7 @@ async function loadCurrentRifa() {
 
         await selectRifa(rifaIdSeleccionada);
         console.log(`✅ Ruletazo: Rifa cargada ID=${rifaIdSeleccionada}, Nombre=${rifaTitle}, Total=${totalNumbers}, Vendidos=${soldNumbers.length}`);
+        console.log(`✅ machine.currentRifa validado:`, { id: machine.currentRifa.id, totalNumbers: machine.currentRifa.totalNumbers });
     } catch (error) {
         console.error('❌ Ruletazo: Error cargando rifa:', error);
         // Fallback en caso de error
