@@ -159,6 +159,47 @@ const GanadoresManager = {
         return data;
     },
 
+    /**
+     * 🔐 Obtiene y valida el ID de la rifa seleccionada con máxima robustez
+     * Prioridad: Selector DOM > adminLayout > localStorage > fallback
+     */
+    obtenerRifaIdSeleccionada() {
+        let rifaId = null;
+        const selectElement = document.getElementById('adminRifaSelect');
+        
+        // 1️⃣ Fuente más confiable: el selector DOM (lo que el usuario seleccionó)
+        if (selectElement?.value) {
+            rifaId = String(selectElement.value).trim();
+            if (rifaId && /^\d+$/.test(rifaId)) {
+                return Number.parseInt(rifaId, 10);
+            }
+        }
+        
+        // 2️⃣ Fuente secundaria: adminLayout API
+        if (window.adminLayout?.getActiveRifaId || window.ADMIN_LAYOUT?.getActiveRifaId) {
+            try {
+                const layoutObj = window.adminLayout || window.ADMIN_LAYOUT;
+                rifaId = layoutObj.getActiveRifaId?.();
+                if (rifaId && /^\d+$/.test(String(rifaId))) {
+                    return Number.parseInt(String(rifaId), 10);
+                }
+            } catch (e) {
+                // ignorar errores
+            }
+        }
+        
+        // 3️⃣ Fuente de último recurso: localStorage
+        if (!rifaId) {
+            rifaId = localStorage.getItem('rifaplus_rifa_activa');
+            if (rifaId && /^\d+$/.test(String(rifaId))) {
+                return Number.parseInt(String(rifaId), 10);
+            }
+        }
+        
+        // 4️⃣ Fallback final
+        return 1;
+    },
+
     async obtenerGanadoresServidor(limit = 500) {
         const leerCacheServidor = () => {
             try {
@@ -170,53 +211,29 @@ const GanadoresManager = {
         };
 
         try {
-            // ⚠️ CRÍTICO: Obtener rifa seleccionada de localStorage directamente
-            // ADMIN_LAYOUT puede no estar disponible en todos los contextos
-            let rifaIdSeleccionada = null;
-            
-            // Intentar 1: localStorage (más confiable)
-            try {
-                const stored = localStorage.getItem('rifaplus_rifa_activa');
-                if (stored) {
-                    const parsed = Number.parseInt(stored, 10);
-                    if (Number.isInteger(parsed) && parsed > 0) {
-                        rifaIdSeleccionada = parsed;
-                    }
-                }
-            } catch (e) {
-                // localStorage no disponible
-            }
-            
-            // Intentar 2: ADMIN_LAYOUT (nombre correcto en admin-layout.js)
-            if (!rifaIdSeleccionada && typeof window.ADMIN_LAYOUT?.getActiveRifaId?.() === 'number') {
-                rifaIdSeleccionada = window.ADMIN_LAYOUT.getActiveRifaId();
-            }
+            // ✅ Obtener rifa seleccionada de forma ROBUSTA
+            const rifaIdSeleccionada = this.obtenerRifaIdSeleccionada();
             
             const headers = {};
-            if (rifaIdSeleccionada) {
+            if (rifaIdSeleccionada && rifaIdSeleccionada > 0) {
                 headers['X-Rifa-Id'] = String(rifaIdSeleccionada);
             }
 
             const url = `${this.getApiBase()}/api/ganadores?limit=${limit}`;
-            console.log(`[GanadoresManager] 📡 GET ${url}`);
-            console.log(`[GanadoresManager] 🏷️ Headers:`, headers);
-            console.log(`[GanadoresManager] 🔑 Rifa ID:`, rifaIdSeleccionada);
+            // ℹ️ Debug: Solo mostrar estos logs en modo debug
+            console.debug(`[GanadoresManager] Obteniendo ganadores para rifa ${rifaIdSeleccionada}...`);
 
             const resp = await fetch(url, { headers });
             if (!resp.ok) {
-                console.warn(`[GanadoresManager] ❌ Response ${resp.status}`);
+                console.warn(`[GanadoresManager] ⚠️ API error ${resp.status} obteniendo ganadores`);
                 return leerCacheServidor();
             }
             const payload = await resp.json().catch(() => ({}));
             const rows = Array.isArray(payload?.data) ? payload.data : [];
             
-            console.log(`[GanadoresManager] ✅ ${rows.length} ganadores recibidos`);
+            console.debug(`[GanadoresManager] ✅ ${rows.length} ganadores sincronizados`);
             if (rows.length > 0) {
-                console.log(`[GanadoresManager] 📋 Primeros ganadores:`, rows.slice(0, 3).map(r => ({
-                    numero_boleto: r.numero_boleto,
-                    tipo_ganador: r.tipo_ganador,
-                    rifa_id: r.rifa_id
-                })));
+                console.debug(`[GanadoresManager] Tipos encontrados:`, rows.map(r => r.tipo_ganador).filter((v, i, a) => a.indexOf(v) === i));
             }
             
             try {
@@ -257,19 +274,19 @@ const GanadoresManager = {
         const numeroStr = String(numero).trim();
         const rows = await this.obtenerGanadoresServidor();
         
-        console.log(`[GanadoresManager] 🔍 Buscando ganador #${numeroStr} en ${rows.length} ganadores...`);
+        console.debug(`[GanadoresManager] Buscando ganador #${numeroStr}...`);
         
         const row = rows.find((item) => {
             const numeroBoleto = String(item.numero_boleto ?? item.numero ?? item.numero_orden ?? '').trim();
             const match = numeroBoleto === numeroStr;
             if (match) {
-                console.log(`[GanadoresManager] ✅ ENCONTRADO: #${numeroStr} en rifa_id=${item.rifa_id}, tipo=${item.tipo_ganador}`);
+                console.debug(`[GanadoresManager] Ganador encontrado: #${numeroStr}`);
             }
             return match;
         });
         
         if (!row) {
-            console.log(`[GanadoresManager] ❌ NO encontrado #${numeroStr}`);
+            console.debug(`[GanadoresManager] Ganador NO encontrado: #${numeroStr}`);
         }
         
         return row ? this.mapearGanadorServidor(row) : null;
@@ -482,9 +499,7 @@ window.GanadoresManager = GanadoresManager;
     const conteo = GanadoresManager.contar();
     const datos = GanadoresManager.cargarGanadores();
     console.log('✅ GanadoresManager inicializado');
-    console.log('   Storage Key:', GanadoresManager.STORAGE_KEY);
-    console.log('   Ganadores cargados:', conteo);
-    console.log('   Datos raw:', JSON.stringify(datos, null, 2));
+    console.log(`   Ganadores cargados: ${conteo.sorteo + conteo.presorteo + conteo.ruletazos} total (${conteo.sorteo} sorteo, ${conteo.presorteo} presorteo, ${conteo.ruletazos} ruletazos)`);
 })();
 
 // Escuchar cambios de ganadores desde otras pestañas
