@@ -111,8 +111,8 @@ class RuletazoMachine {
      */
     async loadRifa(rifaId) {
         try {
-            // ⚠️ ENVIAR HEADER X-Rifa-Id PARA AISLAMIENTO MULTIRIFA
-            const response = await fetch(`${this.apiBase}/api/public/boletos`, {
+            // ⚠️ CRÍTICO: Enviar TANTO query param como header para máximo aislamiento multirifa
+            const response = await fetch(`${this.apiBase}/api/public/boletos?rifa_id=${rifaId}`, {
                 headers: {
                     'X-Rifa-Id': String(rifaId)
                 }
@@ -135,7 +135,7 @@ class RuletazoMachine {
                         reservedNumbers: filtrarNumerosValidosRuletazo(reservedNumbers, totalBoletos)
                     };
                     await this.loadDrawnNumbers(rifaId);
-                    console.log(`🎡 Ruletazo.loadRifa: Cargada Rifa ID=${rifaId}, ${soldNumbers.length} vendidos`);
+                    console.log(`🎡 Ruletazo.loadRifa: Cargada Rifa ID=${rifaId}, totalBoletos=${totalBoletos}, ${soldNumbers.length} vendidos`);
                     return this.currentRifa;
                 }
             }
@@ -529,15 +529,20 @@ class RuletazoMachine {
 let machine = null;
 
 function obtenerTotalBoletosRuletazo() {
-    // ✅ CRÍTICO: Leer totalBoletos de la RIFA ACTUAL seleccionada, NO de config global
+    // ✅ CRÍTICO: SIEMPRE usar totalBoletos de machine.currentRifa si existe
+    // Esta es la FUENTE DE VERDAD una vez que se carga una rifa
     
-    // 1. Intentar desde machine.currentRifa (ya cargada con datos de la rifa correcta)
-    const totalRifaActual = Number(machine?.currentRifa?.totalNumbers);
-    if (Number.isFinite(totalRifaActual) && totalRifaActual > 0) {
-        return totalRifaActual;
+    if (machine && machine.currentRifa && Number.isFinite(machine.currentRifa.totalNumbers) && machine.currentRifa.totalNumbers > 0) {
+        console.log(`📊 obtenerTotalBoletosRuletazo: Retornando desde machine.currentRifa: ${machine.currentRifa.totalNumbers}`);
+        return machine.currentRifa.totalNumbers;
     }
     
-    // 2. Intentar desde localStorage de la rifa activa
+    // ❌ Si no existe machine.currentRifa, algo salió mal
+    console.error(`❌ obtenerTotalBoletosRuletazo: machine.currentRifa NO EXISTE O NO TIENE totalNumbers`);
+    console.log(`   machine:`, machine);
+    console.log(`   machine.currentRifa:`, machine?.currentRifa);
+    
+    // Intentar fallback desde localStorage de la rifa activa
     const rifaIdActiva = localStorage.getItem('rifaplus_rifa_activa');
     if (rifaIdActiva) {
         try {
@@ -546,24 +551,19 @@ function obtenerTotalBoletosRuletazo() {
             if (cached) {
                 const parsed = JSON.parse(cached);
                 const cacheAge = Date.now() - (parsed.timestamp || 0);
-                if (cacheAge < 3600000 && Number.isFinite(parsed.totalBoletos)) { // 1 hora
+                if (cacheAge < 3600000 && Number.isFinite(parsed.totalBoletos) && parsed.totalBoletos > 0) {
+                    console.log(`📊 obtenerTotalBoletosRuletazo: Retornando desde localStorage (fallback): ${parsed.totalBoletos}`);
                     return parsed.totalBoletos;
                 }
             }
         } catch (e) {
-            // Ignorar errores de caché
+            console.warn(`⚠️ obtenerTotalBoletosRuletazo: Error leyendo localStorage:`, e.message);
         }
     }
     
-    // 3. Fallback a config global (puede ser de otra rifa - usar con precaución)
-    const totalConfig = Number(window.rifaplusConfig?.rifa?.totalBoletos);
-    if (Number.isFinite(totalConfig) && totalConfig > 0 && totalConfig !== 100000 && totalConfig !== 250000) {
-        console.warn(`⚠️ Ruletazo: Usando totalBoletos de config global (${totalConfig}), puede ser de otra rifa`);
-        return totalConfig;
-    }
-    
-    // 4. Fallback seguro
-    return 500;
+    // Fallback final
+    console.warn(`⚠️ obtenerTotalBoletosRuletazo: Usando fallback final (25000)`);
+    return 25000;
 }
 
 function obtenerDigitosRuletazo(totalBoletos) {
@@ -966,18 +966,54 @@ async function loadCurrentRifa() {
         // ⚠️ CRÍTICO: Usar totalBoletos de la rifa seleccionada, NUNCA de config global
         let totalNumbers = 0;
         
-        if (rifaData?.configuracion?.rifa?.totalBoletos) {
-            totalNumbers = Number(rifaData.configuracion.rifa.totalBoletos);
-            console.log(`✅ Ruletazo: totalBoletos desde rifaData.configuracion: ${totalNumbers}`);
-        } else if (rifaData?.totalBoletos) {
-            // Alternativa: si está en raíz
-            totalNumbers = Number(rifaData.totalBoletos);
-            console.log(`✅ Ruletazo: totalBoletos desde rifaData.totalBoletos: ${totalNumbers}`);
-        } else {
-            console.warn(`⚠️ Ruletazo: rifaData no tiene totalBoletos visible, intentando otras fuentes`);
+        // Buscar totalBoletos en MÚLTIPLES paths posibles del rifaData
+        if (rifaData) {
+            console.log(`🔍 Ruletazo: Buscando totalBoletos en rifaData...`);
+            
+            // Path 1: configuracion.rifa.totalBoletos
+            if (rifaData?.configuracion?.rifa?.totalBoletos) {
+                totalNumbers = Number(rifaData.configuracion.rifa.totalBoletos);
+                console.log(`✅ Ruletazo: totalBoletos en configuracion.rifa.totalBoletos: ${totalNumbers}`);
+            }
+            
+            // Path 2: config.totalBoletos
+            if (!totalNumbers && rifaData?.config?.totalBoletos) {
+                totalNumbers = Number(rifaData.config.totalBoletos);
+                console.log(`✅ Ruletazo: totalBoletos en config.totalBoletos: ${totalNumbers}`);
+            }
+            
+            // Path 3: totalBoletos directo
+            if (!totalNumbers && rifaData?.totalBoletos) {
+                totalNumbers = Number(rifaData.totalBoletos);
+                console.log(`✅ Ruletazo: totalBoletos directo: ${totalNumbers}`);
+            }
+            
+            // Path 4: Buscar en campos dinámicos
+            if (!totalNumbers) {
+                for (const key of Object.keys(rifaData)) {
+                    if (key.toLowerCase().includes('total') && String(rifaData[key]).match(/^\d+$/)) {
+                        totalNumbers = Number(rifaData[key]);
+                        console.log(`✅ Ruletazo: totalBoletos en campo ${key}: ${totalNumbers}`);
+                        break;
+                    }
+                }
+            }
+            
+            // ✅ Guardar en localStorage para futuro uso
+            if (totalNumbers && totalNumbers > 0) {
+                try {
+                    localStorage.setItem(`rifaplus:rifa:${rifaIdSeleccionada}:totalBoletos`, JSON.stringify({
+                        totalBoletos: totalNumbers,
+                        timestamp: Date.now()
+                    }));
+                    console.log(`✅ Ruletazo: totalBoletos guardado en localStorage`);
+                } catch (e) {
+                    // Ignorar
+                }
+            }
         }
         
-        // Fallback 1: localStorage de la rifa
+        // Fallback 1: localStorage de la rifa (si no se encontró arriba)
         if (!totalNumbers || totalNumbers <= 0) {
             try {
                 const cacheKey = `rifaplus:rifa:${rifaIdSeleccionada}:totalBoletos`;
@@ -1014,10 +1050,27 @@ async function loadCurrentRifa() {
         // Fallback 3: Config global (SOLO si no hay otra opción)
         if (!totalNumbers || totalNumbers <= 0) {
             const config = window.rifaplusConfig || {};
-            totalNumbers = Number(config.rifa?.totalBoletos);
-            if (totalNumbers && totalNumbers > 0) {
-                console.warn(`⚠️ Ruletazo: Usando totalBoletos de config GLOBAL (${totalNumbers}) - PUEDE SER DE OTRA RIFA`);
+            const globalTotal = Number(config.rifa?.totalBoletos);
+            
+            // ⚠️ IMPORTANTE: Si la config global NO coincide con la rifa seleccionada,
+            // no usarla directamente. Mejor usar un valor por defecto.
+            if (globalTotal && globalTotal > 0 && rifaData?.id) {
+                // Comparar si es de la misma rifa
+                const globalRifaId = config.rifa?.id || config._activeRifaId;
+                if (String(globalRifaId) === String(rifaIdSeleccionada)) {
+                    // ✅ La config es de la misma rifa, usarla
+                    totalNumbers = globalTotal;
+                    console.log(`✅ Ruletazo: totalBoletos de config GLOBAL (validada para rifa ${rifaIdSeleccionada}): ${totalNumbers}`);
+                } else {
+                    console.warn(`⚠️ Ruletazo: Config global es de otra rifa (${globalRifaId}), no usarla`);
+                }
             }
+        }
+        
+        // Fallback 4: Valor por defecto
+        if (!totalNumbers || totalNumbers <= 0) {
+            totalNumbers = 25000; // Valor más común para rifas grandes
+            console.warn(`⚠️ Ruletazo: Usando totalBoletos por defecto (${totalNumbers})`);
         }
         
         // Fallback 3: Valor por defecto
@@ -1037,8 +1090,8 @@ async function loadCurrentRifa() {
         let datosBackendCargados = false;
 
         try {
-            // ⚠️ CRÍTICO: Usar rifa_id como query param (no rifa) para que se interprete como ID numérico
-            // TAMBIÉN enviar header X-Rifa-Id para máximo aislamiento multirifa
+            // Intento 1: Usar endpoint con query param rifa_id (con header por si acaso)
+            console.log(`🔄 Ruletazo: Intentando cargar boletos de /api/public/boletos?rifa_id=${rifaIdSeleccionada}`);
             const boletosResponse = await fetch(`${machine.apiBase}/api/public/boletos?rifa_id=${rifaIdSeleccionada}`, {
                 headers: {
                     'X-Rifa-Id': String(rifaIdSeleccionada)
@@ -1047,16 +1100,47 @@ async function loadCurrentRifa() {
             
             if (boletosResponse.ok) {
                 const boletosData = await boletosResponse.json();
+                console.log(`📥 Ruletazo: Respuesta de boletos:`, boletosData);
+                
                 if (boletosData.success && boletosData.data) {
                     soldNumbers = filtrarNumerosValidosRuletazo(Array.isArray(boletosData.data.sold) ? boletosData.data.sold : [], totalNumbers);
                     reservedNumbers = filtrarNumerosValidosRuletazo(Array.isArray(boletosData.data.reserved) ? boletosData.data.reserved : [], totalNumbers);
                     datosBackendCargados = true;
 
-                    console.log(`🎡 Ruletazo: Cargados ${soldNumbers.length} vendidos, ${reservedNumbers.length} apartados de Rifa ID=${rifaIdSeleccionada}`);
+                    console.log(`✅ Ruletazo: Cargados ${soldNumbers.length} vendidos, ${reservedNumbers.length} apartados de Rifa ID=${rifaIdSeleccionada}`);
                 }
+            } else {
+                console.warn(`⚠️ Ruletazo: /api/public/boletos retornó status ${boletosResponse.status}`);
             }
         } catch (error) {
             console.warn('⚠️ Ruletazo: No se pudo cargar boletos del backend:', error.message);
+        }
+
+        // Si fallo el primer intento, intentar desde /api/public/boletos/stats
+        if (!datosBackendCargados) {
+            try {
+                console.log(`🔄 Ruletazo: Intentando cargar stats de /api/public/boletos/stats?rifa_id=${rifaIdSeleccionada}`);
+                const statsResponse = await fetch(`${machine.apiBase}/api/public/boletos/stats?rifa_id=${rifaIdSeleccionada}`, {
+                    headers: {
+                        'X-Rifa-Id': String(rifaIdSeleccionada)
+                    }
+                });
+                
+                if (statsResponse.ok) {
+                    const statsData = await statsResponse.json();
+                    console.log(`📥 Ruletazo: Stats response:`, statsData);
+                    
+                    if (statsData.success && statsData.data) {
+                        // stats solo tiene conteos, no la lista de números
+                        // Pero es mejor que nada para validar que la rifa existe
+                        const vendidos = Number(statsData.data.vendidos) || 0;
+                        const disponibles = Number(statsData.data.disponibles) || 0;
+                        console.log(`ℹ️ Ruletazo: Stats - vendidos: ${vendidos}, disponibles: ${disponibles}`);
+                    }
+                }
+            } catch (error) {
+                console.warn('⚠️ Ruletazo: No se pudo cargar stats:', error.message);
+            }
         }
 
         // Si de verdad no se pudieron cargar datos del backend, usar demostración
@@ -1070,6 +1154,13 @@ async function loadCurrentRifa() {
         }
 
         // ⚠️ CREAR RIFA CON ID SELECCIONADA (NO HARDCODEADO)
+        console.log(`🎡 CRITICAL LOG loadCurrentRifa: Seteando machine.currentRifa con:
+            - rifaIdSeleccionada: ${rifaIdSeleccionada}
+            - rifaTitle: ${rifaTitle}
+            - totalNumbers: ${totalNumbers}
+            - soldNumbers.length: ${soldNumbers.length}
+            - rifaData?.nombre: ${rifaData?.nombre}`);
+        
         machine.currentRifa = {
             id: rifaIdSeleccionada,
             name: rifaTitle,
@@ -1112,16 +1203,23 @@ async function loadCurrentRifa() {
  * Selecciona una rifa
  */
 async function selectRifa(rifaId) {
+    console.log(`🎡 selectRifa INIT: rifaId=${rifaId}, machine.currentRifa.id=${machine.currentRifa?.id}, coinciden=${String(machine.currentRifa?.id) === String(rifaId)}`);
+    
     let rifa = null;
 
     if (machine.currentRifa && String(machine.currentRifa.id) === String(rifaId)) {
+        console.log(`🎡 selectRifa: Usando machine.currentRifa directamente (ya está cargada)`);
         rifa = machine.currentRifa;
         await machine.loadDrawnNumbers(rifaId);
     } else {
+        console.log(`🎡 selectRifa: machine.currentRifa no coincide, llamando machine.loadRifa(${rifaId})`);
         rifa = await machine.loadRifa(rifaId);
     }
     
-    if (!rifa) return;
+    if (!rifa) {
+        console.warn(`⚠️ selectRifa: rifa es null!`);
+        return;
+    }
 
     // Mostrar información
     // ⚠️ CRÍTICO: totalBoletos DEBE venir de machine.currentRifa que fue configurado en loadCurrentRifa()
@@ -1130,19 +1228,15 @@ async function selectRifa(rifaId) {
     const vendidos = rifa.soldNumbers?.length || 0;
     const disponibles = totalBoletos - vendidos; // Disponibles = total - vendidos
     
-    console.log(`🎡 selectRifa: ID=${rifaId}, totalBoletos=${totalBoletos}, vendidos=${vendidos}, disponibles=${disponibles}`);
+    console.log(`🎡 selectRifa DISPLAY: totalBoletos=${totalBoletos}, vendidos=${vendidos}, disponibles=${disponibles}, rifaId=${rifaId}`);
     
     // Actualizar info panel
-    // ⚠️ IMPORTANTE: El nombre SIEMPRE viene de config.js, no del servidor
-    // Prueba múltiples fuentes para obtener el nombre:
-    const config = window.rifaplusConfig || {};
-    const rifaNombre = config.rifa?.nombreSorteo || 
-                       window.rifaplusConfig?.rifa?.nombreSorteo || 
-                       rifa?.name || 
-                       'Sorteo Actual';
+    // ⚠️ CRÍTICO: Usar SIEMPRE el nombre de machine.currentRifa, NO de config global
+    // machine.currentRifa.name tiene el nombre correcto de la rifa que se acaba de cargar
+    const rifaNombre = machine.currentRifa?.name || 'Sorteo Actual';
     
-    console.log('🎡 Nombre del sorteo:', rifaNombre);
-    console.log('📋 Config disponible:', config);
+    console.log(`🎡 Nombre del sorteo: ${rifaNombre} (de machine.currentRifa)`);
+    console.log(`📊 machine.currentRifa:`, machine.currentRifa);
     
     document.getElementById('rifaNombre').textContent = rifaNombre;
     document.getElementById('rifaTotal').textContent = totalBoletos;
