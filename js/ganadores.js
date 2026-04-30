@@ -10,9 +10,57 @@
 window.ganadesoresManager = window.ganadesoresManager || {};
 
 const GanadoresManager = {
-    // Clave para localStorage
-    STORAGE_KEY: 'rifaplus_ganadores',
+    // Clave base para localStorage (ahora incluye rifaId dinámicamente)
+    STORAGE_KEY_BASE: 'rifaplus_ganadores',
     SERVER_CACHE_KEY: 'rifaplus_ganadores_server_cache',
+
+    /**
+     * 🔐 Obtiene y valida el ID de la rifa seleccionada con máxima robustez
+     */
+    obtenerRifaIdSeleccionada() {
+        let rifaId = null;
+        const selectElement = document.getElementById('adminRifaSelect');
+        
+        // 1️⃣ Fuente más confiable: el selector DOM
+        if (selectElement?.value) {
+            rifaId = String(selectElement.value).trim();
+            if (rifaId && /^\d+$/.test(rifaId)) {
+                return Number.parseInt(rifaId, 10);
+            }
+        }
+        
+        // 2️⃣ Fuente secundaria: adminLayout API
+        if (window.adminLayout?.getActiveRifaId || window.ADMIN_LAYOUT?.getActiveRifaId) {
+            try {
+                const layoutObj = window.adminLayout || window.ADMIN_LAYOUT;
+                rifaId = layoutObj.getActiveRifaId?.();
+                if (rifaId && /^\d+$/.test(String(rifaId))) {
+                    return Number.parseInt(String(rifaId), 10);
+                }
+            } catch (e) {
+                // ignorar errores
+            }
+        }
+        
+        // 3️⃣ Fuente de último recurso: localStorage
+        if (!rifaId) {
+            rifaId = localStorage.getItem('rifaplus_rifa_activa');
+            if (rifaId && /^\d+$/.test(String(rifaId))) {
+                return Number.parseInt(String(rifaId), 10);
+            }
+        }
+        
+        // 4️⃣ Fallback final
+        return 1;
+    },
+
+    /**
+     * 🔑 Obtener la clave de storage específica para la rifa actual
+     */
+    obtenerStorageKey() {
+        const rifaId = this.obtenerRifaIdSeleccionada();
+        return `${this.STORAGE_KEY_BASE}:rifa:${rifaId}`;
+    },
 
     getApiBase() {
         return (window.rifaplusConfig?.backend?.apiBase)
@@ -113,12 +161,13 @@ const GanadoresManager = {
     },
 
     /**
-     * Cargar ganadores desde localStorage
-     * @returns {Object} Ganadores registrados
+     * Cargar ganadores desde localStorage (ESPECÍFICOS DE LA RIFA ACTUAL)
+     * @returns {Object} Ganadores registrados para la rifa seleccionada
      */
     cargarGanadores() {
         try {
-            const data = localStorage.getItem(this.STORAGE_KEY);
+            const storageKey = this.obtenerStorageKey();
+            const data = localStorage.getItem(storageKey);
             if (!data) return this.construirEstructuraVacia();
             
             const ganadores = JSON.parse(data);
@@ -135,13 +184,14 @@ const GanadoresManager = {
     },
 
     /**
-     * Guardar ganadores en localStorage
+     * Guardar ganadores en localStorage (ESPECÍFICOS DE LA RIFA ACTUAL)
      * @param {Object} ganadores - Objeto con ganadores por tipo
      * @returns {Boolean} Éxito de la operación
      */
     guardarGanadores(ganadores) {
         try {
-            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(ganadores));
+            const storageKey = this.obtenerStorageKey();
+            localStorage.setItem(storageKey, JSON.stringify(ganadores));
             // Disparar evento para sincronización entre pestañas
             window.dispatchEvent(new CustomEvent('ganadesoresActualizados', { detail: ganadores }));
             return true;
