@@ -107,11 +107,16 @@ class RuletazoMachine {
 
     /**
      * Carga datos de una rifa específica
+     * ⚠️ CRÍTICO: Envía header X-Rifa-Id para aislamiento multirifa
      */
     async loadRifa(rifaId) {
         try {
-            // Cargar boletos del backend usando endpoint correcto
-            const response = await fetch(`${this.apiBase}/api/public/boletos`);
+            // ⚠️ ENVIAR HEADER X-Rifa-Id PARA AISLAMIENTO MULTIRIFA
+            const response = await fetch(`${this.apiBase}/api/public/boletos`, {
+                headers: {
+                    'X-Rifa-Id': String(rifaId)
+                }
+            });
 
             if (response.ok) {
                 const data = await response.json();
@@ -119,7 +124,7 @@ class RuletazoMachine {
                 const boletosData = data.data || {};
                 const soldNumbers = Array.isArray(boletosData.sold) ? boletosData.sold : [];
                 const reservedNumbers = Array.isArray(boletosData.reserved) ? boletosData.reserved : [];
-                
+
                 if (data.success && (Array.isArray(boletosData.sold) || Array.isArray(boletosData.reserved))) {
                     const totalBoletos = obtenerTotalBoletosRuletazo();
                     this.currentRifa = {
@@ -130,11 +135,12 @@ class RuletazoMachine {
                         reservedNumbers: filtrarNumerosValidosRuletazo(reservedNumbers, totalBoletos)
                     };
                     await this.loadDrawnNumbers(rifaId);
+                    console.log(`🎡 Ruletazo.loadRifa: Cargada Rifa ID=${rifaId}, ${soldNumbers.length} vendidos`);
                     return this.currentRifa;
                 }
             }
         } catch (error) {
-            // Backend no disponible, usar datos locales
+            console.warn('⚠️ Ruletazo.loadRifa: Backend no disponible:', error.message);
         }
 
         // Datos de demostración
@@ -145,7 +151,7 @@ class RuletazoMachine {
             totalNumbers: totalBoletos,
             soldNumbers: filtrarNumerosValidosRuletazo(this.generateSoldNumbers(50, totalBoletos), totalBoletos)
         };
-        
+
         this.drawnNumbers = [];
         return this.currentRifa;
     }
@@ -179,22 +185,34 @@ class RuletazoMachine {
 
     /**
      * Carga números ya sorteados
+     * ⚠️ CRÍTICO: El historial debe persistir entre sesiones y cambios de rifa
      */
     async loadDrawnNumbers(rifaId) {
         try {
-            // Intentar cargar del localStorage primero
+            // ⚠️ CRÍTICO: Intentar cargar del localStorage primero
             const stored = localStorage.getItem(`draws_${rifaId}`);
             if (stored) {
-                const parsed = JSON.parse(stored);
-                this.drawnNumbers = filtrarNumerosValidosRuletazo(Array.isArray(parsed)
-                    ? parsed.map(item => (typeof item === 'object' && item !== null ? Number(item.number) : Number(item))).filter(n => !Number.isNaN(n))
-                    : [], this.currentRifa?.totalNumbers || obtenerTotalBoletosRuletazo());
-                return;
+                try {
+                    const parsed = JSON.parse(stored);
+                    const filtered = filtrarNumerosValidosRuletazo(
+                        Array.isArray(parsed)
+                            ? parsed.map(item => (typeof item === 'object' && item !== null ? Number(item.number) : Number(item))).filter(n => !Number.isNaN(n))
+                            : [], 
+                        this.currentRifa?.totalNumbers || obtenerTotalBoletosRuletazo()
+                    );
+                    this.drawnNumbers = filtered;
+                    console.log(`🎡 [loadDrawnNumbers] ✅ Cargados ${filtered.length} números sorteados para rifa_id=${rifaId}`);
+                    return;
+                } catch (parseError) {
+                    console.warn(`⚠️ [loadDrawnNumbers] Error parseando historial:`, parseError);
+                }
+            } else {
+                console.log(`ℹ️ [loadDrawnNumbers] No hay historial guardado para rifa_id=${rifaId}`);
             }
         } catch (error) {
-            // Error leyendo sorteos locales
+            console.warn('⚠️ [loadDrawnNumbers] Error leyendo sorteos locales:', error);
         }
-        
+
         // Inicializar vacío si no hay datos locales
         this.drawnNumbers = [];
     }
@@ -421,20 +439,29 @@ class RuletazoMachine {
 
     /**
      * Guarda sorteo en localStorage
+     * ⚠️ CRÍTICO: El historial debe persistir incluso si hay errores
      */
     async saveDraw(number) {
         try {
-            if (!this.currentRifa) return false;
+            if (!this.currentRifa) {
+                console.warn('⚠️ [saveDraw] No hay rifa seleccionada, no se puede guardar');
+                return false;
+            }
 
+            // ⚠️ CRÍTICO: Guardar TODOS los números sorteados, no solo el último
+            const rifaId = this.currentRifa.id;
+            const storageKey = `draws_${rifaId}`;
+            
             try {
-                localStorage.setItem(`draws_${this.currentRifa.id}`, JSON.stringify(this.drawnNumbers));
+                localStorage.setItem(storageKey, JSON.stringify(this.drawnNumbers));
+                console.log(`✅ [saveDraw] Historial guardado: ${this.drawnNumbers.length} números para rifa_id=${rifaId}`);
                 return true;
             } catch (e) {
-                // No se pudo guardar
+                console.error(`❌ [saveDraw] Error guardando en localStorage:`, e);
                 return false;
             }
         } catch (error) {
-            // Error al guardar sorteo
+            console.error('❌ [saveDraw] Error al guardar sorteo:', error);
             return false;
         }
     }
@@ -831,36 +858,48 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 /**
- * Carga la rifa actual/activa automáticamente desde config
- * ⚠️ NOTA: Ya no se carga desde el backend, se usa directamente config.js
+ * Carga la rifa actual/activa automáticamente desde adminRifaSelect
+ * ⚠️ CRÍTICO: Respeta la rifa seleccionada en el selector admin
  */
 async function loadCurrentRifa() {
     try {
+        // ⚠️ OBTENER RIFA SELECCIONADA DEL SELECTOR ADMIN
+        const rifaIdSeleccionada = window.adminLayout?.getActiveRifaId?.() 
+            || localStorage.getItem('rifaplus_rifa_activa')
+            || '1';
+        
         // Obtener datos de la config
         const config = window.rifaplusConfig || {};
         const rifaTitle = config.rifa?.nombreSorteo || 'Sorteo en Vivo';
         let totalNumbers = obtenerTotalBoletosRuletazo();
-        
+
         // Intentar obtener boletos reales del backend para contar los VENDIDOS y APARTADOS
         let soldNumbers = [];
         let reservedNumbers = [];
         let datosBackendCargados = false;
-        
+
         try {
-            const response = await fetch(`${machine.apiBase}/api/public/boletos`);
-            
+            // ⚠️ ENVIAR HEADER X-Rifa-Id PARA AISLAMIENTO MULTIRIFA
+            const response = await fetch(`${machine.apiBase}/api/public/boletos`, {
+                headers: {
+                    'X-Rifa-Id': String(rifaIdSeleccionada)
+                }
+            });
+
             if (response.ok) {
                 const data = await response.json();
                 if (data.success && data.data) {
                     soldNumbers = filtrarNumerosValidosRuletazo(Array.isArray(data.data.sold) ? data.data.sold : [], totalNumbers);
                     reservedNumbers = filtrarNumerosValidosRuletazo(Array.isArray(data.data.reserved) ? data.data.reserved : [], totalNumbers);
                     datosBackendCargados = true;
+                    
+                    console.log(`🎡 Ruletazo: Cargados ${soldNumbers.length} vendidos de Rifa ID=${rifaIdSeleccionada}`);
                 }
             }
         } catch (error) {
-            // No se pudo cargar boletos del backend
+            console.warn('⚠️ Ruletazo: No se pudo cargar boletos del backend:', error.message);
         }
-        
+
         // Si de verdad no se pudieron cargar datos del backend, usar demostración
         if (!datosBackendCargados) {
             soldNumbers = filtrarNumerosValidosRuletazo(
@@ -869,22 +908,25 @@ async function loadCurrentRifa() {
             );
             reservedNumbers = [];
         }
-        
-        // Crear rifa con datos de config + datos reales del backend
+
+        // ⚠️ CREAR RIFA CON ID SELECCIONADA (NO HARDCODEADO)
         machine.currentRifa = {
-            id: '1',
+            id: rifaIdSeleccionada,
             name: rifaTitle,
             totalNumbers: totalNumbers,  // Siempre desde config
             soldNumbers: filtrarNumerosValidosRuletazo(soldNumbers, totalNumbers),
             reservedNumbers: filtrarNumerosValidosRuletazo(reservedNumbers, totalNumbers)
         };
-        
-        await selectRifa('1');
+
+        await selectRifa(rifaIdSeleccionada);
+        console.log(`✅ Ruletazo: Rifa seleccionada ID=${rifaIdSeleccionada}, Nombre=${rifaTitle}`);
     } catch (error) {
+        console.error('❌ Ruletazo: Error cargando rifa:', error);
         // Fallback en caso de error
         const config = window.rifaplusConfig || {};
+        const rifaIdFallback = localStorage.getItem('rifaplus_rifa_activa') || '1';
         machine.currentRifa = {
-            id: '1',
+            id: rifaIdFallback,
             name: config.rifa?.nombreSorteo || 'Sorteo Demo',
             totalNumbers: obtenerTotalBoletosRuletazo(),
             soldNumbers: filtrarNumerosValidosRuletazo(
@@ -892,7 +934,7 @@ async function loadCurrentRifa() {
                 obtenerTotalBoletosRuletazo()
             )
         };
-        await selectRifa('1');
+        await selectRifa(rifaIdFallback);
     }
 }
 
@@ -1114,19 +1156,38 @@ function resetMachine() {
 
 /**
  * Carga historial de sorteos
+ * ⚠️ CRÍTICO: El historial debe mostrarse siempre que haya números guardados
  */
 async function loadHistory() {
-    if (!machine.currentRifa) return;
+    if (!machine.currentRifa) {
+        console.warn('⚠️ [loadHistory] No hay rifa seleccionada');
+        return;
+    }
 
     const historyList = document.getElementById('historyList');
-    
+    if (!historyList) {
+        console.warn('⚠️ [loadHistory] Elemento historyList no encontrado');
+        return;
+    }
+
+    console.log(`📋 [loadHistory] Cargando historial: ${machine.drawnNumbers.length} números para rifa_id=${machine.currentRifa.id}`);
+
     if (machine.drawnNumbers.length === 0) {
-        historyList.innerHTML = `
-            <div class="history-empty">
-                <i class="fas fa-inbox"></i>
-                <p>No hay sorteos registrados aún</p>
-            </div>
-        `;
+        // Verificar si hay datos en localStorage
+        const stored = localStorage.getItem(`draws_${machine.currentRifa.id}`);
+        if (stored) {
+            console.log(`ℹ️ [loadHistory] Hay datos en localStorage pero no en memoria, recargando...`);
+            await machine.loadDrawnNumbers(machine.currentRifa.id);
+        }
+        
+        if (machine.drawnNumbers.length === 0) {
+            historyList.innerHTML = `
+                <div class="history-empty">
+                    <i class="fas fa-inbox"></i>
+                    <p>No hay sorteos registrados aún</p>
+                </div>
+            `;
+        }
         return;
     }
 
@@ -1136,7 +1197,7 @@ async function loadHistory() {
         .map((number, index) => {
             const formatted = machine.formatNumber(number, machine.digitCount);
             const time = new Date().toLocaleTimeString();
-            
+
             return `
                 <div class="history-item">
                     <div class="history-item-number">${formatted}</div>
@@ -1149,6 +1210,8 @@ async function loadHistory() {
             `;
         })
         .join('');
+    
+    console.log(`✅ [loadHistory] Historial mostrado: ${machine.drawnNumbers.length} números`);
 }
 
 /**
@@ -1664,11 +1727,41 @@ window.declararGanadorBackend = async function(numero, tipoGanador, lugarGanado)
         || window.location.origin;
     const token = localStorage.getItem('rifaplus_admin_token') || localStorage.getItem('admin_token') || '';
 
+    // ⚠️ CRÍTICO: Obtener rifa seleccionada para aislamiento multirifa
+    // Intentar 1: localStorage (más confiable)
+    let rifaIdSeleccionada = null;
+    try {
+        const stored = localStorage.getItem('rifaplus_rifa_activa');
+        if (stored) {
+            const parsed = Number.parseInt(stored, 10);
+            if (Number.isInteger(parsed) && parsed > 0) {
+                rifaIdSeleccionada = parsed;
+            }
+        }
+    } catch (e) {
+        // localStorage no disponible
+    }
+    
+    // Intentar 2: ADMIN_LAYOUT (nombre correcto en admin-layout.js)
+    if (!rifaIdSeleccionada && typeof window.ADMIN_LAYOUT?.getActiveRifaId?.() === 'number') {
+        rifaIdSeleccionada = window.ADMIN_LAYOUT.getActiveRifaId();
+    }
+
+    // ⚠️ VALIDACIÓN CRÍTICA: Debe haber una rifa seleccionada
+    if (!rifaIdSeleccionada) {
+        console.error('❌ [Ruletazo] ERROR: No hay rifa seleccionada para declarar ganador');
+        throw new Error('No hay rifa seleccionada. Por favor, selecciona una rifa en el selector admin.');
+    }
+
+    console.log(`🎡 [Ruletazo] Declarando ganador #${numero} como ${tipoGanador} en rifa_id=${rifaIdSeleccionada}`);
+
     const response = await fetch(`${apiBase}/api/admin/declarar-ganador`, {
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            // ⚠️ ENVIAR HEADER X-Rifa-Id PARA AISLAMIENTO
+            'X-Rifa-Id': String(rifaIdSeleccionada)
         },
         body: JSON.stringify({
             numero: Number(numero),
@@ -1679,9 +1772,11 @@ window.declararGanadorBackend = async function(numero, tipoGanador, lugarGanado)
 
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
+        console.error(`❌ [Ruletazo] Error declarando ganador:`, payload);
         throw new Error(payload.error || payload.message || `Error ${response.status}`);
     }
 
+    console.log(`✅ [Ruletazo] Ganador #${numero} declarado exitosamente en rifa_id=${rifaIdSeleccionada}`);
     return payload;
 };
 
@@ -1692,11 +1787,31 @@ window.eliminarGanadorBackend = async function(numero, tipoGanador = null) {
             || window.location.origin;
         const token = localStorage.getItem('rifaplus_admin_token') || localStorage.getItem('admin_token') || '';
 
+        // ⚠️ CRÍTICO: Obtener rifa seleccionada para aislamiento multirifa
+        let rifaIdSeleccionada = null;
+        try {
+            const stored = localStorage.getItem('rifaplus_rifa_activa');
+            if (stored) {
+                const parsed = Number.parseInt(stored, 10);
+                if (Number.isInteger(parsed) && parsed > 0) {
+                    rifaIdSeleccionada = parsed;
+                }
+            }
+        } catch (e) {
+            // localStorage no disponible
+        }
+
+        const headers = {
+            'Authorization': `Bearer ${token}`
+        };
+        
+        if (rifaIdSeleccionada) {
+            headers['X-Rifa-Id'] = String(rifaIdSeleccionada);
+        }
+
         const response = await fetch(`${apiBase}/api/admin/ganadores/${encodeURIComponent(numero)}`, {
             method: 'DELETE',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
+            headers
         });
 
         const payload = await response.json().catch(() => ({}));

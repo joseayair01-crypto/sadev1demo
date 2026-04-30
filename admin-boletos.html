@@ -21,9 +21,9 @@
     <script src="js/config.js?v=20260407.1"></script>
     <script src="js/config-sync.js"></script>
     <script src="js/theme-dynamic.js?v=20260414.1"></script>
-    <script src="js/ganadores.js?v=20251228.15"></script>
+    <script src="js/ganadores.js?v=20260430.5"></script>
     <script src="js/boletos-loader.js"></script>
-    <script src="js/admin-layout.js?v=20260423.2"></script>
+    <script src="js/admin-layout.js?v=20260430.10"></script>
     <script src="js/admin-header-user.js?v=20260406.1"></script>
     <style>
         :root {
@@ -2049,9 +2049,15 @@
             opts.headers = opts.headers || {};
             opts.headers['Content-Type'] = 'application/json';
             if (token) opts.headers['Authorization'] = 'Bearer ' + token;
-            
+
+            // Agregar header X-Rifa-Id para aislamiento multirifa
+            const rifaIdSeleccionada = localStorage.getItem('rifaplus_rifa_activa');
+            if (rifaIdSeleccionada) {
+                opts.headers['X-Rifa-Id'] = String(rifaIdSeleccionada);
+            }
+
             const res = await fetch(url, opts);
-            
+
             if (res.status === 401 || res.status === 403) {
                 logout();
                 return null;
@@ -2149,7 +2155,7 @@
         async function buscarBoleto() {
             const inputEl = document.getElementById('searchBoleto');
             const input = inputEl?.value?.trim?.() || '';
-            
+
             if (!input) {
                 showSearchFeedback('Escribe un numero antes de buscar. Puedes consultar boletos normales y, si aplica, tambien oportunidades.', 'warning');
                 showError('Ingresa un número de boleto u oportunidad');
@@ -2183,10 +2189,18 @@
             showSearchFeedback(`Buscando el numero #${num.toLocaleString()}...`, 'info');
             setSearchLoading(true);
 
+            // ⚠️ CRÍTICO: Refrescar ganadores desde servidor antes de buscar
+            // Esto asegura que el botón "Desmarcar Ganador" se muestre correctamente
+            try {
+                await refrescarGanadoresDesdeServidorSilencioso();
+            } catch (error) {
+                console.warn('[admin-boletos] No se pudo refrescar ganadores antes de buscar:', error);
+            }
+
             // Usar endpoint INTELIGENTE que busca boletos Y oportunidades
             try {
                 const resBoleto = await fetchWithAuth(`${API_BASE}/api/admin/numero-inteligente/${num}`);
-                
+
                 if (!resBoleto || !resBoleto.ok) {
                     let backendMessage = `El numero #${num.toLocaleString()} no fue encontrado en el sistema. Verifica el rango e intenta de nuevo.`;
 
@@ -2204,22 +2218,22 @@
                     document.getElementById('ticketResult').classList.remove('active');
                     return;
                 }
-                
+
                 const dataBoleto = await resBoleto.json();
-                
+
                 if (!dataBoleto.success || !dataBoleto.data) {
                     showSearchFeedback(`El numero #${num.toLocaleString()} no fue encontrado en el sistema. Verifica el rango e intenta de nuevo.`, 'warning');
                     showError(`Número #${num} no encontrado`);
                     document.getElementById('ticketResult').classList.remove('active');
                     return;
                 }
-                
+
                 const boleto = dataBoleto.data;
                 const esOportunidad = dataBoleto.es_oportunidad || false;
-                
+
                 // Agregar flag para renderizar badge en la tarjeta
                 boleto.es_oportunidad = esOportunidad;
-                
+
                 currentBoleto = boleto;
                 renderTicket(boleto);
                 document.getElementById('ticketResult').classList.add('active');
@@ -2363,12 +2377,15 @@
                 }
                 
                 // Agregar botones de acción
-                agregarBotonesAccion(boleto.numero, {
-                    esVendido,
-                    esApartado,
-                    esDisponible,
-                    esOportunidad
-                });
+                // ⚠️ CRÍTICO: await para que verifique ganador correctamente
+                (async () => {
+                    await agregarBotonesAccion(boleto.numero, {
+                        esVendido,
+                        esApartado,
+                        esDisponible,
+                        esOportunidad
+                    });
+                })();
                 
             } catch (error) {
                 console.error('❌ Error en renderTicket:', error);
@@ -2711,7 +2728,7 @@
                 console.warn('⚠️ Contenedor de botones no encontrado');
                 return;
             }
-            
+
             if (!estadoActual || estadoActual.esDisponible || typeof numero === 'undefined') {
                 btnContainer.innerHTML = '';
                 return;
@@ -2728,27 +2745,23 @@
                 `;
 
             if (estadoActual && typeof numero !== 'undefined') {
-                // Verificar si el numero ya es ganador usando fuente real + fallback local
+                // ⚠️ CRÍTICO: Verificar si el numero ya es ganador usando fuente real + fallback local
+                console.log(`[agregarBotonesAccion] Verificando si #${numero} es ganador...`);
                 const ganador = await obtenerGanadorActual(numero);
                 
                 if (ganador) {
+                    console.log(`✅ [agregarBotonesAccion] #${numero} ES ganador de tipo "${ganador.tipo}"`);
                     btnContainer.innerHTML = `
                         <button class="btn btn-ganador" style="background-color: #10b981;" onclick="try{window.unmarkAsWinner(${numero})}catch(e){alert('Error: ' + e.message)}" type="button">
-                            Desmarcar Ganador (${ganador.tipo})
-                        </button>
-                        ${botonLiberar}
-                    `;
-                } else if (estadoActual.esApartado) {
-                    btnContainer.innerHTML = `
-                        <button class="btn btn-ganador" onclick="try{window.markAsWinner(${numero})}catch(e){alert('Error: ' + e.message)}" type="button">
-                            Marcar como Ganador
+                            🏆 Desmarcar Ganador (${ganador.tipo})
                         </button>
                         ${botonLiberar}
                     `;
                 } else {
+                    console.log(`❌ [agregarBotonesAccion] #${numero} NO es ganador`);
                     btnContainer.innerHTML = `
                         <button class="btn btn-ganador" onclick="try{window.markAsWinner(${numero})}catch(e){alert('Error: ' + e.message)}" type="button">
-                            Marcar como Ganador
+                            🏆 Marcar como Ganador
                         </button>
                         ${botonLiberar}
                     `;
@@ -3088,9 +3101,32 @@
 
             window.abrirModalSeleccionarGanador(numero, datosCliente, function(numeroGanador, tipoGanador, exito) {
                 if (exito) {
-                    setTimeout(() => {
-                        buscarBoleto();
-                    }, 500);
+                    // ⚠️ CRÍTICO: Actualizar botón inmediatamente sin buscar de nuevo
+                    console.log(`✅ [markAsWinner] Ganador declarado, actualizando botón para #${numero}...`);
+                    
+                    // Refrescar localStorage de ganadores
+                    if (window.GanadoresManager?.refrescarDesdeServidor) {
+                        window.GanadoresManager.refrescarDesdeServidor()
+                            .then(() => {
+                                console.log('[markAsWinner] Ganadores refrescados desde servidor');
+                                // Actualizar botón con el nuevo estado
+                                agregarBotonesAccion(numero, {
+                                    esVendido: currentBoleto?.estado_orden === 'confirmada' || currentBoleto?.estado === 'vendido',
+                                    esApartado: currentBoleto?.estado_orden === 'pendiente' || currentBoleto?.estado === 'apartado',
+                                    esDisponible: false,
+                                    esOportunidad: currentBoleto?.es_oportunidad === false
+                                });
+                            })
+                            .catch(err => console.warn('[markAsWinner] Error refrescando ganadores:', err));
+                    } else {
+                        // Fallback: actualizar botón directamente
+                        agregarBotonesAccion(numero, {
+                            esVendido: currentBoleto?.estado_orden === 'confirmada' || currentBoleto?.estado === 'vendido',
+                            esApartado: currentBoleto?.estado_orden === 'pendiente' || currentBoleto?.estado === 'apartado',
+                            esDisponible: false,
+                            esOportunidad: currentBoleto?.es_oportunidad === false
+                        });
+                    }
                 }
             });
         };
@@ -3151,10 +3187,32 @@
             if (resultado || eliminadoEnBackend) {
                 alert(`✅ Número #${numero} desmarcado como ganador`);
                 
-                // Refrescar búsqueda para actualizar botones
-                setTimeout(() => {
-                    buscarBoleto();
-                }, 500);
+                // ⚠️ CRÍTICO: Actualizar botón inmediatamente sin buscar de nuevo
+                console.log(`✅ [unmarkAsWinner] Ganador desmarcado, actualizando botón para #${numero}...`);
+                
+                // Refrescar localStorage de ganadores
+                if (window.GanadoresManager?.refrescarDesdeServidor) {
+                    window.GanadoresManager.refrescarDesdeServidor()
+                        .then(() => {
+                            console.log('[unmarkAsWinner] Ganadores refrescados desde servidor');
+                            // Actualizar botón con el nuevo estado (ya no es ganador)
+                            agregarBotonesAccion(numero, {
+                                esVendido: currentBoleto?.estado_orden === 'confirmada' || currentBoleto?.estado === 'vendido',
+                                esApartado: currentBoleto?.estado_orden === 'pendiente' || currentBoleto?.estado === 'apartado',
+                                esDisponible: false,
+                                esOportunidad: currentBoleto?.es_oportunidad === false
+                            });
+                        })
+                        .catch(err => console.warn('[unmarkAsWinner] Error refrescando ganadores:', err));
+                } else {
+                    // Fallback: actualizar botón directamente
+                    agregarBotonesAccion(numero, {
+                        esVendido: currentBoleto?.estado_orden === 'confirmada' || currentBoleto?.estado === 'vendido',
+                        esApartado: currentBoleto?.estado_orden === 'pendiente' || currentBoleto?.estado === 'apartado',
+                        esDisponible: false,
+                        esOportunidad: currentBoleto?.es_oportunidad === false
+                    });
+                }
             } else {
                 alert('❌ Error al desmarcar ganador');
                 console.error('Error eliminando ganador:', numero, ganador.tipo);
@@ -3329,6 +3387,7 @@
 
         /**
          * Generar tarjetas con tipos de ganadores disponibles
+         * ⚠️ CRÍTICO: Debe mostrar correctamente los ganadores ya registrados
          */
         function generarOpciones() {
             const contenedor = document.getElementById('tiposGanadores');
@@ -3345,7 +3404,7 @@
             }
 
             const config = window.GanadoresManager.getConfig();
-            const ganadores = window.GanadoresManager.cargarGanadores();
+            let ganadores = window.GanadoresManager.cargarGanadores();
             const tipos = window.GanadoresManager.getTiposHabilitados();
 
             if (!tipos.length) {
@@ -3357,33 +3416,61 @@
                 return;
             }
 
+            // ⚠️ VERIFICAR SI EL NÚMERO ACTUAL YA ES GANADOR
+            const numeroActual = ganadesoresModalNumero;
+            let ganadorExistente = null;
+            if (numeroActual) {
+                tipos.forEach(tipo => {
+                    const yaEsGanador = (ganadores[tipo] || []).find(g => String(g.numero) === String(numeroActual));
+                    if (yaEsGanador) {
+                        ganadorExistente = yaEsGanador;
+                    }
+                });
+            }
+
             tipos.forEach(tipo => {
                 const cantidad = config[tipo];
                 if (cantidad <= 0) {
                     return; // Saltar tipos deshabilitados
                 }
-                
+
                 const registrados = ganadores[tipo] ? ganadores[tipo].length : 0;
                 const completo = registrados >= cantidad;
-
+                
+                // ⚠️ VERIFICAR SI ESTE NÚMERO YA ES GANADOR DE ESTE TIPO
+                const numeroYaEsGanadorDeEsteTipo = ganadorExistente && ganadorExistente.tipo === tipo;
 
                 const card = document.createElement('div');
-                card.className = `tipo-ganador-card ${completo ? 'disabled' : ''}`;
+                card.className = `tipo-ganador-card ${completo || numeroYaEsGanadorDeEsteTipo ? 'disabled' : ''}`;
+                
+                // ⚠️ MOSTRAR NÚMEROS YA REGISTRADOS DE ESTE TIPO
+                const numerosRegistrados = (ganadores[tipo] || []).map(g => String(g.numero)).sort((a, b) => Number(a) - Number(b));
+                const numerosTexto = numerosRegistrados.length > 0 
+                    ? `Números: ${numerosRegistrados.join(', ')}` 
+                    : 'Sin números registrados';
+
                 card.innerHTML = `
                     <span class="tipo-ganador-icono">${window.GanadoresManager.getIconoTipo(tipo)}</span>
                     <div class="tipo-ganador-nombre">${window.GanadoresManager.getEtiquetaTipo(tipo)}</div>
                     <div class="tipo-ganador-contador"><span>${registrados}</span> de ${cantidad} configurados</div>
+                    ${numeroYaEsGanadorDeEsteTipo 
+                        ? '<div style="margin-top:0.5rem;padding:0.35rem 0.5rem;background:#fef3c7;border-radius:0.375rem;font-size:0.75rem;color:#92400e;font-weight:600;text-align:center;">✅ Este número ya es ganador</div>'
+                        : `<div style="margin-top:0.5rem;font-size:0.7rem;color:#64748b;text-align:center;">${numerosTexto}</div>`
+                    }
                 `;
 
-                if (!completo) {
+                if (!completo && !numeroYaEsGanadorDeEsteTipo) {
                     card.addEventListener('click', () => {
                         seleccionarTipo(tipo);
                     });
+                } else if (numeroYaEsGanadorDeEsteTipo) {
+                    card.style.cursor = 'not-allowed';
+                    card.style.opacity = '0.7';
                 }
 
                 contenedor.appendChild(card);
             });
-            
+
         }
 
         /**

@@ -311,7 +311,8 @@ const ADMIN_LAYOUT = {
         }
 
         const estado = String(rifa.estado || '').trim().toLowerCase();
-        return estado === 'activo' || estado === 'borrador';
+        // Las rifas finalizadas siguen siendo operables para permitir declarar ganadores
+        return estado === 'activo' || estado === 'borrador' || estado === 'finalizado';
     },
 
     esRifaHistorial(rifa) {
@@ -320,7 +321,8 @@ const ADMIN_LAYOUT = {
         }
 
         const estado = String(rifa.estado || '').trim().toLowerCase();
-        return estado === 'finalizado' || estado === 'archivada' || estado === 'depurada';
+        // Las rifas finalizadas ya no van al historial, siguen siendo operables
+        return estado === 'archivada' || estado === 'depurada';
     },
 
     obtenerRifasActivas() {
@@ -332,7 +334,12 @@ const ADMIN_LAYOUT = {
     },
 
     obtenerRifasHistorial() {
-        return this.rifas.filter((rifa) => this.esRifaHistorial(rifa));
+        // Incluir TODAS las rifas fuera de operación: archivadas Y depuradas
+        return this.rifas.filter((rifa) => {
+            if (!rifa) return false;
+            const estado = String(rifa.estado || '').trim().toLowerCase();
+            return estado === 'archivada' || estado === 'depurada';
+        });
     },
 
     escapeHtml(valor) {
@@ -523,7 +530,8 @@ const ADMIN_LAYOUT = {
         const token = await this.esperarAutenticacion();
         if (!token) return;
 
-        const response = await this.fetchAutenticado(`${this.apiUrl}/api/admin/rifas`, {
+        // ✅ INCLUIR DEPURADAS para que el historial las muestre
+        const response = await this.fetchAutenticado(`${this.apiUrl}/api/admin/rifas?incluirDepuradas=true`, {
             method: 'GET',
             cache: 'no-store'
         });
@@ -663,6 +671,7 @@ const ADMIN_LAYOUT = {
                 <button type="button" class="admin-rifa-btn admin-rifa-btn--primary" data-rifa-action="nueva">Nueva</button>
                 <button type="button" class="admin-rifa-btn admin-rifa-btn--secondary" data-rifa-action="historial" title="Ver rifas fuera de operación">Historial${totalHistorial > 0 ? ` (${totalHistorial})` : ''}</button>
                 <button type="button" class="admin-rifa-btn admin-rifa-btn--accent" data-rifa-action="copiar" title="${tituloCopiarLink}" ${tieneLinkPublico ? '' : 'disabled'}>Copiar link</button>
+                ${rifaActiva?.estado === 'finalizado' ? `<button type="button" class="admin-rifa-btn admin-rifa-btn--warning" data-rifa-action="archivar" title="Archivar esta rifa (la moverá al historial)" style="background:#f59e0b;color:#fff;font-weight:800;">📦 Archivar Rifa</button>` : ''}
             </div>
         `;
 
@@ -670,6 +679,7 @@ const ADMIN_LAYOUT = {
         const btnNueva = panel.querySelector('[data-rifa-action="nueva"]');
         const btnHistorial = panel.querySelector('[data-rifa-action="historial"]');
         const btnCopiarLink = panel.querySelector('[data-rifa-action="copiar"]');
+        const btnArchivar = panel.querySelector('[data-rifa-action="archivar"]');
 
         btnNueva?.addEventListener('click', async () => {
             const nombre = window.prompt('Nombre de la nueva rifa');
@@ -725,6 +735,13 @@ const ADMIN_LAYOUT = {
         btnHistorial?.addEventListener('click', () => {
             this.mostrarModalHistorialRifas();
         });
+
+        btnArchivar?.addEventListener('click', async () => {
+            const rifaSeleccionada = this.getRifaById(select?.value || activeRifaId);
+            if (rifaSeleccionada) {
+                await this.archivarRifaDesdeUI(rifaSeleccionada, btnArchivar);
+            }
+        });
     },
 
     async depurarRifaDesdeUI(rifaSeleccionada, boton = null) {
@@ -778,6 +795,128 @@ const ADMIN_LAYOUT = {
         }
     },
 
+    async archivarRifaDesdeUI(rifaSeleccionada, boton = null) {
+        // Verificar que la rifa esté finalizada
+        if (rifaSeleccionada?.estado !== 'finalizado') {
+            window.alert('⚠️ Solo se pueden archivar rifas que estén finalizadas.\n\nEstado actual: ' + (rifaSeleccionada?.estado || 'desconocido'));
+            return false;
+        }
+
+        const nombreRifa = String(rifaSeleccionada?.nombre || rifaSeleccionada?.slug || 'esta rifa').trim();
+        const confirmacion = window.confirm(
+            `📦 ¿Archivar "${nombreRifa}"?\n\n` +
+            `✅ La rifa se moverá al historial\n` +
+            `✅ Ya no aparecerá en el selector de rifas activas\n` +
+            `✅ Podrás verla en el historial\n` +
+            `⚠️ Esta acción se puede deshacer desde la base de datos\n\n` +
+            `¿Continuar?`
+        );
+
+        if (!confirmacion) {
+            return false;
+        }
+
+        if (boton) {
+            boton.disabled = true;
+            boton.textContent = '⏳ Archivando...';
+        }
+
+        try {
+            // Obtener API base directamente de rifaplusConfig
+            const apiBase = window.rifaplusConfig?.backend?.apiBase
+                || window.rifaplusConfig?.obtenerApiBase?.();
+            
+            if (!apiBase) {
+                throw new Error('No se pudo determinar la URL del backend');
+            }
+            
+            const token = this.getToken();
+            if (!token) {
+                throw new Error('No hay token de autenticación');
+            }
+            
+            const url = `${apiBase}/api/admin/rifas/${rifaSeleccionada.id}/archivar`;
+            console.log('📡 [Archivar] Enviando petición a:', url);
+            
+            const response = await window.fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            console.log('📥 [Archivar] Response status:', response.status);
+            
+            const payload = await response.json().catch(() => null);
+            console.log('📦 [Archivar] Response payload:', payload);
+            
+            if (!response.ok) {
+                const errorCode = payload?.code;
+                
+                // Manejar errores específicos
+                if (errorCode === 'NOT_FINALIZED') {
+                    throw new Error('⚠️ La rifa debe estar finalizada para poder archivarla.\n\nEstado actual: ' + (payload.currentStatus || 'desconocido'));
+                } else if (errorCode === 'ACTIVE_PUBLIC_RIFA') {
+                    throw new Error('⚠️ No se puede archivar la rifa pública activa.\n\nPrimero activa otra rifa como pública.');
+                } else if (errorCode === 'ALREADY_PURGED') {
+                    throw new Error('ℹ️ Esta rifa ya fue depurada anteriormente.');
+                } else if (errorCode === 'UNAUTHORIZED') {
+                    throw new Error('🔒 No tienes permisos para archivar rifas.\n\nSolo administradores pueden realizar esta acción.');
+                } else if (errorCode === 'LAST_OPERABLE_RIFA') {
+                    throw new Error(
+                        '⚠️ No puedes archivar la última rifa operable.\n\n' +
+                        `📊 Rifas operables actuales: ${payload.totalOperables || 1}\n\n` +
+                        '💡 Solución:\n' +
+                        '1. Crea una nueva rifa desde el botón "Nueva"\n' +
+                        '2. Luego podrás archivar esta rifa\n\n' +
+                        '📝 Esto evita que el admin quede sin rifas disponibles.'
+                    );
+                }
+                
+                throw new Error(payload?.message || 'Error al archivar la rifa');
+            }
+
+            // Éxito
+            console.log('✅ [Archivar] Rifa archivada exitosamente');
+            
+            const data = payload?.data || {};
+            const mensaje = payload?.message || 'La rifa fue archivada exitosamente';
+            
+            // Mostrar mensaje informativo
+            window.alert(
+                `✅ ${mensaje}\n\n` +
+                `📦 Rifa: ${data.rifaNombre || nombreRifa}\n` +
+                `📊 Estado: ${data.anteriorEstado || 'finalizado'} → ${data.nuevoEstado || 'archivada'}\n` +
+                `👤 Archivado por: ${data.archivadoPor || 'Admin'}`
+            );
+            
+            // Limpiar caché y recargar
+            try {
+                localStorage.removeItem('rifas_cache');
+                sessionStorage.clear();
+            } catch (e) {}
+            
+            console.log('🔄 Recargando página para actualizar lista de rifas...');
+            // Forzar recarga completa sin caché
+            window.location.href = window.location.pathname + '?t=' + Date.now();
+            return true;
+            
+        } catch (error) {
+            console.error('❌ [Archivar Rifa] Error:', error);
+            
+            // Mostrar error amigable
+            const errorMessage = error.message || 'Verifica tu conexión e intenta de nuevo';
+            window.alert('❌ Error al archivar:\n\n' + errorMessage);
+            return false;
+        } finally {
+            if (boton) {
+                boton.disabled = false;
+                boton.textContent = '📦 Archivar Rifa';
+            }
+        }
+    },
+
     cerrarModalHistorialRifas() {
         if (this._historialEscapeHandler) {
             document.removeEventListener('keydown', this._historialEscapeHandler);
@@ -805,9 +944,19 @@ const ADMIN_LAYOUT = {
         const tieneLinkPublico = Boolean(String(rifa?.slug || '').trim());
         const puedeDepurar = this.puedeDepurarRifa(rifa);
         const tituloDepurar = this.escapeHtml(this.obtenerMotivoNoDepurable(rifa) || 'Depurar rifa');
+        // Las rifas finalizadas pueden acceder al admin para declarar ganadores
+        const puedeAccederAdmin = rifa?.estado === 'finalizado' || rifa?.estado === 'borrador';
+        // Las rifas finalizadas se pueden archivar (las depuradas ya lo están)
+        const puedeArchivar = rifa?.estado === 'finalizado' && !rifa?.depurada_at;
+        
+        // Rifas depuradas tienen estilo atenuado
+        const esDepurada = rifa?.depurada_at !== null && rifa?.depurada_at !== undefined;
+        const opacityStyle = esDepurada ? 'opacity:0.65;' : '';
+        const bordeDepurada = esDepurada ? 'border:2px dashed #cbd5e1;' : '';
 
         return `
-            <article data-rifa-id="${Number.parseInt(rifa?.id, 10) || ''}" style="border:1px solid #e2e8f0;border-radius:18px;padding:1rem;background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%);box-shadow:0 10px 30px rgba(15,23,42,0.06);">
+            <article data-rifa-id="${Number.parseInt(rifa?.id, 10) || ''}" style="border:1px solid #e2e8f0;${bordeDepurada}border-radius:18px;padding:1rem;background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%);box-shadow:0 10px 30px rgba(15,23,42,0.06);${opacityStyle}">
+                ${esDepurada ? '<div style="margin-bottom:0.75rem;padding:0.5rem;background:#f1f5f9;border-radius:0.5rem;text-align:center;font-size:0.75rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;">🗄️ Rifa Depurada (Solo consulta)</div>' : ''}
                 <div style="display:flex;justify-content:space-between;gap:0.75rem;align-items:flex-start;margin-bottom:0.8rem;">
                     <div style="min-width:0;">
                         <h3 style="margin:0;font-size:1rem;font-weight:800;color:#0f172a;line-height:1.25;">${nombre}</h3>
@@ -834,7 +983,9 @@ const ADMIN_LAYOUT = {
                 </div>
                 <div style="display:flex;flex-wrap:wrap;gap:0.55rem;">
                     <button type="button" data-action="copy-link" ${tieneLinkPublico ? '' : 'disabled'} style="padding:0.58rem 0.8rem;border:none;border-radius:12px;background:${tieneLinkPublico ? '#1d4ed8' : '#cbd5e1'};color:#fff;font-weight:800;cursor:${tieneLinkPublico ? 'pointer' : 'not-allowed'};opacity:${tieneLinkPublico ? '1' : '.78'};">Copiar link</button>
-                    <button type="button" data-action="depurar" title="${tituloDepurar}" ${puedeDepurar ? '' : 'disabled'} style="padding:0.58rem 0.8rem;border:none;border-radius:12px;background:${puedeDepurar ? '#b91c1c' : '#cbd5e1'};color:#fff;font-weight:800;cursor:${puedeDepurar ? 'pointer' : 'not-allowed'};opacity:${puedeDepurar ? '1' : '.78'};">Depurar</button>
+                    ${puedeAccederAdmin ? `<button type="button" data-action="acceder-admin" style="padding:0.58rem 0.8rem;border:none;border-radius:12px;background:#7C3AED;color:#fff;font-weight:800;cursor:pointer;">Acceder al admin</button>` : ''}
+                    ${puedeArchivar ? `<button type="button" data-action="archivar" style="padding:0.58rem 0.8rem;border:none;border-radius:12px;background:#f59e0b;color:#fff;font-weight:800;cursor:pointer;" title="Archivar esta rifa (la moverá al historial)">📦 Archivar</button>` : ''}
+                    <button type="button" data-action="depurar" title="${tituloDepurar}" ${puedeDepurar ? '' : 'disabled'} style="padding:0.58rem 0.8rem;border:none;border-radius:12px;background:${puedeDepurar ? '#b91c1c' : '#cbd5e1'};color:#fff;font-weight:800;cursor:${puedeDepurar ? 'pointer' : 'not-allowed'};opacity:${puedeDepurar ? '1' : '.78'};">${esDepurada ? '✓ Depurada' : 'Depurar'}</button>
                 </div>
             </article>
         `;
@@ -884,7 +1035,7 @@ const ADMIN_LAYOUT = {
                     <div>
                         <div style="display:inline-flex;align-items:center;padding:0.28rem 0.6rem;border-radius:999px;background:#e2e8f0;color:#334155;font-size:0.74rem;font-weight:800;letter-spacing:0.03em;text-transform:uppercase;">Historial de rifas</div>
                         <h2 style="margin:0.65rem 0 0.2rem;font-size:1.35rem;line-height:1.1;color:#0f172a;">Rifas fuera de operación</h2>
-                        <p style="margin:0;font-size:0.94rem;color:#475569;max-width:720px;">Aquí se concentran las rifas en borrador, finalizadas, archivadas o depuradas. El selector principal queda reservado para operar únicamente rifas activas.</p>
+                        <p style="margin:0;font-size:0.94rem;color:#475569;max-width:720px;">Aquí se concentran las rifas archivadas o depuradas. Las rifas finalizadas siguen operables desde el selector principal para declarar ganadores.</p>
                     </div>
                     <button type="button" data-action="close-modal" style="padding:0.6rem 0.85rem;border:none;border-radius:12px;background:#0f172a;color:#fff;font-weight:800;cursor:pointer;">Cerrar</button>
                 </div>
@@ -912,6 +1063,8 @@ const ADMIN_LAYOUT = {
             const rifa = this.getRifaById(rifaId);
             const btnCopy = card.querySelector('[data-action="copy-link"]');
             const btnDepurar = card.querySelector('[data-action="depurar"]');
+            const btnAccederAdmin = card.querySelector('[data-action="acceder-admin"]');
+            const btnArchivar = card.querySelector('[data-action="archivar"]');
 
             btnCopy?.addEventListener('click', async () => {
                 try {
@@ -925,6 +1078,17 @@ const ADMIN_LAYOUT = {
 
             btnDepurar?.addEventListener('click', async () => {
                 await this.depurarRifaDesdeUI(rifa, btnDepurar);
+            });
+
+            btnAccederAdmin?.addEventListener('click', () => {
+                // Cambiar la rifa activa y recargar para acceder al admin de esta rifa
+                this.setActiveRifaId(rifaId);
+                this.cerrarModalHistorialRifas();
+                window.location.reload();
+            });
+
+            btnArchivar?.addEventListener('click', async () => {
+                await this.archivarRifaDesdeUI(rifa);
             });
         });
 

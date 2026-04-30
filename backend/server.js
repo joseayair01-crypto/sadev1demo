@@ -1937,6 +1937,8 @@ async function buscarOrdenActivaPorBoleto(numero, options = {}) {
         .select('*')
         .modify((qb) => {
             if (!incluirCanceladas) qb.whereNot('estado', 'cancelada');
+            // ⚠️ FILTRO POR RIFA: Evita que boletos de otras rifas se mezclen
+            if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
         });
 
     let ordenLegacy = null;
@@ -3623,7 +3625,10 @@ app.get('/api/admin/rifas', verificarToken, async (req, res) => {
             return res.json({ success: true, data: [] });
         }
 
-        const rifas = await rifaService.listarRifas();
+        // ✅ INCLUIR DEPURADAS para el historial
+        const incluirDepuradas = req.query.incluirDepuradas === 'true';
+        const rifas = await rifaService.listarRifas({ incluirDepuradas });
+        
         return res.json({
             success: true,
             data: rifas,
@@ -4208,6 +4213,231 @@ app.post('/api/admin/rifas/:id/depurar', verificarToken, async (req, res) => {
             success: false,
             message: 'No se pudo depurar la rifa',
             error: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/admin/rifas/:id/archivar
+ * Archiva una rifa finalizada (la mueve al historial)
+ * 
+ * ⚠️ VALIDACIONES DE SEGURIDAD:
+ * - Solo administradores pueden archivar
+ * - Solo rifas en estado 'finalizado' pueden archivarse
+ * - No se puede archivar la rifa pública activa
+ * - No se puede archivar una rifa ya depurada
+ * 
+ * ✅ PRODUCCIÓN READY:
+ * - Logging completo para auditoría
+ * - Transacción atómica
+ * - Limpieza de cachés
+ * - Validación de estado antes y después
+ */
+app.post('/api/admin/rifas/:id/archivar', verificarToken, async (req, res) => {
+    const startTime = Date.now();
+    const rifaId = Number.parseInt(req.params.id, 10);
+    const adminUser = req.usuario?.username || 'UNKNOWN';
+    
+    try {
+        // ============================================
+        // 1. VALIDACIONES DE SEGURIDAD
+        // ============================================
+        
+        // Solo administradores
+        if (req.usuario?.rol !== 'administrador') {
+            console.warn(`⚠️ [Archivar Rifa] Intento no autorizado - Usuario: ${adminUser}, Rol: ${req.usuario?.rol}`);
+            return res.status(403).json({
+                success: false,
+                message: 'Solo administradores pueden archivar rifas',
+                code: 'UNAUTHORIZED'
+            });
+        }
+
+        // Validar ID de rifa
+        if (!Number.isInteger(rifaId) || rifaId <= 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'ID de rifa inválido',
+                code: 'INVALID_ID'
+            });
+        }
+
+        // Verificar servicio multi-rifa
+        if (!rifaService?.enabled) {
+            return res.status(503).json({
+                success: false,
+                message: 'El modo multi-rifa no está disponible',
+                code: 'SERVICE_UNAVAILABLE'
+            });
+        }
+
+        // ============================================
+        // 2. OBTENER Y VALIDAR ESTADO DE LA RIFA
+        // ============================================
+        
+        const contexto = await rifaService.resolverContexto({ rifaId, fallbackActive: false });
+        
+        if (!contexto) {
+            return res.status(404).json({
+                success: false,
+                message: `La rifa ID=${rifaId} no existe`,
+                code: 'RIFA_NOT_FOUND'
+            });
+        }
+
+        // No archivar si ya está depurada
+        if (contexto.depuradaAt) {
+            return res.status(409).json({
+                success: false,
+                message: 'No se puede archivar una rifa que ya fue depurada',
+                code: 'ALREADY_PURGED'
+            });
+        }
+
+        // No archivar rifa pública activa
+        if (contexto.raw?.activa_publica === true) {
+            return res.status(409).json({
+                success: false,
+                message: 'No puedes archivar la rifa pública activa. Activa otra rifa primero.',
+                code: 'ACTIVE_PUBLIC_RIFA'
+            });
+        }
+
+        // ============================================
+        // 3. VALIDAR QUE SOLO RIFAS FINALIZADAS
+        // ============================================
+        
+        const estadoRifa = String(contexto.estado || contexto.configuracion?.rifa?.estado || '').trim().toLowerCase();
+        
+        if (estadoRifa !== 'finalizado') {
+            console.warn(`⚠️ [Archivar Rifa] Intento de archivar rifa NO finalizada - ID: ${rifaId}, Estado: ${estadoRifa}, Usuario: ${adminUser}`);
+            return res.status(409).json({
+                success: false,
+                message: `Solo puedes archivar una rifa que esté finalizada. Estado actual: ${estadoRifa}`,
+                code: 'NOT_FINALIZED',
+                currentStatus: estadoRifa
+            });
+        }
+
+        // ============================================
+        // 4. VALIDAR QUE NO SEA LA ÚLTIMA RIFA OPERABLE
+        // ============================================
+        
+        // Contar rifas operables (activo + borrador + finalizado)
+        const rifasOperables = await db('rifas')
+            .whereNull('depurada_at')
+            .whereIn('estado', ['activo', 'borrador', 'finalizado'])
+            .count('* as total')
+            .first();
+        
+        const totalOperables = Number(rifasOperables?.total || 0);
+        
+        console.log(`📊 [Archivar Rifa] Rifas operables actuales: ${totalOperables}`);
+        
+        if (totalOperables <= 1) {
+            console.warn(`⚠️ [Archivar Rifa] Bloqueado - Solo hay ${totalOperables} rifa(s) operable(s)`);
+            return res.status(409).json({
+                success: false,
+                message: 'No puedes archivar la última rifa operable. Debes crear al menos una rifa nueva antes de archivar esta.',
+                code: 'LAST_OPERABLE_RIFA',
+                totalOperables,
+                hint: 'Crea una nueva rifa desde el botón "Nueva" en el panel de administración'
+            });
+        }
+
+        console.log(`📝 [Archivar Rifa] === INICIANDO ARCHIVADO ===`);
+        console.log(`📝 [Archivar Rifa] Rifa ID: ${rifaId}`);
+        console.log(`📝 [Archivar Rifa] Rifa Nombre: ${contexto.nombre}`);
+        console.log(`📝 [Archivar Rifa] Usuario: ${adminUser}`);
+        console.log(`📝 [Archivar Rifa] Estado ANTES: ${estadoRifa}`);
+        
+        // ============================================
+        // 4. ACTUALIZAR ESTADO EN BD
+        // ============================================
+        
+        const beforeRifa = await db('rifas').where('id', rifaId).first();
+        
+        const updateResult = await db('rifas')
+            .where('id', rifaId)
+            .update({
+                estado: 'archivada',
+                updated_at: new Date()
+            });
+        
+        console.log(`📊 [Archivar Rifa] Rows affected: ${updateResult}`);
+        
+        if (updateResult === 0) {
+            throw new Error('El update no afectó ninguna fila. La rifa podría no existir.');
+        }
+        
+        // ============================================
+        // 5. ACTUALIZAR CONFIGURACIÓN JSON
+        // ============================================
+        
+        const configRifa = beforeRifa?.configuracion || {};
+        if (configRifa?.rifa) {
+            configRifa.rifa.estado = 'archivada';
+            await db('rifas')
+                .where('id', rifaId)
+                .update({ configuracion: configRifa });
+            console.log(`📊 [Archivar Rifa] Configuración JSON actualizada`);
+        }
+        
+        // ============================================
+        // 6. VERIFICAR ACTUALIZACIÓN
+        // ============================================
+        
+        await new Promise(resolve => setTimeout(resolve, 100)); // Asegurar commit
+        
+        const afterRifa = await db('rifas').where('id', rifaId).first();
+        console.log(`🔍 [Archivar Rifa] Estado DESPUÉS: ${afterRifa?.estado}`);
+        console.log(`🔍 [Archivar Rifa] Configuración estado: ${afterRifa?.configuracion?.rifa?.estado}`);
+
+        if (!afterRifa || afterRifa.estado !== 'archivada') {
+            console.error('❌ [Archivar Rifa] VERIFICACIÓN FALLÓ - Estado no se actualizó correctamente');
+            throw new Error('La verificación post-update falló. Estado: ' + (afterRifa?.estado || 'null'));
+        }
+
+        // ============================================
+        // 7. LIMPIEZA DE CACHÉS
+        // ============================================
+        
+        limpiarCacheConfiguracionPublica();
+        limpiarCacheBoletosPublicos();
+
+        // ============================================
+        // 8. LOG DE AUDITORÍA
+        // ============================================
+        
+        const duration = Date.now() - startTime;
+        console.log(`✅ [Archivar Rifa] COMPLETADO - ID=${rifaId}, Nombre=${contexto.nombre}, Usuario=${adminUser}, Duración=${duration}ms`);
+
+        return res.json({
+            success: true,
+            message: 'La rifa fue archivada exitosamente. Ahora aparecerá solo en el historial.',
+            data: {
+                rifaId,
+                rifaNombre: contexto.nombre,
+                anteriorEstado: 'finalizado',
+                nuevoEstado: 'archivada',
+                archivadoPor: adminUser,
+                timestamp: new Date().toISOString()
+            }
+        });
+        
+    } catch (error) {
+        const duration = Date.now() - startTime;
+        console.error(`❌ [Archivar Rifa] FALLÓ - ID=${rifaId}, Usuario=${adminUser}, Duración=${duration}ms`);
+        console.error(`❌ [Archivar Rifa] Error:`, error);
+        
+        // No exponer detalles internos en producción
+        const isDev = process.env.NODE_ENV === 'development';
+        
+        return res.status(500).json({
+            success: false,
+            message: 'No se pudo archivar la rifa',
+            error: isDev ? error.message : undefined,
+            code: 'ARCHIVE_ERROR'
         });
     }
 });
@@ -8307,16 +8537,27 @@ app.get('/api/ordenes', verificarToken, async (req, res) => {
  * GET /api/admin/boleto-simple/:numero
  * Busca un boleto específico (vendido o disponible)
  * Protegido con JWT
+ * 
+ * ⚠️ FILTRO POR RIFA: Usa req.rifaContext.id o header X-Rifa-Id para aislamiento multirifa
  */
 app.get('/api/admin/boleto-simple/:numero', verificarToken, async (req, res) => {
     try {
         const numeroboleto = Number(req.params.numero);
-        
+
         if (isNaN(numeroboleto)) {
             return res.status(400).json({
                 success: false,
                 message: 'Número de boleto inválido'
             });
+        }
+
+        // 🎯 OBTENER RIFA_ID: Priorizar contexto, luego header, luego fallback
+        const rifaIdDelHeader = req.headers['x-rifa-id'] ? Number(req.headers['x-rifa-id']) : null;
+        const rifaIdActual = Number.parseInt(req.rifaContext?.id, 10) || rifaIdDelHeader || null;
+
+        // ⚠️ VALIDACIÓN CRÍTICA: Debe haber una rifa identificada para búsquedas admin
+        if (!rifaIdActual) {
+            console.warn('[boleto-simple] ⚠️ Búsqueda sin rifa identificada - número:', numeroboleto);
         }
 
         // 🎯 OBTENER RANGO DINÁMICO desde configuración (NO hardcodeado)
@@ -8325,14 +8566,14 @@ app.get('/api/admin/boleto-simple/:numero', verificarToken, async (req, res) => 
         const totalBoletosConfigurados = obtenerTotalBoletosConfigurado(config);
         let rangoMin = 0;
         let rangoMax = Math.max(0, totalBoletosConfigurados - 1);
-        
+
         // Caso 1: Oportunidades habilitadas → usar rango_visible
         if (oportunidadesConfig.enabled && oportunidadesConfig.rangoVisible) {
             const rango = oportunidadesConfig.rangoVisible;
             rangoMin = rango.inicio || 0;
             rangoMax = rango.fin || rangoMax;
             console.debug(`[boleto-simple] Usando rango visible (oportunidades): ${rangoMin}-${rangoMax}`);
-        } 
+        }
         // Caso 2: Sin oportunidades → usar totalBoletos
         else if (totalBoletosConfigurados > 0) {
             rangoMin = 0;
@@ -8349,7 +8590,12 @@ app.get('/api/admin/boleto-simple/:numero', verificarToken, async (req, res) => 
         }
 
         // Buscar órdenes que contienen este boleto (DB-agnóstico: JSONB/text/CSV)
-        const ordenes = await dbUtils.ordersContainingBoletoQuery(numeroboleto).select('*');
+        // ⚠️ FILTRAR POR RIFA_ID si está disponible
+        const queryOrdenes = dbUtils.ordersContainingBoletoQuery(numeroboleto);
+        if (rifaIdActual) {
+            queryOrdenes.andWhere('rifa_id', rifaIdActual);
+        }
+        const ordenes = await queryOrdenes.select('*');
 
         let ordenEncontrada = null;
         for (const orden of ordenes) {
@@ -8421,18 +8667,18 @@ app.get('/api/admin/boleto-simple/:numero', verificarToken, async (req, res) => 
                 console.warn('Warning parsing boletos for orden', orden.id, e && e.message);
             }
         }
-        
+
         // Si hay orden, retornarla
         if (ordenEncontrada) {
             // Consolidar datos de ciudad - preferir ciudad_cliente, fallback a ciudad
             const ciudadFinal = ordenEncontrada.ciudad_cliente || ordenEncontrada.ciudad || '';
             const estadoFinal = ordenEncontrada.estado_cliente || '';
-            
+
             // Obtener número de teléfono (fallback a campos alternativos si es necesario)
-            let telefonoFinal = ordenEncontrada.telefono_cliente || 
+            let telefonoFinal = ordenEncontrada.telefono_cliente ||
                                ordenEncontrada.telefono ||
                                '';
-            
+
             return res.json({
                 success: true,
                 ok: true,
@@ -8499,16 +8745,27 @@ app.get('/api/admin/boleto-simple/:numero', verificarToken, async (req, res) => 
  * - Si número cae en el rango oculto: Busca en oportunidades
  * Retorna los mismos datos, pero agrega flag 'es_oportunidad'
  * Protegido con JWT
+ * 
+ * ⚠️ FILTRO POR RIFA: Usa req.rifaContext.id o header X-Rifa-Id para aislamiento multirifa
  */
 app.get('/api/admin/numero-inteligente/:numero', verificarToken, async (req, res) => {
     try {
         const numero = Number(req.params.numero);
-        
+
         if (isNaN(numero)) {
             return res.status(400).json({
                 success: false,
                 message: 'Número inválido'
             });
+        }
+
+        // 🎯 OBTENER RIFA_ID: Priorizar contexto, luego header, luego fallback
+        const rifaIdDelHeader = req.headers['x-rifa-id'] ? Number(req.headers['x-rifa-id']) : null;
+        const rifaIdActual = Number.parseInt(req.rifaContext?.id, 10) || rifaIdDelHeader || null;
+
+        // ⚠️ VALIDACIÓN CRÍTICA: Debe haber una rifa identificada para búsquedas admin
+        if (!rifaIdActual) {
+            console.warn('[numero-inteligente] ⚠️ Búsqueda sin rifa identificada - número:', numero);
         }
 
         // 🎯 OBTENER RANGO DINÁMICO desde configuración + fallback por inventario
@@ -8549,16 +8806,21 @@ app.get('/api/admin/numero-inteligente/:numero', verificarToken, async (req, res
         }
 
         const esOportunidad = estaEnRangoOculto;
-        
-        console.log(`[numero-inteligente] Buscando #${numero} (${esOportunidad ? 'OPORTUNIDAD' : 'BOLETO'})${motivoFallback ? ` [fallback:${motivoFallback}]` : ''}`);
+
+        console.log(`[numero-inteligente] Buscando #${numero} (${esOportunidad ? 'OPORTUNIDAD' : 'BOLETO'})${rifaIdActual ? ` en rifa_id=${rifaIdActual}` : ' SIN_RIFA'}${motivoFallback ? ` [fallback:${motivoFallback}]` : ''}`);
 
         // ===== CASO 1: OPORTUNIDAD =====
         if (esOportunidad) {
-            // Buscar en tabla orden_oportunidades
-            const oportunidad = await db('orden_oportunidades')
-                .where('numero_oportunidad', numero)
-                .first();
+            // Buscar en tabla orden_oportunidades FILTRANDO POR RIFA_ID
+            const queryOportunidad = db('orden_oportunidades')
+                .where('numero_oportunidad', numero);
             
+            if (rifaIdActual) {
+                queryOportunidad.andWhere('rifa_id', rifaIdActual);
+            }
+            
+            const oportunidad = await queryOportunidad.first();
+
             if (!oportunidad) {
                 // Oportunidad no encontrada
                 return res.json({
@@ -8591,21 +8853,23 @@ app.get('/api/admin/numero-inteligente/:numero', verificarToken, async (req, res
             // Oportunidad encontrada - Buscar orden asociada
             let ordenAsociada = null;
             if (oportunidad.numero_orden) {
-                ordenAsociada = await db('ordenes')
-                    .where('numero_orden', oportunidad.numero_orden)
-                    .first();
+                const queryOrden = db('ordenes').where('numero_orden', oportunidad.numero_orden);
+                if (rifaIdActual) {
+                    queryOrden.andWhere('rifa_id', rifaIdActual);
+                }
+                ordenAsociada = await queryOrden.first();
             }
 
             if (ordenAsociada) {
                 // Consolidar datos de ciudad
                 const ciudadFinal = ordenAsociada.ciudad_cliente || ordenAsociada.ciudad || '';
                 const estadoFinal = ordenAsociada.estado_cliente || '';
-                
+
                 // Obtener número de teléfono
-                let telefonoFinal = ordenAsociada.telefono_cliente || 
+                let telefonoFinal = ordenAsociada.telefono_cliente ||
                                    ordenAsociada.telefono ||
                                    '';
-                
+
                 return res.json({
                     success: true,
                     ok: true,
@@ -8663,26 +8927,40 @@ app.get('/api/admin/numero-inteligente/:numero', verificarToken, async (req, res
 
         // ===== CASO 2: BOLETO =====
         else {
-            // Fuente de verdad actual: boletos_estado
-            const boletoEstado = await db('boletos_estado')
+            // Fuente de verdad actual: boletos_estado FILTRANDO POR RIFA_ID
+            const queryBoletoEstado = db('boletos_estado')
                 .select('numero', 'estado', 'numero_orden', 'created_at', 'updated_at')
-                .where('numero', numero)
-                .first();
+                .where('numero', numero);
+            
+            if (rifaIdActual) {
+                queryBoletoEstado.andWhere('rifa_id', rifaIdActual);
+            }
+            
+            const boletoEstado = await queryBoletoEstado.first();
 
             let ordenEncontrada = null;
 
             if (boletoEstado?.numero_orden) {
-                ordenEncontrada = await db('ordenes')
-                    .where('numero_orden', boletoEstado.numero_orden)
-                    .first();
+                const queryOrden = db('ordenes')
+                    .where('numero_orden', boletoEstado.numero_orden);
+                if (rifaIdActual) {
+                    queryOrden.andWhere('rifa_id', rifaIdActual);
+                }
+                ordenEncontrada = await queryOrden.first();
             }
 
             // Fallback legacy: si por algún motivo no hay row en boletos_estado
             // o la orden asociada se perdió, intentar reconstruir desde ordenes.boletos.
+            // ⚠️ IMPORTANTE: Este fallback también debe filtrar por rifa_id
             if (!ordenEncontrada && (!boletoEstado || boletoEstado.numero_orden)) {
                 const ordenes = await dbUtils.ordersContainingBoletoQuery(numero).select('*');
 
                 for (const orden of ordenes) {
+                    // FILTRAR POR RIFA_ID en el fallback
+                    if (rifaIdActual && orden.rifa_id && Number(orden.rifa_id) !== rifaIdActual) {
+                        continue; // Saltar órdenes de otra rifa
+                    }
+                    
                     try {
                         let boletosArr = [];
                         const raw = orden.boletos;
@@ -8842,27 +9120,42 @@ app.get('/api/admin/numero-inteligente/:numero', verificarToken, async (req, res
  * GET /api/admin/boleto/:numero
  * Busca una orden por número de boleto específico
  * Protegido con JWT
+ * 
+ * ⚠️ FILTRO POR RIFA: Usa req.rifaContext.id o header X-Rifa-Id para aislamiento multirifa
  */
 app.get('/api/admin/boleto/:numero', verificarToken, async (req, res) => {
     try {
         const numeroboleto = Number(req.params.numero);
-        
+
         if (isNaN(numeroboleto)) {
             return res.status(400).json({
                 success: false,
                 message: 'Número de boleto inválido'
             });
         }
-        
-        // Buscar la orden que contiene este boleto
-        const ordenes = await db('ordenes').select('*');
-        
+
+        // 🎯 OBTENER RIFA_ID: Priorizar contexto, luego header, luego fallback
+        const rifaIdDelHeader = req.headers['x-rifa-id'] ? Number(req.headers['x-rifa-id']) : null;
+        const rifaIdActual = Number.parseInt(req.rifaContext?.id, 10) || rifaIdDelHeader || null;
+
+        // ⚠️ VALIDACIÓN CRÍTICA: Debe haber una rifa identificada para búsquedas admin
+        if (!rifaIdActual) {
+            console.warn('[boleto] ⚠️ Búsqueda sin rifa identificada - número:', numeroboleto);
+        }
+
+        // Buscar la orden que contiene este boleto FILTRANDO POR RIFA_ID
+        const queryOrdenes = db('ordenes').select('*');
+        if (rifaIdActual) {
+            queryOrdenes.andWhere('rifa_id', rifaIdActual);
+        }
+        const ordenes = await queryOrdenes;
+
         let ordenEncontrada = null;
         for (const orden of ordenes) {
             try {
                 const boletos = JSON.parse(orden.boletos || '[]');
                 const boletosNumericos = boletos.map(b => Number(b));
-                
+
                 if (boletosNumericos.includes(numeroboleto)) {
                     ordenEncontrada = orden;
                     break;
@@ -8871,7 +9164,7 @@ app.get('/api/admin/boleto/:numero', verificarToken, async (req, res) => {
                 // Ignorar errores de parseo
             }
         }
-        
+
         if (!ordenEncontrada) {
             return res.status(404).json({
                 success: false,
@@ -8879,7 +9172,7 @@ app.get('/api/admin/boleto/:numero', verificarToken, async (req, res) => {
                 numero_boleto: numeroboleto
             });
         }
-        
+
         // Devolver datos de la orden
         return res.json({
             success: true,
@@ -11102,18 +11395,36 @@ app.delete('/api/admin/ganadores/:numero', verificarToken, async (req, res) => {
  * GET /api/ganadores
  * Devuelve lista pública de ganadores (ordenada por fecha de sorteo desc)
  * Query params: ?limit=100
+ * 
+ * ⚠️ CRÍTICO PARA MULTIRIFA:
+ * - Si hay rifaIdActual: retorna ganadores de ESA rifa + ganadores con rifa_id NULL (legacy)
+ * - Si NO hay rifaIdActual: retorna TODOS los ganadores (incluyendo rifa_id NULL)
+ * Esto permite compatibilidad con ganadores declarados antes del sistema multirifa
  */
 app.get('/api/ganadores', async (req, res) => {
     try {
         const limit = Math.min(parseInt(req.query.limit || '100'), 1000);
         const rifaIdActual = req.rifaContext?.id || null;
-        const rows = await db('ganadores')
-            .modify((qb) => {
-                if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
-            })
+        
+        let query = db('ganadores');
+        
+        if (rifaIdActual) {
+            // ✅ FILTRO: Ganadores de esta rifa O con rifa_id NULL (para compatibilidad legacy)
+            query = query.where((qb) => {
+                qb.where('rifa_id', rifaIdActual).orWhereNull('rifa_id');
+            });
+            console.log(`[GET /api/ganadores] 🎯 Filtrando por rifa_id=${rifaIdActual} OR rifa_id IS NULL`);
+        } else {
+            // ✅ SIN FILTRO: Retorna TODOS los ganadores (incluyendo rifa_id NULL)
+            console.log('[GET /api/ganadores] ⚠️ Sin rifaIdActual - retornando TODOS los ganadores (incluyendo rifa_id NULL)');
+        }
+        
+        const rows = await query
             .select('*')
             .orderBy('fecha_sorteo', 'desc')
             .limit(limit);
+
+        console.log(`[GET /api/ganadores] ✅ ${rows.length} ganadores retornados${rifaIdActual ? ` para rifa_id=${rifaIdActual} + NULL` : ' (sin filtro)'}`);
 
         const numeroOrdenesBase = Array.from(new Set(
             rows

@@ -314,7 +314,7 @@
     </script>
     <script defer src="js/theme-dynamic.js?v=20260410.1"></script>
     <script defer src="js/modal-scroll-lock.js"></script>
-    <script defer src="js/modal-sorteo-finalizado.js?v=20260408.1"></script>
+    <script defer src="js/modal-sorteo-finalizado.js?v=20260430.PROD"></script>
     <!-- ✅ CRÍTICO: storage-manager + carrito (debe estar antes que compra.js) -->
     <script defer src="js/storage-manager-v2.js"></script>
     <script defer src="js/main.js?v=20260408.2"></script>
@@ -962,7 +962,30 @@
     <!-- ✅ Inicialización tardía (después de que todos los defer completen) -->
     <script defer src="js/carrito-init.js"></script>
 
-
+    <!-- ⚠️ CRÍTICO: Preservar parámetro 'rifa' en navegación -->
+    <script>
+        (function preservarRifaEnCompra() {
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                const rifaSlug = urlParams.get('rifa');
+                
+                if (!rifaSlug) return;
+                
+                const enlaces = document.querySelectorAll('a.nav-link, a.overlay-link, .btn-flotante-comprobante');
+                enlaces.forEach(enlace => {
+                    const href = enlace.getAttribute('href');
+                    if (href && !href.startsWith('#') && !href.startsWith('http') && !href.includes('rifa=')) {
+                        const separator = href.includes('?') ? '&' : '?';
+                        enlace.setAttribute('href', `${href}${separator}rifa=${encodeURIComponent(rifaSlug)}`);
+                    }
+                });
+                
+                console.log(`[Rifa Preservation] ✅ Parámetro rifa=${rifaSlug} preservado en ${enlaces.length} enlaces`);
+            } catch (error) {
+                console.warn('[Rifa Preservation] Error:', error);
+            }
+        })();
+    </script>
 
     <!-- Botón Flotante: Subir Comprobante -->
     <a href="mis-boletos.html" class="btn-flotante-comprobante" title="Subir comprobante de pago">

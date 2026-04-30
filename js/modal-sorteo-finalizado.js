@@ -227,7 +227,7 @@ class ModalSorteoFinalizado {
             const config = window.rifaplusConfig;
             const { snapshot, configModal, sorteoModal } = this.resolverContextoModal(config);
 
-            // Obtener ganadores inmediatamente (consulta al servidor y fallback local)
+            // Obtener ganadores (usa GanadoresManager, servidor, o snapshot en ese orden)
             const ganadoresReales = await this.obtenerGanadoresReales(snapshot);
 
             const tieneGanadores = ganadoresReales && Object.keys(ganadoresReales).some(tipo =>
@@ -273,7 +273,25 @@ class ModalSorteoFinalizado {
 
     obtenerSnapshotFinalizado(config) {
         const estado = config?.rifa?.estado || config?.sorteoActivo?.estado || 'activo';
-        const snapshot = config?.rifa?.modalFinalizadoSnapshot;
+        let snapshot = config?.rifa?.modalFinalizadoSnapshot;
+        
+        // ✅ CRÍTICO: Para rifas DEPURADAS, si no hay snapshot en config, obtenerlo del backend
+        if (estado === 'depurada' && (!snapshot || typeof snapshot !== 'object')) {
+            this.log('⚠️ Rifa depurada sin snapshot en config, obteniendo del backend...', 'warning');
+            // El snapshot debería estar en config.sorteoActivo.snapshot_final o similar
+            // Fallback: usar ganadores de localStorage si están disponibles
+            if (window.GanadoresManager) {
+                const ganadoresLocales = window.GanadoresManager.cargarGanadores();
+                if (ganadoresLocales && (ganadoresLocales.sorteo?.length > 0 || ganadoresLocales.presorteo?.length > 0 || ganadoresLocales.ruletazos?.length > 0)) {
+                    this.log('✅ Usando ganadores de localStorage como fallback para rifa depurada', 'exito');
+                    return {
+                        meta: { huellaRifa: config?.rifa?.huella || '' },
+                        ganadores: ganadoresLocales
+                    };
+                }
+            }
+        }
+        
         if (!this.esEstadoTerminal(estado)) return null;
         if (!snapshot || typeof snapshot !== 'object') return null;
         return this.snapshotCorrespondeARifaActual(snapshot, config) ? snapshot : null;
@@ -684,59 +702,80 @@ class ModalSorteoFinalizado {
     }
 
     /**
-     * Obtener ganadores reales desde GanadoresManager o localStorage
+     * Obtener ganadores reales desde GanadoresManager, snapshot o localStorage
      * Retorna objeto con claves: principal, presorte, ruletazo
+     * 
+     * ⚠️ CRÍTICO: Para rifas DEPURADAS, usar SIEMPRE el snapshot_final
+     * ya que la tabla 'ganadores' fue vaciada durante la depuración.
      */
     async obtenerGanadoresReales(snapshot = null, config = window.rifaplusConfig || {}) {
         try {
             this.log('🔍 Intentando obtener ganadores...', 'info');
-            
-            // Primero intentar fuente de verdad: servidor
-            try {
-                const apiBase = window.rifaplusConfig?.backend?.apiBase
-                    || window.rifaplusConfig?.obtenerApiBase?.()
-                    || window.location.origin;
-                const resp = await fetch(`${apiBase}/api/ganadores?limit=500`);
-                if (resp.ok) {
-                    const payload = await resp.json();
-                    const rows = payload && payload.data ? payload.data : [];
-                    if (Array.isArray(rows) && rows.length > 0) {
-                        this.log('✅ Ganadores obtenidos desde servidor', 'exito');
-                        // Mapear a estructura esperada
-                        const mapped = { sorteo: [], presorteo: [], ruletazos: [] };
-                        rows.forEach((r, idx) => {
-                            const tipoRaw = (r.tipo_ganador || '').toString().toLowerCase();
-                            let key = 'sorteo';
-                            if (tipoRaw.includes('presorte')) key = 'presorteo';
-                            else if (tipoRaw.includes('rulet')) key = 'ruletazos';
-                            mapped[key].push({
-                                numero: String(r.numero_boleto || r.numero_orden || ''),
-                                numero_boleto: r.numero_boleto,
-                                numero_orden: r.numero_orden,
-                                posicion: r.posicion || (idx + 1),
-                                nombre_ganador: r.nombre_ganador || '',
-                                nombre_cliente: r.nombre_cliente || '',
-                                apellido_cliente: r.apellido_cliente || '',
-                                ciudad: r.ciudad || '',
-                                ciudad_cliente: r.ciudad_cliente || '',
-                                estado_cliente: r.estado_cliente || '',
-                                fecha_sorteo: r.fecha_sorteo || '',
-                                created_at: r.created_at || ''
-                            });
-                        });
-                        Object.keys(mapped).forEach((key) => {
-                            mapped[key].sort((a, b) => (Number(a.posicion) || 999) - (Number(b.posicion) || 999));
-                        });
 
-                        // Si el servidor respondió, esta es la única fuente de verdad.
-                        // No caer después en residuos locales.
-                        return mapped;
-                    }
+            // ✅ PRIORIDAD 1: Si GanadoresManager está disponible y tiene datos, USARLO
+            // Esto es CRÍTICO para rifas depuradas donde el snapshot no se cargó en config
+            if (window.GanadoresManager) {
+                const ganadoresLocal = window.GanadoresManager.cargarGanadores();
+                if (ganadoresLocal && (ganadoresLocal.sorteo?.length > 0 || ganadoresLocal.presorteo?.length > 0 || ganadoresLocal.ruletazos?.length > 0)) {
+                    this.log('✅ Usando GanadoresManager como fuente de ganadores', 'exito');
+                    return {
+                        sorteo: ganadoresLocal.sorteo || [],
+                        presorteo: ganadoresLocal.presorteo || [],
+                        ruletazos: ganadoresLocal.ruletazos || []
+                    };
                 }
-            } catch (e) {
-                this.log('⚠️ Error al consultar /api/ganadores: ' + (e && e.message), 'warning');
             }
 
+            // PRIORIDAD 2: Para rifas NO depuradas, intentar fuente de verdad: servidor
+            const rifaEstado = String(config?.rifa?.estado || config?.sorteo?.estado || '').toLowerCase();
+            const esRifaDepurada = rifaEstado === 'depurada';
+            
+            if (!esRifaDepurada) {
+                try {
+                    const apiBase = window.rifaplusConfig?.backend?.apiBase
+                        || window.rifaplusConfig?.obtenerApiBase?.()
+                        || window.location.origin;
+                    const resp = await fetch(`${apiBase}/api/ganadores?limit=500`);
+                    if (resp.ok) {
+                        const payload = await resp.json();
+                        const rows = payload && payload.data ? payload.data : [];
+                        if (Array.isArray(rows) && rows.length > 0) {
+                            this.log('✅ Ganadores obtenidos desde servidor', 'exito');
+                            // Mapear a estructura esperada
+                            const mapped = { sorteo: [], presorteo: [], ruletazos: [] };
+                            rows.forEach((r, idx) => {
+                                const tipoRaw = (r.tipo_ganador || '').toString().toLowerCase();
+                                let key = 'sorteo';
+                                if (tipoRaw.includes('presorte')) key = 'presorteo';
+                                else if (tipoRaw.includes('rulet')) key = 'ruletazos';
+                                mapped[key].push({
+                                    numero: String(r.numero_boleto || r.numero_orden || ''),
+                                    numero_boleto: r.numero_boleto,
+                                    numero_orden: r.numero_orden,
+                                    posicion: r.posicion || (idx + 1),
+                                    nombre_ganador: r.nombre_ganador || '',
+                                    nombre_cliente: r.nombre_cliente || '',
+                                    apellido_cliente: r.apellido_cliente || '',
+                                    ciudad: r.ciudad || '',
+                                    ciudad_cliente: r.ciudad_cliente || '',
+                                    estado_cliente: r.estado_cliente || '',
+                                    fecha_sorteo: r.fecha_sorteo || '',
+                                    created_at: r.created_at || ''
+                                });
+                            });
+                            Object.keys(mapped).forEach((key) => {
+                                mapped[key].sort((a, b) => (Number(a.posicion) || 999) - (Number(b.posicion) || 999));
+                            });
+
+                            return mapped;
+                        }
+                    }
+                } catch (e) {
+                    this.log('⚠️ Error al consultar /api/ganadores: ' + (e && e.message), 'warning');
+                }
+            }
+
+            // PRIORIDAD 3: Fallback al snapshot
             if (snapshot?.ganadores && this.snapshotCorrespondeARifaActual(snapshot, config)) {
                 this.log('ℹ️ Usando snapshot persistido de ganadores', 'info');
                 return {

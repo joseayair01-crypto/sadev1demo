@@ -59,7 +59,7 @@ function asegurarModalSorteoFinalizadoDisponible() {
 
     window.__RIFAPLUS_MODAL_FINALIZADO_LOADING__ = new Promise((resolve) => {
         const script = document.createElement('script');
-        script.src = 'js/modal-sorteo-finalizado.js?v=20260408.1';
+        script.src = 'js/modal-sorteo-finalizado.js?v=20260430.PROD';
         script.defer = true;
         script.onload = () => resolve(window.modalSorteoFinalizado || null);
         script.onerror = () => {

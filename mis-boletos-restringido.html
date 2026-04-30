@@ -1300,7 +1300,18 @@
                         sessionStorage.setItem('rifaplus_allow_restricted', '1');
                         sessionStorage.removeItem('rifaplus_modal_suppressed_until');
                     } catch (e) {}
-                    window.location.href = 'index.html';
+                    
+                    // ⚠️ CRÍTICO: Preservar parámetro 'rifa' para no mezclar rifas
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const rifaSlug = urlParams.get('rifa');
+                    
+                    if (rifaSlug) {
+                        // Si hay rifa en URL, regresar al index CON esa rifa
+                        window.location.href = `index.html?rifa=${encodeURIComponent(rifaSlug)}`;
+                    } else {
+                        // Sin rifa específica, ir al index normal
+                        window.location.href = 'index.html';
+                    }
                 });
             }
 

@@ -170,12 +170,55 @@ const GanadoresManager = {
         };
 
         try {
-            const resp = await fetch(`${this.getApiBase()}/api/ganadores?limit=${limit}`);
+            // ⚠️ CRÍTICO: Obtener rifa seleccionada de localStorage directamente
+            // ADMIN_LAYOUT puede no estar disponible en todos los contextos
+            let rifaIdSeleccionada = null;
+            
+            // Intentar 1: localStorage (más confiable)
+            try {
+                const stored = localStorage.getItem('rifaplus_rifa_activa');
+                if (stored) {
+                    const parsed = Number.parseInt(stored, 10);
+                    if (Number.isInteger(parsed) && parsed > 0) {
+                        rifaIdSeleccionada = parsed;
+                    }
+                }
+            } catch (e) {
+                // localStorage no disponible
+            }
+            
+            // Intentar 2: ADMIN_LAYOUT (nombre correcto en admin-layout.js)
+            if (!rifaIdSeleccionada && typeof window.ADMIN_LAYOUT?.getActiveRifaId?.() === 'number') {
+                rifaIdSeleccionada = window.ADMIN_LAYOUT.getActiveRifaId();
+            }
+            
+            const headers = {};
+            if (rifaIdSeleccionada) {
+                headers['X-Rifa-Id'] = String(rifaIdSeleccionada);
+            }
+
+            const url = `${this.getApiBase()}/api/ganadores?limit=${limit}`;
+            console.log(`[GanadoresManager] 📡 GET ${url}`);
+            console.log(`[GanadoresManager] 🏷️ Headers:`, headers);
+            console.log(`[GanadoresManager] 🔑 Rifa ID:`, rifaIdSeleccionada);
+
+            const resp = await fetch(url, { headers });
             if (!resp.ok) {
+                console.warn(`[GanadoresManager] ❌ Response ${resp.status}`);
                 return leerCacheServidor();
             }
             const payload = await resp.json().catch(() => ({}));
             const rows = Array.isArray(payload?.data) ? payload.data : [];
+            
+            console.log(`[GanadoresManager] ✅ ${rows.length} ganadores recibidos`);
+            if (rows.length > 0) {
+                console.log(`[GanadoresManager] 📋 Primeros ganadores:`, rows.slice(0, 3).map(r => ({
+                    numero_boleto: r.numero_boleto,
+                    tipo_ganador: r.tipo_ganador,
+                    rifa_id: r.rifa_id
+                })));
+            }
+            
             try {
                 sessionStorage.setItem(this.SERVER_CACHE_KEY, JSON.stringify(rows));
             } catch (e) {
@@ -183,6 +226,7 @@ const GanadoresManager = {
             }
             return rows;
         } catch (error) {
+            console.warn('[GanadoresManager] Error obteniendo ganadores:', error);
             return leerCacheServidor();
         }
     },
@@ -212,7 +256,22 @@ const GanadoresManager = {
     async obtenerGanadorPersistido(numero) {
         const numeroStr = String(numero).trim();
         const rows = await this.obtenerGanadoresServidor();
-        const row = rows.find((item) => String(item.numero_boleto ?? item.numero ?? item.numero_orden ?? '').trim() === numeroStr);
+        
+        console.log(`[GanadoresManager] 🔍 Buscando ganador #${numeroStr} en ${rows.length} ganadores...`);
+        
+        const row = rows.find((item) => {
+            const numeroBoleto = String(item.numero_boleto ?? item.numero ?? item.numero_orden ?? '').trim();
+            const match = numeroBoleto === numeroStr;
+            if (match) {
+                console.log(`[GanadoresManager] ✅ ENCONTRADO: #${numeroStr} en rifa_id=${item.rifa_id}, tipo=${item.tipo_ganador}`);
+            }
+            return match;
+        });
+        
+        if (!row) {
+            console.log(`[GanadoresManager] ❌ NO encontrado #${numeroStr}`);
+        }
+        
         return row ? this.mapearGanadorServidor(row) : null;
     },
 

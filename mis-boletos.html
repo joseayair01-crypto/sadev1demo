@@ -3260,10 +3260,40 @@
             actualizarFooterDesdeConfig();
             // ✅ Inicializar aplicación
             initializeApp();
+            // ⚠️ CRÍTICO: Preservar parámetro 'rifa' en enlaces de navegación
+            preservarParametroRifaEnNavegacion();
             requestAnimationFrame(() => {
                 notificarPaginaListaMisBoletos();
             });
         });
+
+        /**
+         * ⚠️ CRÍTICO: Preservar parámetro 'rifa' en todos los enlaces de navegación
+         * Esto evita que el usuario pierda el contexto de la rifa actual
+         */
+        function preservarParametroRifaEnNavegacion() {
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                const rifaSlug = urlParams.get('rifa');
+                
+                if (!rifaSlug) return; // No hay parámetro rifa, no hacer nada
+                
+                // Actualizar todos los enlaces con clase nav-link y overlay-link
+                const enlaces = document.querySelectorAll('a.nav-link, a.overlay-link');
+                enlaces.forEach(enlace => {
+                    const href = enlace.getAttribute('href');
+                    if (href && !href.startsWith('#') && !href.startsWith('http')) {
+                        // Solo modificar enlaces relativos
+                        const separator = href.includes('?') ? '&' : '?';
+                        enlace.setAttribute('href', `${href}${separator}rifa=${encodeURIComponent(rifaSlug)}`);
+                    }
+                });
+                
+                console.log(`[Rifa Preservation] ✅ Parámetro rifa=${rifaSlug} preservado en ${enlaces.length} enlaces`);
+            } catch (error) {
+                console.warn('[Rifa Preservation] Error:', error);
+            }
+        }
 
         // ============================================
         // INICIALIZACIÓN
