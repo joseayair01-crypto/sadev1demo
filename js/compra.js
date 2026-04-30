@@ -1644,15 +1644,96 @@ function inicializarMaquinaSuerteMejorada() {
     if (typeof actualizarNotaDisponibilidad === 'function') actualizarNotaDisponibilidad();
 
     if (!inicializarMaquinaSuerteMejorada._listenerRegistrado) {
-        window.addEventListener('configuracionActualizada', actualizarLimiteMaquinaSuerteUI);
-        window.addEventListener('configSyncCompleto', actualizarLimiteMaquinaSuerteUI);
+        // ✅ CRÍTICO: Re-sincronizar máquina cuando cambia la rifa
+        window.addEventListener('configuracionActualizada', () => {
+            logCompraDebug('[Máquina] Configuración actualizada, re-validando...');
+            actualizarLimiteMaquinaSuerteUI();
+            actualizarEstadoBotonGenerar();
+            actualizarNotaDisponibilidad();
+        });
+        
+        window.addEventListener('configSyncCompleto', () => {
+            logCompraDebug('[Máquina] Sync completo, actualizando UI...');
+            actualizarLimiteMaquinaSuerteUI();
+            actualizarEstadoBotonGenerar();
+            actualizarNotaDisponibilidad();
+        });
+        
+        // ✅ CRÍTICO: Escuchar cambios de rifa (para multirifa)
+        if (window.rifaplusConfig?.escucharEvento) {
+            window.rifaplusConfig.escucharEvento('rifaCambiada', () => {
+                console.log('[Máquina] 🔄 Rifa cambiada, re-sincronizando...');
+                // Forzar re-validación de disponibles
+                actualizarEstadoBotonGenerar();
+                actualizarNotaDisponibilidad();
+            });
+        }
+        
         inicializarMaquinaSuerteMejorada._listenerRegistrado = true;
     }
 }
 
+/**
+ * Obtener el universo total de boletos para la máquina de la suerte
+ * ✅ CRÍTICO: Siempre lee el totalBoletos de la rifa ACTUAL seleccionada
+ * 
+ * ESTRATEGIA (en orden de prioridad):
+ * 1. Leer desde window.rifaplusConfig.rifa.totalBoletos (configuración de rifa actual)
+ * 2. Fallback a window.rifaplusConfig.estado.totalBoletos (estado sincronizado)
+ * 3. Fallback a caché local de la rifa actual
+ * 4. Retornar 0 si no se pudo determinar (previene errores)
+ * 
+ * @returns {number} Total de boletos de la rifa ACTUAL (nunca de otras rifas)
+ */
 function obtenerUniversoMaquinaSuerteCompra() {
-    const totalTickets = Number(window.rifaplusConfig?.rifa?.totalBoletos) || 0;
-    return Math.max(0, totalTickets);
+    try {
+        const configRifa = window.rifaplusConfig?.rifa || {};
+        const estadoRifa = window.rifaplusConfig?.estado || {};
+        
+        // ✅ PASO 1: Leer desde configuración de rifa ACTUAL
+        const totalConfig = Number(configRifa.totalBoletos);
+        if (Number.isFinite(totalConfig) && totalConfig > 0) {
+            logCompraDebug(`[Máquina] TotalBoletos (config): ${totalConfig}`);
+            return totalConfig;
+        }
+        
+        // ✅ PASO 2: Fallback a estado sincronizado
+        const totalEstado = Number(estadoRifa.totalBoletos);
+        if (Number.isFinite(totalEstado) && totalEstado > 0) {
+            logCompraDebug(`[Máquina] TotalBoletos (estado): ${totalEstado}`);
+            return totalEstado;
+        }
+        
+        // ✅ PASO 3: Fallback a caché local de la rifa actual
+        const rifaSlug = window.rifaplusConfig?.obtenerSlugRifaActual?.() || 'default';
+        const cacheKey = `rifaplus:${rifaSlug}:totalBoletos`;
+        const cacheLocal = localStorage.getItem(cacheKey);
+        
+        if (cacheLocal) {
+            try {
+                const cached = JSON.parse(cacheLocal);
+                const cacheAge = Date.now() - (cached.timestamp || 0);
+                
+                if (cacheAge < 3600000) { // Menos de 1 hora
+                    const totalCache = Number(cached.totalBoletos);
+                    if (Number.isFinite(totalCache) && totalCache > 0) {
+                        logCompraDebug(`[Máquina] TotalBoletos (caché): ${totalCache}`);
+                        return totalCache;
+                    }
+                }
+            } catch (e) {
+                // Ignorar errores de caché
+            }
+        }
+        
+        // ❌ No se pudo determinar - retornar 0 (previene errores)
+        console.warn('[Máquina] No se pudo determinar totalBoletos, usando 0');
+        return 0;
+        
+    } catch (error) {
+        console.error('[Máquina] Error obteniendo totalBoletos:', error);
+        return 0;
+    }
 }
 
 const MAQUINA_SUERTE_MAXIMA_SOLICITUD = 5000;
@@ -1805,9 +1886,76 @@ function actualizarTotalMaquina() {
     totalDisplay.textContent = `$${total.toFixed(2)}`;
 }
 
+/**
+ * Obtener disponibilidad de boletos para la máquina de la suerte
+ * ✅ CRÍTICO: Siempre lee de la rifa ACTUAL seleccionada, NUNCA de caché de otras rifas
+ * 
+ * ESTRATEGIA (en orden de prioridad):
+ * 1. Si hay datos frescos en window.rifaplusConfig (menos de 30 segundos), usarlos
+ * 2. Si no, forzar re-sincronización desde backend
+ * 3. Calcular desde totalBoletos - vendidos - apartados como fallback
+ * 
+ * @returns {number|null} Cantidad de boletos disponibles o null si no se pudo determinar
+ */
 function obtenerDisponiblesGlobalesMaquina() {
-    const disponibles = Number(window.rifaplusConfig?.estado?.boletosDisponibles);
-    return Number.isFinite(disponibles) && disponibles >= 0 ? disponibles : null;
+    try {
+        // ✅ PASO 1: Verificar si tenemos datos FRESCOS de la rifa actual
+        const estadoRifa = window.rifaplusConfig?.estado || {};
+        const configRifa = window.rifaplusConfig?.rifa || {};
+        
+        // Verificar frescura de los datos (timestamp de última sincronización)
+        const ultimaSincronizacion = window.rifaplusConfig?.ultimaSincronizacion || 0;
+        const ahora = Date.now();
+        const edadDatos = ahora - ultimaSincronizacion;
+        const datosFrescos = edadDatos < 30000; // Menos de 30 segundos
+        
+        // Intentar obtener desde boletosDisponibles (sincronizado desde backend)
+        const disponiblesDirectos = Number(estadoRifa.boletosDisponibles);
+        
+        if (datosFrescos && Number.isFinite(disponiblesDirectos) && disponiblesDirectos >= 0) {
+            // ✅ Datos frescos y válidos - usar directamente
+            logCompraDebug(`[Máquina] Disponibles (datos frescos): ${disponiblesDirectos}`);
+            return disponiblesDirectos;
+        }
+        
+        // ✅ PASO 2: Calcular desde totalBoletos - vendidos - apartados
+        const totalBoletos = Number(configRifa.totalBoletos) || Number(estadoRifa.totalBoletos) || 0;
+        const vendidos = Number(estadoRifa.boletosVendidos) || 0;
+        const apartados = Number(estadoRifa.boletosApartados) || 0;
+        
+        if (totalBoletos > 0) {
+            const disponiblesCalculados = Math.max(0, totalBoletos - vendidos - apartados);
+            logCompraDebug(`[Máquina] Disponibles (calculados): ${disponiblesCalculados} (total=${totalBoletos}, vendidos=${vendidos}, apartados=${apartados})`);
+            return disponiblesCalculados;
+        }
+        
+        // ✅ PASO 3: Fallback extremo - intentar desde localStorage
+        const cacheLocal = localStorage.getItem('rifaplusBoletosCache');
+        if (cacheLocal) {
+            try {
+                const cached = JSON.parse(cacheLocal);
+                const cacheAge = Date.now() - (cached.timestamp || 0);
+                
+                if (cacheAge < 300000) { // Menos de 5 minutos
+                    const disponiblesCache = Number(cached.disponibles);
+                    if (Number.isFinite(disponiblesCache) && disponiblesCache >= 0) {
+                        logCompraDebug(`[Máquina] Disponibles (caché local): ${disponiblesCache}`);
+                        return disponiblesCache;
+                    }
+                }
+            } catch (e) {
+                // Ignorar errores de caché local
+            }
+        }
+        
+        // ❌ No se pudo determinar disponibilidad
+        logCompraDebug(`[Máquina] No se pudo determinar disponibilidad (edadDatos=${edadDatos}ms, totalBoletos=${totalBoletos})`);
+        return null;
+        
+    } catch (error) {
+        console.error('[Máquina] Error obteniendo disponibles:', error);
+        return null;
+    }
 }
 
 function maquinaSuerteDebeMostrarNotaDisponibilidad() {
@@ -1941,13 +2089,13 @@ async function generarNumerosAleatoriosMejorado() {
     const numerosSuerte = document.getElementById('numerosSuerte');
     const resultado = document.getElementById('maquinaResultado');
     const btnGenerar = document.getElementById('btnGenerarNumeros');
-    
+
     if (!inputCantidad || !numerosSuerte || !resultado) {
         console.error('❌ Elementos de máquina de la suerte no encontrados');
         rifaplusUtils.showFeedback('⚠️ Error: No se encontraron los elementos de la máquina', 'error');
         return;
     }
-    
+
     const cantidad = parseInt(inputCantidad.value, 10);
     const maximoPermitido = obtenerMaximoPermitidoMaquinaSuerte();
     if (isNaN(cantidad) || cantidad < 1) {
@@ -1961,14 +2109,15 @@ async function generarNumerosAleatoriosMejorado() {
         rifaplusUtils.showFeedback(`⚠️ La máquina de la suerte permite generar hasta ${maximoPermitido} boletos por intento.`, 'warning');
         return;
     }
-    
+
     // Mostrar estado de carga
     if (btnGenerar) {
         btnGenerar.disabled = true;
         actualizarEstadoVisualBotonGenerar('generating');
     }
-    
+
     try {
+        // Validar disponibilidad antes de generar
         const disponiblesGlobales = Number(window.rifaplusConfig?.estado?.boletosDisponibles);
         if (Number.isFinite(disponiblesGlobales) && disponiblesGlobales >= 0 && disponiblesGlobales < cantidad) {
             rifaplusUtils.showFeedback(`⚠️ Solo hay ${disponiblesGlobales} boletos disponibles. No puedes generar ${cantidad} números.`, 'warning');
@@ -1982,11 +2131,11 @@ async function generarNumerosAleatoriosMejorado() {
             rifaplusUtils.showFeedback(`⚠️ Solo se pudieron obtener ${numerosGenerados.length} de ${cantidad} boletos disponibles en este momento. Intenta de nuevo.`, 'warning');
             return;
         }
-        
+
         // Renderizar números
         numerosSuerte.innerHTML = '';
         const fragment = document.createDocumentFragment();
-        
+
         numerosGenerados.forEach(numero => {
             const chip = document.createElement('div');
             chip.className = 'numero-chip';
@@ -1996,25 +2145,25 @@ async function generarNumerosAleatoriosMejorado() {
             chip.setAttribute('data-numero', numero);
             fragment.appendChild(chip);
         });
-        
+
         numerosSuerte.appendChild(fragment);
         numerosSuerte.setAttribute('data-numeros', numerosGenerados.join(','));
-        
+
         // Mostrar resultado
         resultado.style.display = 'block';
         resultado.style.visibility = 'visible';
         resultado.style.opacity = '1';
         resultado.style.transition = 'opacity 300ms ease-out, visibility 300ms ease-out';
         logCompraDebug('[compra] Numeros generados por maquina:', numerosGenerados);
-        
+
         // Scroll suave hacia la sección de resultados (corto)
         setTimeout(() => {
             resultado.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }, 100);
-        
+
         // Efecto visual de aparición optimizado
         const chips = numerosSuerte.querySelectorAll('.numero-chip');
-        
+
         // Para muchos boletos (>100), usar CSS animation en lugar de JavaScript
         if (cantidad > 100) {
             // Agregar clase que activa animación CSS en masa (sin cascadas)
@@ -2028,7 +2177,7 @@ async function generarNumerosAleatoriosMejorado() {
             chips.forEach((chip, index) => {
                 chip.style.opacity = '0';
                 chip.style.transform = 'scale(0.5)';
-                
+
                 // Reducir delay: máximo 500ms total (no 50 segundos)
                 const delay = Math.min(index * 30, 500);
                 setTimeout(() => {
@@ -2038,10 +2187,10 @@ async function generarNumerosAleatoriosMejorado() {
                 }, delay);
             });
         }
-        
+
         rifaplusUtils.showFeedback(`🎲 ${numerosGenerados.length} números generados correctamente`, 'success');
         return numerosGenerados;
-        
+
     } catch (error) {
         console.error('❌ Error al generar números:', error);
         rifaplusUtils.showFeedback(`❌ Error: ${error.message}`, 'error');

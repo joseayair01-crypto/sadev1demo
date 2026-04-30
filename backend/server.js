@@ -404,10 +404,23 @@ app.use(cors({
 
 app.use((req, res, next) => {
     const requestHeaders = String(req.headers['access-control-request-headers'] || '').trim();
-    res.setHeader(
-        'Access-Control-Allow-Headers',
-        requestHeaders || DEFAULT_CORS_ALLOWED_HEADERS.join(', ')
-    );
+    
+    // ✅ CRÍTICO: Siempre incluir headers custom en la respuesta CORS
+    const customHeaders = 'x-rifaplus-rifa-id, x-rifa-id, x-rifaplus-rifa-slug, x-rifa-slug';
+    const allHeaders = requestHeaders 
+        ? `${requestHeaders}, ${customHeaders}`
+        : `${DEFAULT_CORS_ALLOWED_HEADERS.join(', ')}, ${customHeaders}`;
+    
+    res.setHeader('Access-Control-Allow-Headers', allHeaders);
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Max-Age', '86400');
+    
+    // Manejar preflight OPTIONS
+    if (req.method === 'OPTIONS') {
+        return res.sendStatus(204);
+    }
+    
     next();
 });
 
@@ -6237,13 +6250,36 @@ function obtenerPrefijoOrdenCliente(clienteId, configActor = null) {
         // Primero desde configActual si se proporciona, luego desde configManager
         const configParaUsar = configActor || cargarConfigSorteo();
         const prefijoConfig = String(configParaUsar?.cliente?.prefijoOrden || '').trim().toUpperCase();
-        
+
         if (prefijoConfig && prefijoConfig.length >= 2) {
             console.log(`✅ PREFIJO ORDEN: "${prefijoConfig}" (desde configuración actual)`);
             return prefijoConfig;
         }
-        
+
         console.warn(`⚠️ prefijoConfig vacío o inválido: "${prefijoConfig}"`);
+        
+        // ✅ CRÍTICO: Si no hay prefijo configurado, generar desde el slug de la rifa actual
+        // Ejemplo: slug "s9" → prefijo "S9", slug "navidad2026" → prefijo "NA"
+        const rifaSlug = String(configParaUsar?.rifa?.slug || '').trim();
+        if (rifaSlug) {
+            // Tomar primeros 2 caracteres del slug y convertir a mayúsculas
+            const prefijoDesdeSlug = rifaSlug.substring(0, 2).toUpperCase();
+            if (prefijoDesdeSlug.length >= 2 && /[A-Z0-9]/.test(prefijoDesdeSlug)) {
+                console.log(`✅ PREFIJO ORDEN: "${prefijoDesdeSlug}" (generado desde slug "${rifaSlug}")`);
+                return prefijoDesdeSlug;
+            }
+        }
+        
+        // Fallback: intentar desde el nombre del sorteo
+        const nombreSorteo = String(configParaUsar?.rifa?.nombreSorteo || '').trim();
+        if (nombreSorteo) {
+            // Tomar primeras 2 letras del nombre
+            const letras = nombreSorteo.replace(/[^a-zA-Z]/g, '').substring(0, 2).toUpperCase();
+            if (letras.length >= 2) {
+                console.log(`✅ PREFIJO ORDEN: "${letras}" (generado desde nombre "${nombreSorteo}")`);
+                return letras;
+            }
+        }
     } catch (error) {
         console.warn('⚠️ Error obteniendoprefijoOrden:', error.message);
     }
@@ -10225,6 +10261,141 @@ app.post('/api/public/boletos/oportunidades/batch', limiterOrdenes, async (req, 
             success: false,
             message: 'Error al obtener oportunidades en batch',
             error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
+});
+
+/**
+ * POST /api/public/maquina/generar
+ * ✅ CRÍTICO: Genera números aleatorios DESDE EL BACKEND con reserva temporal
+ * Evita que múltiples usuarios reciban los mismos números simultáneamente
+ * 
+ * Body: { cantidad: number (1-100), rifa_id?: number }
+ * Response: { 
+ *   success: true, 
+ *   boletos: [5432, 7891, ...], 
+ *   expiresAt: '2026-04-30T10:05:00Z',
+ *   mensaje: 'Boletos reservados por 5 minutos'
+ * }
+ */
+app.post('/api/public/maquina/generar', async (req, res) => {
+    try {
+        const { cantidad, rifa_id } = req.body || {};
+        
+        // Validaciones básicas
+        if (!Number.isInteger(cantidad) || cantidad < 1 || cantidad > 100) {
+            return res.status(400).json({
+                success: false,
+                message: 'Cantidad debe ser entre 1 y 100 boletos'
+            });
+        }
+        
+        const rifaIdActual = Number.parseInt(rifa_id || req.rifaContext?.id, 10) || null;
+        const config = cargarConfigSorteo();
+        const totalBoletos = config.totalBoletos;
+        
+        if (totalBoletos <= 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'No hay boletos disponibles en este sorteo'
+            });
+        }
+        
+        // Verificar disponibilidad suficiente
+        const disponiblesActuales = Number(config.estado?.boletosDisponibles || 0);
+        if (disponiblesActuales < cantidad) {
+            return res.status(409).json({
+                success: false,
+                message: `Solo hay ${disponiblesActuales} boletos disponibles. Solicitaste ${cantidad}.`,
+                disponibles: disponiblesActuales
+            });
+        }
+        
+        // ✅ TRANSACCIÓN: Reservar boletos temporalmente por 5 minutos
+        const resultado = await db.transaction(async (trx) => {
+            // Configurar timeouts
+            await trx.raw("SET LOCAL lock_timeout = '3s'");
+            await trx.raw("SET LOCAL statement_timeout = '10s'");
+            
+            // Seleccionar boletos disponibles ALEATORIOS con FOR UPDATE SKIP LOCKED
+            // Esto garantiza que múltiples usuarios NO reciban los mismos boletos
+            const boletosSeleccionados = await trx('boletos_estado')
+                .select('numero')
+                .modify((qb) => {
+                    if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+                })
+                .where('estado', 'disponible')
+                .whereNull('numero_orden')
+                .orderByRaw('RANDOM()')  // ← ALEATORIO en backend
+                .limit(cantidad)
+                .forUpdate()  // ← Bloquea para otros transactions
+                .timeout(5000);
+            
+            if (boletosSeleccionados.length < cantidad) {
+                throw {
+                    code: 'INSUFICIENTES_DISPONIBLES',
+                    message: `Solo ${boletosSeleccionados.length} boletos disponibles actualmente`
+                };
+            }
+            
+            const numerosBoletos = boletosSeleccionados.map(b => b.numero);
+            const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutos
+            
+            // Reservar boletos temporalmente
+            const actualizados = await trx('boletos_estado')
+                .modify((qb) => {
+                    if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+                })
+                .whereIn('numero', numerosBoletos)
+                .where('estado', 'disponible')
+                .update({
+                    estado: 'reservado_maquina',
+                    updated_at: new Date()
+                });
+            
+            if (actualizados !== numerosBoletos.length) {
+                throw {
+                    code: 'BOLETOS_CAMBIARON_ESTADO',
+                    message: 'Algunos boletos ya no están disponibles'
+                };
+            }
+            
+            return {
+                boletos: numerosBoletos,
+                expiresAt: expiresAt.toISOString(),
+                cantidad: numerosBoletos.length
+            };
+        });
+        
+        console.log(`[Máquina] ✅ ${resultado.cantidad} boletos reservados por 5 min`);
+        
+        return res.json({
+            success: true,
+            boletos: resultado.boletos,
+            expiresAt: resultado.expiresAt,
+            mensaje: `Boletos reservados por 5 minutos. Completa tu compra antes de ${new Date(resultado.expiresAt).toLocaleTimeString()}`
+        });
+        
+    } catch (error) {
+        console.error('[Máquina] ❌ Error generando boletos:', error);
+        
+        if (error.code === 'INSUFICIENTES_DISPONIBLES' || error.code === 'BOLETOS_CAMBIARON_ESTADO') {
+            return res.status(409).json({
+                success: false,
+                message: error.message || 'Boletos no disponibles. Intenta con otra cantidad.'
+            });
+        }
+        
+        if (error.message?.includes('timeout') || error.message?.includes('lock')) {
+            return res.status(503).json({
+                success: false,
+                message: 'Alta concurrencia. Por favor intenta en unos segundos.'
+            });
+        }
+        
+        return res.status(500).json({
+            success: false,
+            message: 'Error generando boletos aleatorios'
         });
     }
 });
