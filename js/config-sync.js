@@ -84,6 +84,13 @@ function syncConstruirUrlPublicaContextualRifaPlus(apiBase, path) {
         if (adminSlug && !url.searchParams.has('rifa') && !url.searchParams.has('slug')) {
             url.searchParams.set('rifa', adminSlug);
         }
+    } else {
+        // ✅ AGREGADO: Para páginas públicas, anexar el slug de la URL principal (?rifa=s8)
+        // Esto asegura que el servidor responda con la configuración de la rifa correcta.
+        const publicSlug = typeof obtenerSlugRifaDesdeUrlRifaPlus === 'function' ? obtenerSlugRifaDesdeUrlRifaPlus() : '';
+        if (publicSlug && !url.searchParams.has('rifa') && !url.searchParams.has('slug')) {
+            url.searchParams.set('rifa', publicSlug);
+        }
     }
 
     return url.toString();
@@ -372,7 +379,9 @@ window.rifaplusConfig.obtenerConfigPublicaCompartida = async function(opciones =
         || this.obtenerApiBase?.()
         || window.location.origin;
 
-    this._configPublicaPromise = fetch(usarConfigAdmin ? `${apiBase}/api/admin/config` : `${apiBase}/api/public/config`, {
+    const endpoint = syncConstruirUrlPublicaContextualRifaPlus(apiBase, usarConfigAdmin ? '/api/admin/config' : '/api/public/config');
+    
+    this._configPublicaPromise = fetch(endpoint, {
         method: 'GET',
         headers: usarConfigAdmin
             ? syncConstruirHeadersAdminRifaPlus()
@@ -874,6 +883,16 @@ window.rifaplusConfig.inicializar = async function() {
         // 1.75. Sincronizar ganadores desde localStorage
         this.sincronizarGanadores();
         
+        // 1.8. ✅ CRÍTICO: Establecer rifa.id para WebSocket en páginas admin
+        // Si estamos en admin y hay una rifa activa, obtenerla del localStorage
+        if (syncEsPaginaAdminRifaPlus()) {
+            const rifaIdActiva = syncObtenerAdminRifaIdActivaRifaPlus();
+            if (rifaIdActiva) {
+                this.rifa.id = rifaIdActiva;
+                syncDebug(`✅ [Init] rifaId desde localStorage: ${rifaIdActiva}`);
+            }
+        }
+        
         // 2. El tema/colores se aplican automáticamente via theme-loader.js y theme-dynamic.js
         
         // 2.5. Actualizar nombre del cliente en todos lados
@@ -916,4 +935,24 @@ if (document.readyState === 'loading') {
     window.rifaplusConfig.inicializar().catch(e => 
         console.error('❌ Error en inicialización automática:', e)
     );
+}
+
+// 🔌 ESCUCHAR cambios de rifa activa en admin para actualizar socket
+if (typeof window !== 'undefined') {
+    window.addEventListener('rifaplus:admin-rifa-activa-cambiada', (event) => {
+        const rifaId = event?.detail?.rifaId;
+        if (rifaId) {
+            window.rifaplusConfig.rifa.id = rifaId;
+            syncDebug(`✅ [Listener] rifa.id actualizado a: ${rifaId}`);
+            
+            // Si el socket ya estaba conectado, reconectarse a la nueva sala
+            if (window.rifaplusSocketHandler?.socket?.connected) {
+                window.rifaplusSocketHandler.socket.emit('joinRifa', rifaId);
+                console.log(`🔌 [Socket] Cambiando a sala aislada de rifa: ${rifaId}`);
+            }
+        } else {
+            window.rifaplusConfig.rifa.id = '';
+            syncDebug('✅ [Listener] rifa.id limpiado (sin rifa activa)');
+        }
+    });
 }

@@ -219,12 +219,6 @@ async function obtenerOrdenIdOficialFlujo(clienteGuardado = {}) {
     const esOrdenIdOficial = typeof config?.esOrdenIdOficial === 'function'
         ? config.esOrdenIdOficial.bind(config)
         : (valor => /^[A-Z0-9]+-[A-Z]{2}\d{3}$/.test(String(valor || '').trim().toUpperCase()));
-    const tienePrefijoActual = typeof config?.ordenIdTienePrefijoActual === 'function'
-        ? config.ordenIdTienePrefijoActual.bind(config)
-        : (valor => {
-            const prefijoActual = String(config?.cliente?.prefijoOrden || '').trim().toUpperCase();
-            return !!prefijoActual && String(valor || '').trim().toUpperCase().startsWith(`${prefijoActual}-`);
-        });
 
     let clienteId = String(config?.cliente?.id || '').trim();
     if ((!clienteId || !config?.cliente?.prefijoOrden) && typeof config?.sincronizarConfigDelBackend === 'function') {
@@ -243,7 +237,7 @@ async function obtenerOrdenIdOficialFlujo(clienteGuardado = {}) {
     if (typeof window.generarIdOrden === 'function') {
         try {
             const ordenIdGenerado = String(await window.generarIdOrden()).trim().toUpperCase();
-            if (esOrdenIdOficial(ordenIdGenerado) && tienePrefijoActual(ordenIdGenerado)) {
+            if (esOrdenIdOficial(ordenIdGenerado)) {
                 return ordenIdGenerado;
             }
             console.warn('⚠️ [flujo-compra] window.generarIdOrden devolvió un valor no reutilizable:', ordenIdGenerado);
@@ -352,23 +346,28 @@ function iniciarFlujoPago() {
     // Definir callback que se ejecuta cuando el usuario confirma el formulario
     window.onContactoConfirmado = function() {
         desenfocarElementoActivoFlujo();
-        
+
         // El cliente ya está guardado en localStorage por modal-contacto.js
-        // Cargar datos
         clienteCheckout = obtenerClienteDelStorage();
-        
+
+        // ✅ UX: Mostrar loader ANTES de cerrar el modal para evitar flashazo de la página
+        const modalLoading = document.getElementById('modalLoadingOrden');
+        if (modalLoading) {
+            modalLoading.style.display = 'flex';
+        }
+
         // Cerrar modal de contacto
         if (typeof cerrarModalContacto === 'function') {
             cerrarModalContacto();
         }
-        
-        // Paso 2: Abrir selector de cuenta de pago
+
+        // ✅ FLUJO SIMPLIFICADO: Ir directo al apartado
         window.requestAnimationFrame(() => {
             desenfocarElementoActivoFlujo();
-            abrirModalSeleccionCuenta();
+            apartarDirectamente();
         });
     };
-    
+
     // Abrir modal de contacto con un traspaso limpio si viene del carrito.
     if (typeof abrirModalContacto === 'function') {
         const abrirContacto = () => abrirModalContacto({ instant: carritoEstabaAbierto });
@@ -381,8 +380,103 @@ function iniciarFlujoPago() {
             abrirContacto();
         }
     }
+}
 
-    precargarCuentasDisponiblesFlujo();
+/* ============================================================ */
+/* SECCIÓN 3B: APARTAR DIRECTAMENTE (FLUJO SIMPLIFICADO)       */
+/* Salta modal de cuentas y orden formal → va directo a guardarOrden()
+/* ============================================================ */
+
+/**
+ * apartarDirectamente - Prepara la orden y llama guardarOrden() sin pasar
+ * por el modal de selección de cuenta ni por el modal de orden formal.
+ * Se invoca desde el callback onContactoConfirmado del flujo simplificado.
+ * @returns {void}
+ */
+async function apartarDirectamente() {
+    // Boletos del carrito
+    const boletos = typeof window.obtenerBoletosSelecionados === 'function'
+        ? window.obtenerBoletosSelecionados()
+        : [];
+
+    if (!boletos || boletos.length === 0) {
+        if (typeof rifaplusUtils !== 'undefined') {
+            rifaplusUtils.showFeedback('❌ No hay boletos seleccionados', 'error');
+        }
+        return;
+    }
+
+    const clienteGuardado = JSON.parse(getItemSafeFlujo('rifaplus_cliente') || '{}');
+
+    // Calcular totales
+    const precioUnitario = typeof obtenerPrecioDinamico === 'function' ? obtenerPrecioDinamico() : 0;
+    const totales = typeof calcularTotales === 'function'
+        ? calcularTotales(boletos.length, precioUnitario)
+        : { subtotal: boletos.length * precioUnitario, descuentoMonto: 0, totalFinal: boletos.length * precioUnitario, precioUnitario };
+
+    // Guardar datos en localStorage (para que guardarOrden() los lea)
+    setItemSafeFlujo('rifaplus_boletos', JSON.stringify(boletos));
+    setItemSafeFlujo('rifaplus_total', JSON.stringify({
+        subtotal: totales.subtotal,
+        descuento: totales.descuentoMonto,
+        descuentoMonto: totales.descuentoMonto,
+        totalFinal: totales.totalFinal,
+        total: totales.totalFinal,
+        precioUnitario: totales.precioUnitario,
+        combo: totales.combo || null
+    }));
+
+    // Intentar obtener un ordenId oficial del servidor
+    let ordenId = String(clienteGuardado.ordenId || '').trim().toUpperCase();
+    const esOficial = typeof window.rifaplusConfig?.esOrdenIdOficial === 'function'
+        ? window.rifaplusConfig.esOrdenIdOficial.bind(window.rifaplusConfig)
+        : (v) => /^[A-Z0-9]+-[A-Z]{2}\d{3}$/.test(String(v || '').trim().toUpperCase());
+
+    if (!ordenId || !esOficial(ordenId)) {
+        ordenId = await obtenerOrdenIdOficialFlujo(clienteGuardado).catch(() => '');
+    }
+
+    // Actualizar cliente con el ordenId
+    const clienteActualizado = { ...clienteGuardado, ordenId };
+    setItemSafeFlujo('rifaplus_cliente', JSON.stringify(clienteActualizado));
+
+    // Construir ordenActual (variable global usada por guardarOrden() en orden-formal.js)
+    window.ordenActual = {
+        ordenId: ordenId,
+        ordenIdVisible: ordenId || 'Se asigna al confirmar',
+        cliente: {
+            nombre: clienteActualizado.nombre || '',
+            apellidos: clienteActualizado.apellidos || '',
+            whatsapp: clienteActualizado.whatsapp || '',
+            estado: clienteActualizado.estado || '',
+            ciudad: clienteActualizado.ciudad || ''
+        },
+        cuenta: {},         // Sin cuenta: el backend la ignora en este flujo
+        boletos: boletos,
+        totales: totales,
+        precioUnitario: totales.precioUnitario,
+        fecha: new Date().toISOString(),
+        referencia: ordenId || ''
+    };
+
+    // Sincronizar oportunidades si aplica
+    if (typeof window.sincronizarOportunidadesAlCarrito === 'function') {
+        window.sincronizarOportunidadesAlCarrito();
+    }
+    const oportunidades = typeof window.obtenerOportunidadesValidadasOrdenActual === 'function'
+        ? window.obtenerOportunidadesValidadasOrdenActual(boletos)
+        : [];
+    window.ordenActual.boletosOcultos = oportunidades;
+
+    // ✅ Guardar la orden directamente (llama a guardarOrden() de orden-formal.js)
+    if (typeof window.guardarOrden === 'function') {
+        await window.guardarOrden();
+    } else {
+        console.error('❌ guardarOrden no disponible');
+        if (typeof rifaplusUtils !== 'undefined') {
+            rifaplusUtils.showFeedback('❌ Error al intentar apartar. Recarga la página e inténtalo de nuevo.', 'error');
+        }
+    }
 }
 
 /* ============================================================ */
@@ -511,19 +605,13 @@ async function mostrarOrdenFormal(cuenta, opciones = {}) {
     const esOrdenIdOficial = typeof window.rifaplusConfig?.esOrdenIdOficial === 'function'
         ? window.rifaplusConfig.esOrdenIdOficial.bind(window.rifaplusConfig)
         : (valor => /^[A-Z0-9]+-[A-Z]{2}\d{3}$/.test(String(valor || '').trim().toUpperCase()));
-    const tienePrefijoActual = typeof window.rifaplusConfig?.ordenIdTienePrefijoActual === 'function'
-        ? window.rifaplusConfig.ordenIdTienePrefijoActual.bind(window.rifaplusConfig)
-        : (valor => {
-            const prefijoActual = String(window.rifaplusConfig?.cliente?.prefijoOrden || '').trim().toUpperCase();
-            return !!prefijoActual && String(valor || '').trim().toUpperCase().startsWith(`${prefijoActual}-`);
-        });
 
-    if (ordenIdActual && (!esOrdenIdOficial(ordenIdActual) || !tienePrefijoActual(ordenIdActual))) {
-        console.warn('⚠️ [flujo-compra] Se descartó un ordenId viejo o con prefijo obsoleto:', ordenIdActual);
+    if (ordenIdActual && !esOrdenIdOficial(ordenIdActual)) {
+        console.warn('⚠️ [flujo-compra] Se descartó un ordenId viejo o no oficial:', ordenIdActual);
         ordenIdActual = '';
     }
 
-    if (ordenIdActual && (!esOrdenIdOficial(ordenIdActual) || !tienePrefijoActual(ordenIdActual))) {
+    if (ordenIdActual && !esOrdenIdOficial(ordenIdActual)) {
         console.error('❌ [flujo-compra] Se obtuvo un ordenId no válido tras intentar regenerarlo:', ordenIdActual);
         ordenIdActual = '';
     }
@@ -709,6 +797,8 @@ function calcularTotales(cantidad, precioUnitario = null) {
 
 // Exportar funciones para acceso global desde otros scripts
 window.iniciarFlujoPago = iniciarFlujoPago;
+window.apartarDirectamente = apartarDirectamente;
 window.abrirModalSeleccionCuenta = abrirModalSeleccionCuenta;
 window.cerrarModalSeleccionCuenta = cerrarModalSeleccionCuenta;
 window.mostrarOrdenFormal = mostrarOrdenFormal;
+

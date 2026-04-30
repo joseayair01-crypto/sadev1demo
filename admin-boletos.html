@@ -2975,6 +2975,14 @@
                     // Continuar aunque falle la configuración
                 }
                 
+                // ✅ IMPORTANTE: Esperar a que el selector de rifas se cargue completamente
+                // Esto garantiza que adminRifaActionsPanel y adminRifaSwitcher se rendericen
+                if (typeof ADMIN_LAYOUT?.cargarSelectorRifas === 'function') {
+                    await ADMIN_LAYOUT.cargarSelectorRifas().catch((error) => {
+                        console.warn('Advertencia: No se pudo cargar selector de rifas en DOMContentLoaded', error?.message);
+                    });
+                }
+                
                 // Verificar autenticación
                 if (!verificarAutenticacion()) {
                     // Si no hay token, esperar a que localStorage se sincronice desde otras pestañas

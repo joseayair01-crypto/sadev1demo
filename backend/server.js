@@ -1658,8 +1658,10 @@ async function asegurarSnapshotModalFinalizado(config, options = {}) {
     return { persisted: true, snapshot: snapshotFinal };
 }
 
-function obtenerConfigActual() {
-    const contextoRifa = obtenerContextoRifaActual();
+function obtenerConfigActual(rifaId = null) {
+    const rifaIdResuelto = rifaId || obtenerRifaIdActual();
+    const contextoRifa = obtenerContextoRifaActual(rifaIdResuelto);
+
     if (contextoRifa?.configuracion && typeof contextoRifa.configuracion === 'object') {
         const configContextual = clonarConfigSeguro(contextoRifa.configuracion);
         if (!configContextual.rifa || typeof configContextual.rifa !== 'object') {
@@ -1678,7 +1680,7 @@ function obtenerConfigActual() {
     }
 
     if (configManagerV2?.getConfig) {
-        const configBD = configManagerV2.getConfig();
+        const configBD = configManagerV2.getConfig(rifaIdResuelto);
         if (configBD && typeof configBD === 'object') {
             return clonarConfigSeguro(configBD);
         }
@@ -1701,9 +1703,9 @@ function obtenerConfigActual() {
     }
 }
 
-function cargarConfigSorteo() {
-    const configActual = obtenerConfigActual();
-    const rifaIdActual = obtenerRifaIdActual();
+function cargarConfigSorteo(rifaId = null) {
+    const rifaIdActual = rifaId || obtenerRifaIdActual();
+    const configActual = obtenerConfigActual(rifaIdActual);
     const oportunidadesActuales = configActual?.rifa?.oportunidades || configManager.config?.rifa?.oportunidades || {};
 
     return {
@@ -6745,7 +6747,7 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
                     numerosApartados: resultado.cantidad,
                     cliente: nombre,
                     timestamp: new Date().toISOString()
-                });
+                }, rifaIdActual);  // ✅ Pasar rifaIdActual
                 wsEvents.emitirNuevaOrdenAdmin({
                     numero_orden: resultado.ordenId,
                     rifa_id: rifaIdActual,
@@ -6757,7 +6759,7 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
                     comprobante_path: null,
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString()
-                });
+                }, rifaIdActual);  // ✅ Pasar rifaIdActual como segundo param
                 logOrdenesDebug(`✅ Evento WebSocket emitido: Nueva orden con ${resultado.cantidad} boletos`);
             } catch (wsError) {
                 // No fallar si hay error en WebSocket - es no-crítico
@@ -7988,13 +7990,14 @@ app.post('/api/public/ordenes-cliente/:numero_orden/comprobante', async (req, re
         setImmediate(() => {
             if (wsEvents) {
                 try {
+                    const rifaIdComprobante = req.rifaContext?.id || null;
                     wsEvents.emitirOrdenActualizadaAdmin({
                         numero_orden,
-                        rifa_id: req.rifaContext?.id || null,
+                        rifa_id: rifaIdComprobante,
                         estado: 'pendiente',
                         comprobante_path: '__present__',
                         updated_at: new Date().toISOString()
-                    });
+                    }, rifaIdComprobante);  // ✅ Pasar rifaId
                 } catch (wsError) {
                     console.warn(`⚠️  Error emitiendo actualización admin de comprobante:`, wsError.message);
                 }
@@ -10686,14 +10689,15 @@ app.patch('/api/ordenes/:id/estado', verificarToken, async (req, res) => {
                     .first('numero_orden', 'rifa_id', 'nombre_cliente', 'telefono_cliente', 'estado', 'cantidad_boletos', 'total', 'comprobante_path', 'created_at', 'updated_at');
 
                 if (ordenActualizada) {
+                    const rifaIdOrden = Number.parseInt(ordenActualizada?.rifa_id, 10) || null;
                     wsEvents.emitirOrdenActualizadaAdmin({
                         ...ordenActualizada,
                         estado_anterior: resultado?.ordenAnterior?.estado || null
-                    });
+                    }, rifaIdOrden);  // ✅ Pasar rifaId
                     wsEvents.emitirOrdenActualizadaPublica({
                         ...ordenActualizada,
                         estado_anterior: resultado?.ordenAnterior?.estado || null
-                    });
+                    }, rifaIdOrden);  // ✅ Pasar rifaId
                 }
             } catch (wsError) {
                 console.warn(`⚠️  Error emitiendo actualización admin de orden ${id}:`, wsError.message);
@@ -11500,8 +11504,10 @@ app.post('/api/admin/ordenes-manual', verificarToken, async (req, res) => {
 
         if (wsEvents) {
             try {
+                const rifaIdVentaManual = obtenerRifaIdActual();
                 wsEvents.emitirNuevaOrdenAdmin({
                     numero_orden: numeroOrden,
+                    rifa_id: rifaIdVentaManual,  // ✅ Agregar rifa_id
                     nombre_cliente: cliente_nombre || 'Venta Manual',
                     telefono_cliente: cliente_whatsapp || '',
                     estado: 'completada',
@@ -11510,7 +11516,7 @@ app.post('/api/admin/ordenes-manual', verificarToken, async (req, res) => {
                     comprobante_path: null,
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString()
-                });
+                }, rifaIdVentaManual);  // ✅ Pasar rifaId como segundo param
             } catch (wsError) {
                 console.warn(`⚠️  Error emitiendo orden manual al canal admin:`, wsError.message);
             }
@@ -11916,8 +11922,12 @@ app.get('/api/boletos/disponibles', async (req, res) => {
         const limit = Math.min(parseInt(req.query.limit) || 50, 500);  // Max 500
         const offset = parseInt(req.query.offset) || 0;
 
-        const boletos = await BoletoService.obtenerBoletosDisponibles(limit, offset);
-        const totalDisponibles = await BoletoService.contarBoletosDisponibles();
+        const boletos = await BoletoService.obtenerBoletosDisponibles(limit, offset, {
+            rifaId: req.rifaContext?.id
+        });
+        const totalDisponibles = await BoletoService.contarBoletosDisponibles({
+            rifaId: req.rifaContext?.id
+        });
 
         res.json({
             success: true,
@@ -11973,7 +11983,15 @@ app.post('/api/boletos/verificar', async (req, res) => {
             });
         }
 
-        const { disponibles, conflictos } = await BoletoService.verificarDisponibilidad(numeros);
+        const rifaIdActual = Number.parseInt(req.rifaContext?.id, 10) || null;
+        const config = cargarConfigSorteo(rifaIdActual);
+        
+        console.log(`[DEBUG] Verificar: rifaId=${rifaIdActual}, slug=${config.rifaSlug}, total=${config.totalBoletos}`);
+
+        const { disponibles, conflictos } = await BoletoService.verificarDisponibilidad(numeros, { 
+            rifaId: rifaIdActual,
+            totalBoletos: config.totalBoletos
+        });
 
         res.json({
             success: true,

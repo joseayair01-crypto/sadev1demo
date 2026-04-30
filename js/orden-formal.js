@@ -259,11 +259,8 @@ function esOrdenIdOficialActualOrdenFormal(ordenId) {
     const esOficial = typeof window.rifaplusConfig?.esOrdenIdOficial === 'function'
         ? window.rifaplusConfig.esOrdenIdOficial(valor)
         : /^[A-Z0-9]+-[A-Z]{2}\d{3}$/.test(valor);
-    const tienePrefijoActual = typeof window.rifaplusConfig?.ordenIdTienePrefijoActual === 'function'
-        ? window.rifaplusConfig.ordenIdTienePrefijoActual(valor)
-        : true;
 
-    return esOficial && tienePrefijoActual;
+    return esOficial;
 }
 
 function obtenerOrdenIdVisibleOrdenFormal(ordenId) {
@@ -965,12 +962,19 @@ async function guardarOrden() {
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), timeoutMs);  // Timeout dinámico
 
+                const fetchHeaders = {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                };
+                const currentParams = new URLSearchParams(window.location.search);
+                const activeSlug = currentParams.get('rifa') || currentParams.get('slug') || window.rifaplusConfig?.rifa?.slug;
+                if (activeSlug) {
+                    fetchHeaders['x-rifaplus-rifa-slug'] = activeSlug;
+                }
+
                 const response = await fetch(apiUrl, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    },
+                    headers: fetchHeaders,
                     body: JSON.stringify(payload),
                     mode: 'cors',
                     signal: controller.signal,
@@ -1342,9 +1346,15 @@ async function guardarOrden() {
                             // Búsqueda por nombre + whatsapp (datos que SÍ tenemos)
                             const searchUrl = `${apiBase}/api/ordenes/por-cliente/dummy?nombre=${encodeURIComponent(nombreCliente)}&whatsapp=${encodeURIComponent(whatsappCliente)}`;
                             
+                            const searchHeaders = { 'Content-Type': 'application/json' };
+                            const activeSlug = currentParams.get('rifa') || currentParams.get('slug') || window.rifaplusConfig?.rifa?.slug;
+                            if (activeSlug) {
+                                searchHeaders['x-rifaplus-rifa-slug'] = activeSlug;
+                            }
+                            
                             const checkResponse = await fetch(searchUrl, {
                                 method: 'GET',
-                                headers: { 'Content-Type': 'application/json' },
+                                headers: searchHeaders,
                                 credentials: 'omit',
                                 signal: pollController.signal
                             });
@@ -1512,3 +1522,12 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+/* ============================================================ */
+/* EXPORTACIONES GLOBALES                                       */
+/* ============================================================ */
+window.guardarOrden = guardarOrden;
+window.abrirOrdenFormal = abrirOrdenFormal;
+window.cerrarOrdenFormal = cerrarOrdenFormal;
+window.obtenerOportunidadesValidadasOrdenActual = obtenerOportunidadesValidadasOrdenActual;
+

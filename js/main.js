@@ -596,6 +596,111 @@ document.addEventListener('DOMContentLoaded', async function() {
         window.modalSorteoFinalizado.inicializar();
     }
 
+    // ============================================================
+    // MULTIRIFA: Mantener ?rifa=<slug> entre páginas públicas
+    // - Reescribe links internos tipo "compra.html" → "compra.html?rifa=s8"
+    // - Intercepta botones con onclick que navegan a .html
+    // ============================================================
+    (function parchearNavegacionMultirifa() {
+        try {
+            const anexar = window.rifaplusConfig?.anexarSlugRifaAUrl;
+            const slug = window.rifaplusConfig?.obtenerSlugRifaActual?.();
+            if (typeof anexar !== 'function' || !slug) {
+                return;
+            }
+
+            const esDestinoInternoParaSlug = (href) => {
+                const raw = String(href || '').trim();
+                if (!raw) return false;
+                if (raw.startsWith('#') || raw.startsWith('mailto:') || raw.startsWith('tel:')) return false;
+                if (/^https?:\/\//i.test(raw)) {
+                    try {
+                        const u = new URL(raw);
+                        if (u.origin !== window.location.origin) return false;
+                        const path = String(u.pathname || '');
+                        return /\.html$/i.test(path) || path === '/' || /^\/(compra|mis-boletos|cuentas-pago|ayuda)(\/)?$/i.test(path);
+                    } catch (error) {
+                        return false;
+                    }
+                }
+
+                // Relativas / root-relative
+                if (/\.html(\?|#|$)/i.test(raw)) return true;
+                if (raw === '/' || raw === './' || raw === 'index.html' || raw === 'index.html#top') return true;
+                if (/^\/(compra|mis-boletos|cuentas-pago|ayuda)(\/)?(\?|#|$)/i.test(raw)) return true;
+                return false;
+            };
+
+            const parchearAnchors = (root = document) => {
+                root.querySelectorAll?.('a[href]')?.forEach((a) => {
+                    const href = a.getAttribute('href');
+                    if (!esDestinoInternoParaSlug(href)) return;
+                    const nuevoHref = anexar(href);
+                    if (nuevoHref && nuevoHref !== href) {
+                        a.setAttribute('href', nuevoHref);
+                    }
+                });
+            };
+
+            const parchearOnclicks = (root = document) => {
+                root.querySelectorAll?.('[onclick]')?.forEach((el) => {
+                    const raw = String(el.getAttribute('onclick') || '').trim();
+                    if (!raw) return;
+
+                    const match = raw.match(/location\.href\s*=\s*['"]([^'"]+)['"]/i);
+                    if (!match) return;
+
+                    const destino = String(match[1] || '').trim();
+                    if (!esDestinoInternoParaSlug(destino)) return;
+
+                    el.removeAttribute('onclick');
+                    el.addEventListener('click', (evt) => {
+                        evt.preventDefault();
+                        window.location.href = anexar(destino);
+                    });
+                });
+            };
+
+            // 1) Parchear lo que ya existe en DOM
+            parchearAnchors(document);
+            parchearOnclicks(document);
+
+            // 2) Delegación: asegurar que cualquier <a> interno mantenga el slug
+            document.addEventListener('click', (evt) => {
+                const anchor = evt.target?.closest?.('a[href]');
+                if (!anchor) return;
+                if (evt.defaultPrevented) return;
+                if (evt.button !== 0) return;
+                if (anchor.hasAttribute('download')) return;
+                if (anchor.target && anchor.target !== '_self') return;
+                if (evt.metaKey || evt.ctrlKey || evt.shiftKey || evt.altKey) return;
+
+                const href = anchor.getAttribute('href');
+                if (!esDestinoInternoParaSlug(href)) return;
+
+                const nuevoHref = anexar(href);
+                if (!nuevoHref || nuevoHref === href) return;
+
+                evt.preventDefault();
+                window.location.assign(nuevoHref);
+            }, true);
+
+            // 3) MutationObserver: parchar contenido agregado dinámicamente
+            const observer = new MutationObserver((mutations) => {
+                for (const m of mutations) {
+                    for (const node of m.addedNodes || []) {
+                        if (!node || node.nodeType !== 1) continue;
+                        parchearAnchors(node);
+                        parchearOnclicks(node);
+                    }
+                }
+            });
+            observer.observe(document.documentElement, { childList: true, subtree: true });
+        } catch (error) {
+            console.debug('ℹ️ parchearNavegacionMultirifa omitido:', error?.message || error);
+        }
+    })();
+
     // Inyectar logo dinámicamente desde config.js
     inyectarLogoDinamico();
 

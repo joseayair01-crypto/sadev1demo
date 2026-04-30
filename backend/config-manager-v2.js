@@ -29,19 +29,30 @@ const path = require('path');
  * - Si hay error en saveInBD → guarda en config.json como backup
  * - Nunca pierde la configuración
  */
+let instance = null;
+
 class ConfigManagerV2 {
   constructor(db) {
+    if (instance) return instance;
     this.db = db;
     this.configPath = path.join(__dirname, 'config.json');
-    this.config = null;
+    this.config = null; // Mantiene compatibilidad con legacy
+    this.configs = new Map(); // rifaId -> config
+    this.defaultRifaId = null;
     this.lastLoadTime = null;
     this.cacheVersion = 0;
     this.esBD = false; // Indica si se cargó desde BD
     this.esDesarrollo = process.env.NODE_ENV !== 'production';
-    
+
     console.log('📋 ConfigManagerV2 inicializándose...');
     console.log(`   - NODE_ENV: ${process.env.NODE_ENV}`);
     console.log(`   - Modo desarrollo: ${this.esDesarrollo}`);
+
+    instance = this;
+  }
+
+  static getInstance() {
+    return instance;
   }
 
   _clonarConfig(config) {
@@ -73,23 +84,50 @@ class ConfigManagerV2 {
   }
 
   async _cargarDesdeRifas() {
-    const rifa = await this._obtenerRifaPrincipal();
-    const config = rifa?.configuracion;
+    if (!this.db) return false;
 
-    if (!config || typeof config !== 'object') {
+    const hasRifasTable = await this.db.schema.hasTable('rifas');
+    if (!hasRifasTable) {
       return false;
     }
 
-    this.config = this._clonarConfig(config);
+    const rifas = await this.db('rifas').whereNull('depurada_at');
+    if (!rifas || rifas.length === 0) return false;
+
+    this.configs.clear();
+    this.defaultRifaId = null;
+
+    let predeterminadaId = null;
+    let primeraActivaId = null;
+
+    for (const rifa of rifas) {
+      if (rifa.configuracion && typeof rifa.configuracion === 'object') {
+        const clon = this._clonarConfig(rifa.configuracion);
+        clon.rifa_id = rifa.id;
+        this.configs.set(rifa.id, clon);
+
+        if (rifa.es_predeterminada) predeterminadaId = rifa.id;
+        if (rifa.activa_publica && !primeraActivaId) primeraActivaId = rifa.id;
+      }
+    }
+
+    if (this.configs.size === 0) return false;
+
+    this.defaultRifaId = predeterminadaId || primeraActivaId || Array.from(this.configs.keys())[0];
+    this.config = this.configs.get(this.defaultRifaId);
+
     this.lastLoadTime = Date.now();
     this.cacheVersion++;
 
-    console.log(`✅ ConfigManagerV2: Cargado desde rifas.configuracion (rifa ${rifa.id}, v${this.cacheVersion})`);
+    console.log(`✅ ConfigManagerV2: Cargado desde rifas.configuracion (${this.configs.size} rifas cacheadas, v${this.cacheVersion})`);
     return true;
   }
 
-  async _guardarEnRifas(config, usuarioAdmin) {
-    const rifa = await this._obtenerRifaPrincipal();
+  async _guardarEnRifas(config, usuarioAdmin, rifaId = null) {
+    const rifa = rifaId
+      ? await this.db('rifas').where('id', rifaId).first()
+      : await this._obtenerRifaPrincipal();
+
     if (!rifa?.id) {
       return false;
     }
@@ -120,7 +158,15 @@ class ConfigManagerV2 {
           updated_at: this.db.fn.now()
         }));
 
-    this.config = this._clonarConfig(config);
+    const clon = this._clonarConfig(config);
+    clon.rifa_id = rifa.id;
+    this.configs.set(rifa.id, clon);
+
+    if (rifa.id === this.defaultRifaId || !this.defaultRifaId) {
+      this.config = this.configs.get(rifa.id);
+      if (!this.defaultRifaId) this.defaultRifaId = rifa.id;
+    }
+
     this.lastLoadTime = Date.now();
     this.cacheVersion++;
 
@@ -136,7 +182,7 @@ class ConfigManagerV2 {
     try {
       // 🟦 PASO 1: Intentar cargar desde Supabase
       const configDeBD = await this.cargarDesdeBD();
-      
+
       if (configDeBD) {
         console.log('✅ ConfigManagerV2: Config cargada desde Supabase');
         this.esBD = true;
@@ -154,7 +200,7 @@ class ConfigManagerV2 {
       return true;
     } catch (err) {
       console.error('❌ ConfigManagerV2: Error cargar config.json:', err.message);
-      
+
       // 🔴 ÚLTIMO RECURSO: Configuración por defecto
       this.config = this.getDefaultConfig();
       this.esBD = false;
@@ -207,7 +253,7 @@ class ConfigManagerV2 {
     this.config = JSON.parse(raw);
     this.lastLoadTime = Date.now();
     this.cacheVersion++;
-    
+
     console.log(`📝 Config cargado desde disco (versión: ${this.cacheVersion})`);
   }
 
@@ -234,7 +280,7 @@ class ConfigManagerV2 {
    * @param {string} usuarioAdmin - Username del admin que hizo el cambio
    * @returns {boolean} true si se guardó en BD, false si usar fallback config.json
    */
-  async guardarEnBD(config, usuarioAdmin = 'SYSTEM') {
+  async guardarEnBD(config, usuarioAdmin = 'SYSTEM', rifaId = null) {
     if (!this.db) {
       console.warn('⚠️  BD no disponible. Guardando en config.json como backup...');
       this.guardarEnConfigJson(config);
@@ -242,16 +288,16 @@ class ConfigManagerV2 {
     }
 
     try {
-      const guardadoEnRifas = await this._guardarEnRifas(config, usuarioAdmin);
+      const guardadoEnRifas = await this._guardarEnRifas(config, usuarioAdmin, rifaId);
       if (!guardadoEnRifas) {
-        throw new Error('RIFA_PRINCIPAL_NO_ENCONTRADA');
+        throw new Error('RIFA_NO_ENCONTRADA_PARA_GUARDAR');
       }
       return true;
 
     } catch (err) {
       console.error('⚠️  Error guardando en BD:', err.message);
       console.log('   Guardando como backup en config.json...');
-      
+
       // 🔴 Fallback: Guardar en config.json
       try {
         this.guardarEnConfigJson(config);
@@ -279,7 +325,10 @@ class ConfigManagerV2 {
   /**
    * Obtener config completa
    */
-  getConfig() {
+  getConfig(rifaId = null) {
+    if (rifaId && this.configs && this.configs.has(Number(rifaId))) {
+      return this.configs.get(Number(rifaId));
+    }
     return this.config || this.getDefaultConfig();
   }
 
@@ -290,12 +339,12 @@ class ConfigManagerV2 {
   get(path) {
     const keys = path.split('.');
     let value = this.config;
-    
+
     for (const key of keys) {
       value = value?.[key];
       if (value === undefined) return undefined;
     }
-    
+
     return value;
   }
 

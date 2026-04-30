@@ -12,7 +12,7 @@
         (function() {
             const imageDelivery = window.RifaPlusImageDelivery;
             const rawLogo = localStorage.getItem('rifaplus_cached_logo') || 'images/placeholder-logo.svg';
-            const cachedLogo = imageDelivery?.resolverUrlImagen(rawLogo, 'logoPreload') || rawLogo;
+            const cachedLogo = imageDelivery?.resolverUrlImagen(rawLogo, 'logo') || rawLogo;
             window.__RIFAPLUS_CACHED_LOGO__ = imageDelivery?.resolverUrlImagen(rawLogo, 'logo') || rawLogo;
             
             // ⭐ Preload de imágenes - debe estar aquí dentro del scope para acceder a variables
@@ -1057,9 +1057,6 @@
                 
                 // Mostrar notificación visual
                 showCopyNotification('¡Copiado!');
-                
-                // Mostrar alerta del navegador
-                alert('Número copiado');
                 
                 // Restaurar icono después de 2 segundos
                 setTimeout(() => {

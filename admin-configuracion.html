@@ -3866,14 +3866,10 @@
                             <div style="flex: 1;">
                                 <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
                                     <span style="font-size: 1.5rem; font-weight: 700; color: var(--primary);">$</span>
-                                    <input type="number" 
+                                    <input type="text" 
                                            id="precio-boleto" 
                                            class="form-input" 
                                            placeholder="10000" 
-                                           min="1" 
-                                           step="0.01"
-                                           data-number-guard="strict"
-                                           data-number-mode="money"
                                            inputmode="decimal"
                                            autocomplete="off"
                                            oninput="actualizarPrecioPreview()"
@@ -3881,10 +3877,13 @@
                                 </div>
                                 <small style="color: var(--text-light); font-size: 0.8rem;">Ingresa el precio sin separadores. El campo queda protegido contra cambios accidentales por scroll o flechas.</small>
                             </div>
-                            <button class="btn btn-primary" id="btn-guardar-precio" style="min-width: 160px; white-space: nowrap; height: fit-content;">
+                            <button type="button" class="btn btn-primary" id="btn-guardar-precio" onclick="guardarPrecioDelBoleto(event)" style="min-width: 160px; white-space: nowrap; height: fit-content;">
                                 <i class="fas fa-check-circle"></i> Actualizar Precio
                             </button>
                         </div>
+                        <small id="precio-guardado-estado" style="display: block; margin-top: 0.55rem; color: var(--text-light); font-size: 0.8rem;">
+                            Selecciona una rifa y guarda para aplicar el precio.
+                        </small>
                     </div>
 
                     <!-- Info importante -->
@@ -9349,50 +9348,175 @@
 
         /** Actualizar preview del precio mientras escribes */
         function actualizarPrecioPreview() {
-            const precio = parseFloat(document.getElementById('precio-boleto').value) || 0;
-            document.getElementById('precio-display').textContent = precio.toLocaleString('es-MX', { 
+            const precio = obtenerPrecioNumericoDesdeInputPrecio();
+            const precioSeguro = Number.isFinite(precio) && precio > 0 ? precio : 0;
+            document.getElementById('precio-display').textContent = precioSeguro.toLocaleString('es-MX', { 
                 style: 'currency', 
                 currency: 'MXN',
                 minimumFractionDigits: 0
             });
         }
 
-        async function guardarPrecioDelBoleto() {
-            const precio = parseFloat(document.getElementById('precio-boleto').value);
-            if (!precio || precio <= 0) {
+        function asegurarListenersPrecioConfiguracion() {
+            if (window.__precioConfigListenersBound === true) return;
+
+            const inputPrecioBoleto = document.getElementById('precio-boleto');
+
+            if (inputPrecioBoleto) {
+                inputPrecioBoleto.addEventListener('input', () => {
+                    const precioActual = obtenerPrecioNumericoDesdeInputPrecio();
+                    if (Number.isFinite(precioActual) && precioActual > 0) {
+                        inputPrecioBoleto.dataset.lastValidPrice = String(precioActual);
+                    }
+                });
+                inputPrecioBoleto.addEventListener('focus', () => {
+                    window.__precioBoletoEditando = true;
+                });
+                inputPrecioBoleto.addEventListener('blur', () => {
+                    window.__precioBoletoEditando = false;
+                    const precioActual = obtenerPrecioNumericoDesdeInputPrecio();
+                    if (Number.isFinite(precioActual) && precioActual > 0) {
+                        inputPrecioBoleto.value = Number(precioActual).toFixed(2);
+                        inputPrecioBoleto.dataset.lastValidPrice = String(precioActual);
+                    }
+                });
+                inputPrecioBoleto.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') guardarPrecioDelBoleto();
+                });
+            }
+
+            window.__precioConfigListenersBound = true;
+        }
+
+        function obtenerPrecioNumericoDesdeInputPrecio() {
+            const input = document.getElementById('precio-boleto');
+            if (!input) return NaN;
+
+            const raw = String(input.value ?? '').trim();
+            if (!raw) return NaN;
+
+            const limpio = raw
+                .replace(/[^\d,.\-]/g, '')
+                .replace(/,/g, '.');
+            const numero = Number(limpio);
+
+            if (Number.isFinite(numero)) {
+                return numero;
+            }
+
+            const fallback = Number(input.dataset.lastValidPrice);
+            return Number.isFinite(fallback) ? fallback : NaN;
+        }
+
+        function actualizarEstadoGuardadoPrecio() {
+            const btn = document.getElementById('btn-guardar-precio');
+            if (!btn) return;
+
+            const rifaIdActiva = obtenerRifaActivaAdminConfiguracion();
+            const habilitado = Number.isInteger(rifaIdActiva) && rifaIdActiva > 0;
+            btn.disabled = !habilitado;
+            btn.title = habilitado ? '' : 'Selecciona una rifa activa para guardar el precio';
+            actualizarEstadoOperacionPrecio(
+                habilitado
+                    ? `Rifa activa: #${rifaIdActiva}. Listo para guardar.`
+                    : 'Selecciona una rifa activa para guardar el precio.',
+                habilitado ? 'info' : 'warning'
+            );
+        }
+
+        function actualizarEstadoOperacionPrecio(mensaje, tipo = 'info') {
+            const label = document.getElementById('precio-guardado-estado');
+            if (!label) return;
+
+            const colorByTipo = {
+                info: 'var(--text-light)',
+                success: '#0a7f3f',
+                warning: '#a55a00',
+                error: '#c0392b'
+            };
+            label.style.color = colorByTipo[tipo] || colorByTipo.info;
+            label.textContent = String(mensaje || '');
+        }
+
+        function obtenerRifaActivaRobustaAdminConfiguracion() {
+            const candidates = [
+                obtenerRifaActivaAdminConfiguracion(),
+                window.ADMIN_LAYOUT?.getActiveRifaId?.(),
+                window.rifaplusConfig?.rifa?.id,
+                window.__RIFAPLUS_RIFA_ACTIVA_ID__
+            ];
+
+            for (const candidate of candidates) {
+                const normalized = Number.parseInt(candidate, 10);
+                if (Number.isInteger(normalized) && normalized > 0) {
+                    return normalized;
+                }
+            }
+
+            return null;
+        }
+
+        async function guardarPrecioDelBoleto(event) {
+            if (event?.preventDefault) event.preventDefault();
+            if (event?.stopPropagation) event.stopPropagation();
+
+            if (window.__guardandoPrecioBoleto === true) {
+                return;
+            }
+
+            const precio = obtenerPrecioNumericoDesdeInputPrecio();
+            if (!Number.isFinite(precio) || precio <= 0) {
                 mostrarAlerta('Por favor ingresa un precio válido', 'error');
+                actualizarEstadoOperacionPrecio('Ingresa un precio valido mayor a cero.', 'error');
                 return;
             }
 
             const btn = document.getElementById('btn-guardar-precio');
             const originalText = btn.innerHTML;
+            window.__guardandoPrecioBoleto = true;
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+            actualizarEstadoOperacionPrecio('Guardando precio en servidor...', 'info');
 
             try {
-                const token = localStorage.getItem(TOKEN_KEY) || localStorage.getItem('rifaplus_admin_token');
+                const token = obtenerTokenAdminConfiguracion() || localStorage.getItem(TOKEN_KEY) || localStorage.getItem('rifaplus_admin_token');
+                const rifaIdActiva = obtenerRifaActivaRobustaAdminConfiguracion();
                 
                 if (!token) {
                     if (window.rifaplusConfig?.rifa) {
                         window.rifaplusConfig.rifa.precioBoleto = precio;
                     }
                     mostrarAlerta('✅ Precio guardado localmente', 'success');
+                    actualizarEstadoOperacionPrecio('Guardado localmente (sin sesion admin).', 'warning');
                     return;
+                }
+
+                if (!rifaIdActiva) {
+                    throw new Error('No se pudo identificar la rifa activa para guardar el precio');
                 }
 
                 const response = await fetch(`${API_BASE}/api/admin/config`, {
                     method: 'PATCH',
                     headers: {
                         'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'x-rifaplus-rifa-id': String(rifaIdActiva)
                     },
+                    cache: 'no-store',
                     body: JSON.stringify({ rifa: { precioBoleto: precio } })
                 });
 
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                await response.json().catch(() => ({}));
 
                 if (window.rifaplusConfig?.rifa) {
                     window.rifaplusConfig.rifa.precioBoleto = precio;
+                    window.rifaplusConfig.rifa.id = rifaIdActiva;
+                }
+                const inputPrecio = document.getElementById('precio-boleto');
+                if (inputPrecio) {
+                    inputPrecio.value = Number(precio).toFixed(2);
+                    inputPrecio.dataset.lastValidPrice = String(precio);
                 }
 
                 if (window.rifaplusConfig?.emitirEvento) {
@@ -9407,22 +9531,39 @@
                     subtitulo: 'El precio base del boleto ya quedó actualizado en toda la plataforma.'
                 });
                 mostrarAlerta('✅ Precio actualizado correctamente', 'success');
+
+                // Verificación robusta: re-lee desde servidor para confirmar persistencia por rifa activa.
+                await cargarPrecioDelBoleto({ forzar: true });
+                const precioConfirmado = Number(document.getElementById('precio-boleto')?.value || 0);
+                if (Number.isFinite(precioConfirmado) && Math.abs(precioConfirmado - precio) > 0.0001) {
+                    throw new Error('El servidor devolvió un precio distinto al guardado. Revisa que la rifa activa sea la correcta.');
+                }
+                actualizarEstadoOperacionPrecio(`Precio guardado en rifa #${rifaIdActiva}: $${precio.toFixed(2)}.`, 'success');
             } catch (error) {
                 mostrarAlerta('❌ Error al guardar: ' + error.message, 'error');
+                actualizarEstadoOperacionPrecio(`Error al guardar: ${error.message}`, 'error');
             } finally {
-                btn.disabled = false;
+                window.__guardandoPrecioBoleto = false;
+                actualizarEstadoGuardadoPrecio();
                 btn.innerHTML = originalText;
             }
         }
 
-        async function cargarPrecioDelBoleto() {
+        async function cargarPrecioDelBoleto(opciones = {}) {
             try {
+                const forzar = opciones?.forzar === true;
                 let precio = window.rifaplusConfig?.obtenerPrecioBoleto?.() || Number(window.rifaplusConfig?.rifa?.precioBoleto || 0);
-                const token = localStorage.getItem(TOKEN_KEY) || localStorage.getItem('rifaplus_admin_token');
+                const token = obtenerTokenAdminConfiguracion() || localStorage.getItem(TOKEN_KEY) || localStorage.getItem('rifaplus_admin_token');
+                const rifaIdActiva = obtenerRifaActivaRobustaAdminConfiguracion();
+                const inputPrecio = document.getElementById('precio-boleto');
 
-                if (token) {
+                if (token && rifaIdActiva) {
                     const response = await fetch(`${API_BASE}/api/admin/config`, {
-                        headers: { 'Authorization': `Bearer ${token}` }
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'x-rifaplus-rifa-id': String(rifaIdActiva)
+                        },
+                        cache: 'no-store'
                     });
 
                     if (response.ok) {
@@ -9433,11 +9574,20 @@
                     precio = Number(window.rifaplusConfig.rifa.precioBoleto || 0);
                 }
 
-                document.getElementById('precio-boleto').value = precio;
+                if (!forzar && (window.__precioBoletoEditando === true || document.activeElement === inputPrecio)) {
+                    return;
+                }
+
+                document.getElementById('precio-boleto').value = Number(precio || 0).toFixed(2);
                 actualizarPrecioPreview();
+                if (rifaIdActiva) {
+                    actualizarEstadoOperacionPrecio(`Precio cargado para rifa #${rifaIdActiva}.`, 'info');
+                }
             } catch (error) {
-                document.getElementById('precio-boleto').value = window.rifaplusConfig?.obtenerPrecioBoleto?.() || Number(window.rifaplusConfig?.rifa?.precioBoleto || 0);
+                const fallbackPrecio = window.rifaplusConfig?.obtenerPrecioBoleto?.() || Number(window.rifaplusConfig?.rifa?.precioBoleto || 0);
+                document.getElementById('precio-boleto').value = Number(fallbackPrecio || 0).toFixed(2);
                 actualizarPrecioPreview();
+                actualizarEstadoOperacionPrecio(`No se pudo verificar precio en servidor: ${error.message}`, 'error');
             }
         }
 
@@ -9467,11 +9617,23 @@
             inicializarCampoTiempoApartadoAdmin();
             inicializarCampoAvisosExpiracionAdmin();
             vincularEventosCampanasPushConfiguracion();
+            asegurarListenersPrecioConfiguracion();
+            actualizarEstadoGuardadoPrecio();
+
+            // ✅ IMPORTANTE: Esperar a que el selector de rifas se cargue completamente
+            // Esto garantiza que adminRifaActionsPanel y adminRifaSwitcher se rendericen
+            if (typeof ADMIN_LAYOUT?.cargarSelectorRifas === 'function') {
+                await ADMIN_LAYOUT.cargarSelectorRifas().catch((error) => {
+                    console.warn('Advertencia: No se pudo cargar selector de rifas en DOMContentLoaded', error?.message);
+                });
+            }
 
             if (window.__campaignConfigRifaChangeBound !== true) {
                 window.__campaignConfigRifaChangeBound = true;
                 window.addEventListener('rifaplus:admin-rifa-activa-cambiada', async () => {
+                    actualizarEstadoGuardadoPrecio();
                     await cargarConfiguracionPublicacion(true);
+                    await cargarPrecioDelBoleto();
                 });
             }
 
@@ -9697,12 +9859,6 @@
             await cargarPrecioDelBoleto();
             cargarPromociones();
             renderizarAlertasConfiguracion();
-
-            // Event Listeners - Precio del Boleto
-            document.getElementById('btn-guardar-precio')?.addEventListener('click', guardarPrecioDelBoleto);
-            document.getElementById('precio-boleto')?.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') guardarPrecioDelBoleto();
-            });
             
             // Listener de sincronización para precio
             if (window.rifaplusConfig?.escucharEvento) {

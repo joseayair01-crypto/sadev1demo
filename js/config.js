@@ -39,11 +39,56 @@
 
 let rifaplusLogoInicial = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 96'%3E%3Crect width='240' height='96' rx='20' fill='%230b2235'/%3E%3Ctext x='120' y='58' font-size='28' text-anchor='middle' fill='%23ffffff' font-family='Arial,sans-serif'%3ESorteo%3C/text%3E%3C/svg%3E";
 const RIFAPLUS_RIFA_SLUG_PARAM = 'rifa';
+// LEGACY: Clave antigua en localStorage — solo se usa para limpiarla
+const RIFAPLUS_LAST_RIFA_SLUG_KEY = 'rifaplus_last_rifa_slug_v1';
+// NUEVO: Clave en sessionStorage — aislada por pestaña, no contamina entre rifas
+const RIFAPLUS_SESSION_SLUG_KEY   = 'rifaplus_session_slug_v1';
 
 function obtenerSlugRifaDesdeUrlRifaPlus() {
     try {
         const params = new URLSearchParams(window.location.search);
-        return String(params.get(RIFAPLUS_RIFA_SLUG_PARAM) || '').trim();
+        const slug = String(
+            params.get(RIFAPLUS_RIFA_SLUG_PARAM)
+            || params.get('slug')
+            || ''
+        ).trim();
+
+        if (slug) {
+            // ✅ Slug explícito en la URL → guardarlo en sessionStorage (aislado por pestaña).
+            // sessionStorage no se comparte entre pestañas, por lo que cada pestaña
+            // puede tener su propia rifa activa de forma independiente.
+            try {
+                sessionStorage.setItem(RIFAPLUS_SESSION_SLUG_KEY, slug);
+                // Limpiar la clave legacy de localStorage para evitar contaminación futura
+                localStorage.removeItem(RIFAPLUS_LAST_RIFA_SLUG_KEY);
+            } catch (error) {}
+            return slug;
+        }
+
+        // Sin ?rifa= en la URL — determinar si somos el home (rifa principal)
+        try {
+            const pathname = String(window.location.pathname || '').toLowerCase();
+            const filename = pathname.split('/').pop() || '';
+            const esHome = pathname === '/' || filename === 'index.html' || filename === '';
+
+            if (esHome) {
+                // ✅ Home sin ?rifa= = rifa principal. Limpiar cualquier slug residual
+                // para que la navegación desde aquí NUNCA inyecte ?rifa= de otra sesión.
+                try { sessionStorage.removeItem(RIFAPLUS_SESSION_SLUG_KEY); } catch (e) {}
+                try { localStorage.removeItem(RIFAPLUS_LAST_RIFA_SLUG_KEY); } catch (e) {}
+                return '';
+            }
+        } catch (error) {
+            // Si falla la detección del home, continuar de forma segura.
+        }
+
+        // Página interna sin ?rifa= → recuperar el slug guardado en sessionStorage
+        // de esta pestaña. NUNCA usar localStorage (contaminaría rifas distintas).
+        try {
+            return String(sessionStorage.getItem(RIFAPLUS_SESSION_SLUG_KEY) || '').trim();
+        } catch (error) {
+            return '';
+        }
     } catch (error) {
         return '';
     }

@@ -18,6 +18,7 @@ const db = require('../db');
 const { normalizeRifaContext, applyRifaScope } = require('./rifaScope');
 const { obtenerConfigExpiracion } = require('../config-loader');
 const { enviarPushOrdenCancelada, enviarPushOrdenPorVencer } = require('./pushNotificationsService');
+const ConfigManagerV2 = require('../config-manager-v2');
 
 class OrdenExpirationService {
     constructor() {
@@ -124,9 +125,8 @@ class OrdenExpirationService {
             const tiempoLimite = new Date(ahora.getTime() - this.tiempoApartadoMs);
 
             // Log del inicio
-            console.log(`\n[${ahora.toISOString()}] 🔍 [ExpService] INICIANDO LIMPIEZA`);
-            console.log(`   Límite: ${tiempoLimite.toISOString()}`);
-            console.log(`   Búsqueda: órdenes 'pendiente' sin comprobante recibido creadas ANTES de ${tiempoLimite.toISOString()}`);
+            console.log(`\n[${ahora.toISOString()}] 🔍 [ExpService] INICIANDO LIMPIEZA MULTI-RIFA`);
+            console.log(`   Búsqueda: órdenes 'pendiente' sin comprobante recibido`);
             console.log(`   NOTA: Órdenes con comprobante recibido NO expiran (esperan revisión de admin)`);
 
             // ✅ CORRECCIÓN: Buscar SOLO órdenes en estado 'pendiente' SIN comprobante recibido
@@ -153,14 +153,21 @@ class OrdenExpirationService {
                 return;
             }
 
-            // Filtrar en JavaScript basado en fecha de creación
+            // Filtrar en JavaScript basado en fecha de creación (Dinámico por rifa_id)
+            const configManagerV2 = ConfigManagerV2.getInstance();
             const ordenesExpiradas = ordenesIncompletas.filter(orden => {
+                // Obtener configuración específica de la rifa de esta orden
+                const configRifa = configManagerV2?.getConfig(orden.rifa_id);
+                const tiempoApartadoHoras = Number(configRifa?.rifa?.tiempoApartadoHoras) || (this.tiempoApartadoMs / (1000 * 60 * 60));
+                const tiempoApartadoMsRifa = tiempoApartadoHoras * 60 * 60 * 1000;
+                
                 const fechaOrden = new Date(orden.created_at);
-                const hasExpired = fechaOrden < tiempoLimite;
+                const tiempoLimiteRifa = new Date(ahora.getTime() - tiempoApartadoMsRifa);
+                const hasExpired = fechaOrden < tiempoLimiteRifa;
                 
                 if (hasExpired) {
                     const horasTranscurridas = (ahora.getTime() - fechaOrden.getTime()) / (1000 * 60 * 60);
-                    console.log(`   ⏰ ${orden.numero_orden} (pendiente sin comprobante): ${horasTranscurridas.toFixed(1)}h > ${Math.round(this.tiempoApartadoMs / (1000 * 60 * 60))}h → EXPIRA`);
+                    console.log(`   ⏰ ${orden.numero_orden} (rifa:${orden.rifa_id}, pendiente): ${horasTranscurridas.toFixed(1)}h > ${tiempoApartadoHoras}h → EXPIRA`);
                 }
                 
                 return hasExpired;
@@ -487,9 +494,10 @@ class OrdenExpirationService {
         return [...new Set(normalized)].sort((a, b) => a - b);
     }
 
-    obtenerUmbralesAvisoExpiracionMinutos() {
+    obtenerUmbralesAvisoExpiracionMinutos(durationMs = null) {
+        const tiempoApartadoMs = durationMs || this.tiempoApartadoMs;
         if (Array.isArray(this.warningThresholdsMinutes)) {
-            const maxMinutesConfigured = Math.max(1, Math.floor(this.tiempoApartadoMs / 60000) - 1);
+            const maxMinutesConfigured = Math.max(1, Math.floor(tiempoApartadoMs / 60000) - 1);
             return this.warningThresholdsMinutes
                 .map((value) => Math.max(1, Math.min(maxMinutesConfigured, value)))
                 .filter((value, index, array) => array.indexOf(value) === index)
@@ -519,20 +527,20 @@ class OrdenExpirationService {
                 .forEach((value) => thresholds.add(value));
         }
 
-        const maxMinutes = Math.max(1, Math.floor(this.tiempoApartadoMs / 60000) - 1);
+        const maxMinutes = Math.max(1, Math.floor(tiempoApartadoMs / 60000) - 1);
         return [...thresholds]
             .map((value) => Math.max(1, Math.min(maxMinutes, value)))
             .filter((value, index, array) => array.indexOf(value) === index)
             .sort((a, b) => a - b);
     }
 
-    resolverUmbralAvisoParaOrden(remainingMs) {
+    resolverUmbralAvisoParaOrden(remainingMs, durationMs = null) {
         if (!(remainingMs > 0)) {
             return null;
         }
 
         const remainingMinutes = remainingMs / 60000;
-        const thresholds = this.obtenerUmbralesAvisoExpiracionMinutos();
+        const thresholds = this.obtenerUmbralesAvisoExpiracionMinutos(durationMs);
         return thresholds.find((threshold) => remainingMinutes <= threshold) || null;
     }
 
@@ -547,14 +555,20 @@ class OrdenExpirationService {
                     continue;
                 }
 
+                const configManagerV2 = ConfigManagerV2.getInstance();
+                const configRifa = configManagerV2?.getConfig(orden.rifa_id);
+                const tiempoApartadoHoras = Number(configRifa?.rifa?.tiempoApartadoHoras) || (this.tiempoApartadoMs / (1000 * 60 * 60));
+                const tiempoApartadoMsRifa = tiempoApartadoHoras * 60 * 60 * 1000;
+
                 const createdAt = new Date(orden.created_at);
                 if (Number.isNaN(createdAt.getTime())) {
                     continue;
                 }
 
-                const expiresAt = createdAt.getTime() + this.tiempoApartadoMs;
+                const expiresAt = createdAt.getTime() + tiempoApartadoMsRifa;
                 const remainingMs = expiresAt - ahora.getTime();
-                const warningMinutes = this.resolverUmbralAvisoParaOrden(remainingMs);
+                // Pasar el tiempo de apartado ms al resolvedor para que sea preciso
+                const warningMinutes = this.resolverUmbralAvisoParaOrden(remainingMs, tiempoApartadoMsRifa);
                 if (!warningMinutes) {
                     continue;
                 }

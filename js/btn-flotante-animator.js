@@ -193,6 +193,48 @@
     }
 
     /**
+     * Lógica para el botón expansible de 2 clics en móviles
+     */
+    function setupExpandableInteraction() {
+        const button = document.querySelector(CONFIG.SELECTOR);
+        if (!button) return;
+
+        let expandTimeout = null;
+
+        button.addEventListener('click', function(e) {
+            // Solo aplicar lógica de 2 clics en pantallas móviles (max-width: 768px)
+            if (window.innerWidth <= 768) {
+                const isExpanded = button.classList.contains('is-expanded');
+                
+                if (!isExpanded) {
+                    // Primer clic: Prevenir navegación y expandir
+                    e.preventDefault();
+                    button.classList.add('is-expanded');
+                    
+                    // Auto-encoger después de 5 segundos si no da el segundo clic
+                    if (expandTimeout) clearTimeout(expandTimeout);
+                    expandTimeout = setTimeout(() => {
+                        button.classList.remove('is-expanded');
+                    }, 5000);
+                } else {
+                    // Segundo clic: Permitir navegación normal (limpiar timeout)
+                    if (expandTimeout) clearTimeout(expandTimeout);
+                }
+            }
+        });
+
+        // Si hace clic fuera del botón estando expandido, encogerlo
+        document.addEventListener('click', function(e) {
+            if (window.innerWidth <= 768 && button.classList.contains('is-expanded')) {
+                if (!button.contains(e.target)) {
+                    button.classList.remove('is-expanded');
+                    if (expandTimeout) clearTimeout(expandTimeout);
+                }
+            }
+        });
+    }
+
+    /**
      * Inicialización cuando el DOM está listo
      */
     function init() {
@@ -200,10 +242,12 @@
             document.addEventListener('DOMContentLoaded', () => {
                 startAnimations();
                 setupModalListeners();
+                setupExpandableInteraction();
             });
         } else {
             startAnimations();
             setupModalListeners();
+            setupExpandableInteraction();
         }
     }
 

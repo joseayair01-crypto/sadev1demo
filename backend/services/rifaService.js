@@ -9,6 +9,9 @@ class RifaService {
     this.defaultCache = null;
     this.defaultCacheAt = 0;
     this.defaultCacheTtlMs = 10000;
+    // 🔒 Evita condiciones de carrera al cambiar la rifa pública principal.
+    // Un solo cambio de "activa_publica" debe ejecutarse a la vez.
+    this.PUBLIC_ACTIVATION_LOCK_KEY = 982341; // Número constante (advisory lock)
   }
 
   async inicializar() {
@@ -350,9 +353,27 @@ class RifaService {
 
   async activarPublica(rifaId) {
     if (!this.enabled) return false;
+    const id = Number.parseInt(rifaId, 10);
+    if (!Number.isInteger(id) || id <= 0) {
+      const error = new Error('ID de rifa inválido para activar pública');
+      error.code = 'RIFA_ID_INVALIDO';
+      throw error;
+    }
+
     await this.db.transaction(async (trx) => {
+      // Advisory lock transaccional (Postgres): garantiza exclusión mutua en este cambio.
+      await trx.raw('SELECT pg_advisory_xact_lock(?)', [this.PUBLIC_ACTIVATION_LOCK_KEY]);
+
+      const existe = await trx('rifas').where('id', id).whereNull('depurada_at').first();
+      if (!existe) {
+        const error = new Error(`Rifa ${id} no encontrada o depurada`);
+        error.code = 'RIFA_NO_ENCONTRADA';
+        throw error;
+      }
+
+      // Mantener la unicidad: primero apagar todas, luego prender solo la seleccionada.
       await trx('rifas').update({ activa_publica: false, updated_at: trx.fn.now() });
-      await trx('rifas').where('id', rifaId).update({ activa_publica: true, updated_at: trx.fn.now() });
+      await trx('rifas').where('id', id).update({ activa_publica: true, updated_at: trx.fn.now() });
     });
     this.defaultCacheAt = 0;
     return true;

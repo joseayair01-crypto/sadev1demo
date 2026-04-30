@@ -44,6 +44,15 @@ function inicializarEventosWebSocket(io, options = {}) {
         socket.on('error', (error) => {
             console.error(`❌ [WebSocket] Error en socket ${socket.id}:`, error);
         });
+        
+        // Aislar conexión por rifa (sala / room)
+        socket.on('joinRifa', (rifaId) => {
+            if (rifaId) {
+                const room = `rifa_${rifaId}`;
+                socket.join(room);
+                console.log(`🔌 [WebSocket] Socket ${socket.id} se unió a la sala: ${room}`);
+            }
+        });
     });
 
     if (verifyAdminToken) {
@@ -62,6 +71,22 @@ function inicializarEventosWebSocket(io, options = {}) {
         socket.on('error', (error) => {
             console.error(`❌ [WebSocket][Admin] Error en socket ${socket.id}:`, error);
         });
+
+        // 🔌 Aislar admin por rifa
+        socket.on('joinAdminRifa', (rifaId) => {
+            if (rifaId) {
+                const room = `admin_rifa_${rifaId}`;
+                socket.join(room);
+                console.log(`🔌 [WebSocket][Admin] Socket ${socket.id} se unió a sala: ${room}`);
+            }
+        });
+
+        socket.on('leaveAdminRifa', () => {
+            // Salir de todas las salas admin_rifa_*
+            const rooms = Array.from(socket.rooms || []).filter(r => r.startsWith('admin_rifa_'));
+            rooms.forEach(room => socket.leave(room));
+            console.log(`🔌 [WebSocket][Admin] Socket ${socket.id} salió de salas de admin`);
+        });
     });
 
     /**
@@ -70,22 +95,27 @@ function inicializarEventosWebSocket(io, options = {}) {
      * 
      * @param {Object} cambios - Objeto con cambios: { vendidos, apartados, disponibles, nuevosBoletos }
      */
-    function emitirCambioBoletosDisponibles(cambios) {
+    function emitirCambioBoletosDisponibles(cambios, rifaId = null) {
         const evento = {
             timestamp: new Date().toISOString(),
             tipo: 'actualización',
+            rifa_id: rifaId,
             ...cambios
         };
 
         console.log(`📤 [WebSocket] Emitiendo cambio de boletos:`, {
+            rifa_id: rifaId,
             vendidos: cambios.vendidos,
             apartados: cambios.apartados,
             disponibles: cambios.disponibles,
             clientes: boletosNamespace.sockets.size
         });
 
-        // Emitir a todos los clientes conectados al namespace /boletos
-        boletosNamespace.emit('boletosActualizados', evento);
+        if (rifaId) {
+            boletosNamespace.to(`rifa_${rifaId}`).emit('boletosActualizados', evento);
+        } else {
+            boletosNamespace.emit('boletosActualizados', evento);
+        }
     }
 
     /**
@@ -94,7 +124,7 @@ function inicializarEventosWebSocket(io, options = {}) {
      * @param {Array} numerosApartados - Array de números que se acaban de apartar
      * @param {Object} metadatos - Info adicional (cantidad, cliente, etc)
      */
-    function emitirNuevaOrden(numerosApartados = [], metadatos = {}) {
+    function emitirNuevaOrden(numerosApartados = [], metadatos = {}, rifaId = null) {
         const boletos = Array.isArray(numerosApartados)
             ? numerosApartados
             : [];
@@ -104,32 +134,39 @@ function inicializarEventosWebSocket(io, options = {}) {
         const evento = {
             timestamp: new Date().toISOString(),
             tipo: 'nuevaOrden',
+            rifa_id: rifaId,
             boletos,
             cantidad,
             metadatos // { clienteNombre, whatsapp, etc }
         };
 
         console.log(`📤 [WebSocket] Emitiendo nueva orden:`, {
+            rifa_id: rifaId,
             cantidad,
             clientes: boletosNamespace.sockets.size
         });
 
-        boletosNamespace.emit('ordenCreada', evento);
+        if (rifaId) {
+            boletosNamespace.to(`rifa_${rifaId}`).emit('ordenCreada', evento);
+        } else {
+            boletosNamespace.emit('ordenCreada', evento);
+        }
     }
 
-    function emitirNuevaOrdenAdmin(orden = {}) {
+    function emitirNuevaOrdenAdmin(orden = {}, rifaId = null) {
         const numeroOrden = orden.numero_orden || orden.ordenId || orden.id || null;
         if (!numeroOrden) {
             console.warn('⚠️ [WebSocket][Admin] Nueva orden sin numero_orden; evento omitido');
             return;
         }
 
+        const rifaIdResuelto = rifaId || Number.parseInt(orden.rifa_id, 10) || null;
         const evento = {
             timestamp: new Date().toISOString(),
             tipo: 'adminOrdenCreada',
             orden: {
                 numero_orden: numeroOrden,
-                rifa_id: Number.parseInt(orden.rifa_id, 10) || null,
+                rifa_id: rifaIdResuelto,
                 nombre_cliente: orden.nombre_cliente || '',
                 telefono_cliente: orden.telefono_cliente || '',
                 estado: orden.estado || 'pendiente',
@@ -143,25 +180,32 @@ function inicializarEventosWebSocket(io, options = {}) {
 
         console.log(`📤 [WebSocket][Admin] Emitiendo nueva orden admin:`, {
             numero_orden: numeroOrden,
+            rifa_id: rifaIdResuelto,
             admins: adminOrdersNamespace.sockets.size
         });
 
-        adminOrdersNamespace.emit('adminOrdenCreada', evento);
+        if (rifaIdResuelto) {
+            adminOrdersNamespace.to(`admin_rifa_${rifaIdResuelto}`).emit('adminOrdenCreada', evento);
+        } else {
+            console.warn('⚠️ [WebSocket][Admin] Nueva orden sin rifa_id; emitiendo a todos los admins');
+            adminOrdersNamespace.emit('adminOrdenCreada', evento);
+        }
     }
 
-    function emitirOrdenActualizadaAdmin(orden = {}) {
+    function emitirOrdenActualizadaAdmin(orden = {}, rifaId = null) {
         const numeroOrden = orden.numero_orden || orden.ordenId || orden.id || null;
         if (!numeroOrden) {
             console.warn('⚠️ [WebSocket][Admin] Orden actualizada sin numero_orden; evento omitido');
             return;
         }
 
+        const rifaIdResuelto = rifaId || Number.parseInt(orden.rifa_id, 10) || null;
         const evento = {
             timestamp: new Date().toISOString(),
             tipo: 'adminOrdenActualizada',
             orden: {
                 numero_orden: numeroOrden,
-                rifa_id: Number.parseInt(orden.rifa_id, 10) || null,
+                rifa_id: rifaIdResuelto,
                 nombre_cliente: orden.nombre_cliente || '',
                 telefono_cliente: orden.telefono_cliente || '',
                 estado: orden.estado || null,
@@ -176,26 +220,33 @@ function inicializarEventosWebSocket(io, options = {}) {
 
         console.log(`📤 [WebSocket][Admin] Emitiendo orden actualizada:`, {
             numero_orden: numeroOrden,
+            rifa_id: rifaIdResuelto,
             estado: evento.orden.estado,
             admins: adminOrdersNamespace.sockets.size
         });
 
-        adminOrdersNamespace.emit('adminOrdenActualizada', evento);
+        if (rifaIdResuelto) {
+            adminOrdersNamespace.to(`admin_rifa_${rifaIdResuelto}`).emit('adminOrdenActualizada', evento);
+        } else {
+            console.warn('⚠️ [WebSocket][Admin] Orden actualizada sin rifa_id; emitiendo a todos los admins');
+            adminOrdersNamespace.emit('adminOrdenActualizada', evento);
+        }
     }
 
-    function emitirOrdenActualizadaPublica(orden = {}) {
+    function emitirOrdenActualizadaPublica(orden = {}, rifaId = null) {
         const numeroOrden = orden.numero_orden || orden.ordenId || orden.id || null;
         if (!numeroOrden) {
             console.warn('⚠️ [WebSocket][Publico] Orden actualizada sin numero_orden; evento omitido');
             return;
         }
 
+        const rifaIdResuelto = rifaId || Number.parseInt(orden.rifa_id, 10) || null;
         const evento = {
             timestamp: new Date().toISOString(),
             tipo: 'ordenEstadoActualizadoPublico',
             orden: {
                 numero_orden: numeroOrden,
-                rifa_id: Number.parseInt(orden.rifa_id, 10) || null,
+                rifa_id: rifaIdResuelto,
                 estado: orden.estado || null,
                 estado_anterior: orden.estado_anterior || null,
                 updated_at: orden.updated_at || new Date().toISOString()
@@ -204,11 +255,17 @@ function inicializarEventosWebSocket(io, options = {}) {
 
         console.log(`📤 [WebSocket][Publico] Emitiendo actualización pública de orden:`, {
             numero_orden: numeroOrden,
+            rifa_id: rifaIdResuelto,
             estado: evento.orden.estado,
             clientes: boletosNamespace.sockets.size
         });
 
-        boletosNamespace.emit('ordenEstadoActualizadoPublico', evento);
+        if (rifaIdResuelto) {
+            boletosNamespace.to(`rifa_${rifaIdResuelto}`).emit('ordenEstadoActualizadoPublico', evento);
+        } else {
+            console.warn('⚠️ [WebSocket][Publico] Orden actualizada sin rifa_id; emitiendo a todos los clientes');
+            boletosNamespace.emit('ordenEstadoActualizadoPublico', evento);
+        }
     }
 
     /**
@@ -217,22 +274,28 @@ function inicializarEventosWebSocket(io, options = {}) {
      * @param {Array} numerosLiberados - Números que vuelven a quedar disponibles
      * @param {string} razon - Razón de la cancelación (expiración, usuario, etc)
      */
-    function emitirOrdenCancelada(numerosLiberados = [], razon = 'cancelación') {
+    function emitirOrdenCancelada(numerosLiberados = [], razon = 'cancelación', rifaId = null) {
         const evento = {
             timestamp: new Date().toISOString(),
             tipo: 'ordenCancelada',
+            rifa_id: rifaId,
             boletos: numerosLiberados,
             cantidad: numerosLiberados.length,
             razon
         };
 
         console.log(`📤 [WebSocket] Emitiendo cancelación:`, {
+            rifa_id: rifaId,
             cantidad: numerosLiberados.length,
             razon,
             clientes: boletosNamespace.sockets.size
         });
 
-        boletosNamespace.emit('ordenCancelada', evento);
+        if (rifaId) {
+            boletosNamespace.to(`rifa_${rifaId}`).emit('ordenCancelada', evento);
+        } else {
+            boletosNamespace.emit('ordenCancelada', evento);
+        }
     }
 
     /**

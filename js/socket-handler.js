@@ -30,7 +30,7 @@ class SocketHandler {
             const socketUrl = window.RIFAPLUS_ENV?.socketUrl
                 || window.rifaplusConfig?.obtenerSocketScriptUrl?.()
                 || `${window.rifaplusConfig?.backend?.apiBase || window.location.origin}/socket.io/socket.io.js`;
-            
+
             // console.log(`📕 [Socket] Cargando socket.io desde: ${socketUrl}`);
 
             const script = document.createElement('script');
@@ -78,7 +78,7 @@ class SocketHandler {
                 || (window.rifaplusConfig?.backend?.apiBase)
                 || (window.rifaplusConfig?.obtenerApiBase?.())
                 || window.location.origin;
-            
+
             this.socket = io(`${apiBase}/boletos`, {
                 reconnection: true,
                 reconnectionDelay: this.reconnectDelay,
@@ -116,6 +116,51 @@ class SocketHandler {
         this.isConnected = true;
         this.reconnectAttempts = 0;
         
+        // Función interna para unirse a la sala
+        const joinRoom = () => {
+            const rifaId = window.rifaplusConfig?.rifa?.id;
+            if (rifaId) {
+                this.socket.emit('joinRifa', rifaId);
+                console.log(`🔌 [Socket] Uniéndose a sala aislada de rifa: ${rifaId}`);
+                return true;
+            }
+            return false;
+        };
+
+        // Intentar unirse de inmediato
+        if (!joinRoom()) {
+            console.debug('ℹ️ [Socket] Esperando rifaId para aislar la conexión...');
+            
+            let waitAttempts = 0;
+            const maxWaitAttempts = 50; // 5 segundos max (50 * 100ms)
+            
+            // Polling para verificar rifaId disponible
+            const pollWaitForRifaId = setInterval(() => {
+                waitAttempts++;
+                
+                if (joinRoom()) {
+                    clearInterval(pollWaitForRifaId);
+                    window.removeEventListener('configSyncCompleto', onConfigReady);
+                    return;
+                }
+                
+                if (waitAttempts >= maxWaitAttempts) {
+                    clearInterval(pollWaitForRifaId);
+                    console.warn('⚠️ [Socket] Timeout esperando rifaId (5s). Continuando sin aislamiento...');
+                    window.removeEventListener('configSyncCompleto', onConfigReady);
+                }
+            }, 100); // Verificar cada 100ms
+            
+            // También escuchar el evento por si sincroniza rápido
+            const onConfigReady = () => {
+                if (joinRoom()) {
+                    clearInterval(pollWaitForRifaId);
+                    window.removeEventListener('configSyncCompleto', onConfigReady);
+                }
+            };
+            window.addEventListener('configSyncCompleto', onConfigReady);
+        }
+        
         // Notificar que WebSocket está activo
         this._emitirEvento('socketConectado');
     }
@@ -134,7 +179,7 @@ class SocketHandler {
      */
     _onError(error) {
         console.error(`❌ [Socket] Error de conexión:`, error);
-        
+
         // Si hay muchos errores, fallback a polling
         this.reconnectAttempts++;
         if (this.reconnectAttempts >= this.maxReconnectAttempts) {
@@ -244,7 +289,7 @@ class SocketHandler {
      */
     _activarPollingFallback() {
         console.warn('⚠️  [Socket] Activando polling como fallback...');
-        
+
         // Restaurar el polling original (5 minutos)
         if (typeof cargarBoletosPublicos === 'function') {
             // Ejecutar inmediatamente
@@ -326,7 +371,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     console.log('📄 [Socket] DOM listo, iniciando WebSocket...');
-    
+
     // Esperar un poco a que se carguen las dependencias
     setTimeout(async () => {
         try {

@@ -6222,12 +6222,15 @@ body.modal-scroll-locked {
     right: 0;
     bottom: 0;
     background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
-    animation: shine 3s ease-in-out infinite;
+    background-size: 200% 100%;
+    animation: shine 3s linear infinite;
+    pointer-events: none;
+    border-radius: inherit;
 }
 
 @keyframes shine {
-    0%, 100% { transform: translateX(-100%); }
-    50% { transform: translateX(100%); }
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
 }
 
 .precio-card-main h3 {
@@ -6325,12 +6328,16 @@ body.modal-scroll-locked {
     position: relative;
     width: clamp(280px, 46vw, 420px);
     margin: 0 auto 1rem;
-    padding: 1.35rem 1.2rem;
+    padding: 1.6rem 1.2rem 1.1rem; /* Ajuste para centro óptico vertical */
     border-radius: 24px;
     background: var(--price-card-bg);
     box-shadow: var(--price-card-shadow);
     border: 1px solid var(--price-card-border);
     overflow: visible;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
 }
 
 .precio-card-badge-corner {
@@ -6435,11 +6442,17 @@ body.modal-scroll-locked {
 .precio-oferta-mode {
     position: relative;
     z-index: 2;
+    display: flex;
+    flex-direction: column;
     align-items: center;
+    justify-content: center;
+    width: 100%;
+    text-align: center;
     gap: 0.65rem;
 }
 
 .precio-normal-mode {
+    margin-top: 0.5rem; /* Ajuste explícito para centro óptico */
     animation: precioNormalFloat 3.8s ease-in-out infinite;
     transform-origin: center center;
 }
@@ -6483,6 +6496,23 @@ body.modal-scroll-locked {
 #precioDinamico,
 #precioDinamicoIndex {
     color: var(--price-main-color) !important;
+    display: block;
+    width: 100%;
+    text-align: center;
+}
+
+/* Refuerzo especifico para la card de compra */
+#precioCardCompra .precio-big {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center !important;
+}
+
+#precioCardCompra #precioDinamico {
+    display: block;
+    width: 100%;
+    text-align: center !important;
 }
 
 @keyframes precioNormalFloat {
@@ -6505,7 +6535,7 @@ body.modal-scroll-locked {
    en modo normal se ve mejor más compacta y menos alta */
 .precios-grid-unitario #precioCardMain {
     width: clamp(260px, 34vw, 360px);
-    padding: 1rem 1rem 0.95rem;
+    padding: 1.35rem 1rem 0.95rem; /* Ajuste óptico vertical */
 }
 
 .precios-grid-unitario #precioCardMain #precioNormal {
@@ -6638,12 +6668,12 @@ body.modal-scroll-locked {
 @media (max-width: 768px) {
     .precios-grid-unitario #precioCardMain {
         width: min(100%, 340px);
-        padding: 1rem 0.95rem;
+        padding: 1.35rem 0.95rem 0.85rem; /* Ajuste óptico vertical */
     }
 
     .precio-card-main {
         width: min(100%, 360px);
-        padding: 1.15rem 0.95rem;
+        padding: 1.45rem 0.95rem 1rem; /* Ajuste para centro óptico vertical */
         border-radius: 20px;
     }
 
@@ -6690,7 +6720,7 @@ body.modal-scroll-locked {
 @media (max-width: 480px) {
     .precios-grid-unitario #precioCardMain {
         width: min(100%, 320px);
-        padding: 0.95rem 0.85rem;
+        padding: 1.25rem 0.85rem 0.75rem; /* Ajuste óptico vertical */
     }
 
     .precios-grid-unitario #precioCardMain #precioNormal .precio-big {
@@ -6699,7 +6729,7 @@ body.modal-scroll-locked {
 
     .precio-card-main {
         width: min(100%, 296px);
-        padding: 0.88rem 0.8rem;
+        padding: 1.25rem 0.8rem 0.75rem; /* Ajuste para centro óptico vertical */
         margin: 0 auto 0.85rem;
         border-radius: 18px;
     }
@@ -11140,7 +11170,7 @@ body.modal-scroll-locked {
     }
 }
 
-/* ===== BOTÓN FLOTANTE SUBIR COMPROBANTE ===== */
+/* ===== BOTÓN FLOTANTE SUBIR COMPROBANTE (FAB MODERNIZADO) ===== */
 .btn-flotante-comprobante {
     position: fixed;
     bottom: 2rem;
@@ -11148,33 +11178,25 @@ body.modal-scroll-locked {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.75rem;
-    padding: 0.875rem 1.25rem;
+    gap: 0.6rem;
+    padding: 0.8rem 1.4rem;
     background: linear-gradient(135deg, var(--secondary) 0%, var(--secondary-dark) 100%);
-    border-radius: 50px;
+    border-radius: 50px; /* Forma de píldora */
     color: white;
-    font-size: 1rem;
+    font-size: 0.95rem;
     font-weight: 600;
     box-shadow: 0 8px 24px rgba(var(--secondary-rgb), 0.35);
-    transition: all var(--transition-normal);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
     text-decoration: none;
     z-index: 9999;
     border: none;
     cursor: pointer;
     white-space: nowrap;
-    overflow: visible;
+    overflow: hidden;
     transform: translateZ(0);
-    will-change: transform;
-    opacity: 1;
-    pointer-events: auto;
 }
 
-/* Animación solo cuando carga la página */
-.btn-flotante-comprobante.bounce-animate {
-    animation: bounce-shake-suave 2s ease-in-out forwards;
-}
-
-/* Ocultar botón cuando hay modales abiertos */
+/* Ocultar botón inteligentemente cuando hay modales abiertos */
 .modal-overlay[style*="display: flex"] ~ .btn-flotante-comprobante,
 #modalSeleccionCuenta[style*="display: flex"] ~ .btn-flotante-comprobante,
 #modalSeleccionCuenta.show ~ .btn-flotante-comprobante,
@@ -11187,186 +11209,138 @@ body.modal-scroll-locked {
 .modal-carrito-overlay.active ~ .btn-flotante-comprobante {
     opacity: 0;
     pointer-events: none;
-    transition: opacity var(--transition-normal);
+    transform: translateY(20px) scale(0.9);
 }
 
 .btn-flotante-comprobante i {
-    font-size: 1.3rem;
-    transition: transform var(--transition-fast);
-}
-
-.btn-flotante-comprobante:hover {
-    transform: translateY(-4px) scale(1.05);
-    box-shadow: 0 12px 32px rgba(var(--secondary-rgb), 0.45);
-}
-
-.btn-flotante-comprobante:hover i {
-    transform: rotate(10deg);
-}
-
-.btn-flotante-comprobante:active {
-    transform: translateY(-2px) scale(0.98);
+    font-size: 1.2rem;
+    transition: transform 0.3s ease;
 }
 
 .btn-flotante-texto {
     display: inline-block;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.3px;
 }
 
-@media (pointer: coarse) {
-    .btn-flotante-comprobante {
-        transition: opacity var(--transition-normal), background var(--transition-normal);
-        will-change: auto;
-        box-shadow: 0 6px 18px rgba(var(--secondary-rgb), 0.22);
+/* Interacciones Desktop */
+@media (pointer: fine) {
+    .btn-flotante-comprobante:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 28px rgba(var(--secondary-rgb), 0.45);
+        background: linear-gradient(135deg, var(--secondary-light) 0%, var(--secondary) 100%);
     }
 
-    .btn-flotante-comprobante:hover,
-    .btn-flotante-comprobante:active,
     .btn-flotante-comprobante:hover i {
-        transform: none;
+        transform: translateY(-2px);
     }
+
+    .btn-flotante-comprobante:active {
+        transform: translateY(0) scale(0.97);
+    }
+}
+
+/* --- ANIMACIÓN SUAVE TIPO PULSO (ONDA EXPANSIVA) --- */
+@keyframes fab-pulse-ring {
+    0% {
+        box-shadow: 0 0 0 0 rgba(var(--secondary-rgb), 0.6);
+    }
+    70% {
+        box-shadow: 0 0 0 18px rgba(var(--secondary-rgb), 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(var(--secondary-rgb), 0);
+    }
+}
+
+/* Clases de animación aplicadas por JS o por defecto en móvil */
+.btn-flotante-comprobante.bounce-animate,
+.btn-flotante-comprobante.animate-heartbeat,
+.btn-flotante-comprobante.animate-vibrate {
+    /* Unificamos todas las animaciones bruscas en una onda expansiva elegante */
+    animation: fab-pulse-ring 2.5s infinite cubic-bezier(0.215, 0.61, 0.355, 1) !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .btn-flotante-comprobante {
-        transition: opacity var(--transition-normal), background var(--transition-normal);
-        will-change: auto;
-        box-shadow: 0 6px 18px rgba(var(--secondary-rgb), 0.22);
-    }
-
-    .btn-flotante-comprobante:hover,
-    .btn-flotante-comprobante:active,
-    .btn-flotante-comprobante:hover i,
+    .btn-flotante-comprobante,
+    .btn-flotante-comprobante.bounce-animate,
     .btn-flotante-comprobante.animate-heartbeat,
-    .btn-flotante-comprobante.animate-vibrate,
-    .btn-flotante-comprobante.bounce-animate {
-        transform: none;
+    .btn-flotante-comprobante.animate-vibrate {
         animation: none !important;
+        transform: none !important;
     }
 }
 
-/* Animación bounce-shake suave para primeros 2 segundos */
-@keyframes bounce-shake-suave {
-    0% {
-        transform: translateY(0) translateX(0);
-        box-shadow: 0 8px 24px rgba(var(--secondary-rgb), 0.28);
-    }
-    25% {
-        transform: translateY(-6px) translateX(-1px);
-        box-shadow: 0 12px 28px rgba(var(--secondary-rgb), 0.34);
-    }
-    50% {
-        transform: translateY(0) translateX(1px);
-        box-shadow: 0 8px 24px rgba(var(--secondary-rgb), 0.28);
-    }
-    75% {
-        transform: translateY(-6px) translateX(-1px);
-        box-shadow: 0 12px 28px rgba(var(--secondary-rgb), 0.34);
-    }
-    100% {
-        transform: translateY(0) translateX(0);
-        box-shadow: 0 8px 24px rgba(var(--secondary-rgb), 0.28);
-    }
-}
-
-/* Animación de latido (heartbeat) */
-@keyframes btn-heartbeat {
-    0% {
-        transform: scale(1);
-    }
-    10%, 30% {
-        transform: scale(1.05);
-        box-shadow: 0 8px 24px rgba(var(--secondary-rgb), 0.36);
-    }
-    20%, 40%, 60%, 80% {
-        transform: scale(1);
-    }
-    50% {
-        transform: scale(1.05);
-        box-shadow: 0 8px 24px rgba(var(--secondary-rgb), 0.36);
-    }
-    70% {
-        transform: scale(1.05);
-        box-shadow: 0 8px 24px rgba(var(--secondary-rgb), 0.36);
-    }
-    100% {
-        transform: scale(1);
-    }
-}
-
-/* Animación de vibración horizontal */
-@keyframes btn-vibrate {
-    0%, 100% {
-        transform: translateX(0);
-    }
-    10% {
-        transform: translateX(-3px);
-    }
-    20% {
-        transform: translateX(3px);
-    }
-    30% {
-        transform: translateX(-3px);
-    }
-    40% {
-        transform: translateX(3px);
-    }
-    50% {
-        transform: translateX(-3px);
-    }
-    60% {
-        transform: translateX(3px);
-    }
-    70% {
-        transform: translateX(-3px);
-    }
-    80% {
-        transform: translateX(3px);
-    }
-    90% {
-        transform: translateX(-3px);
-    }
-}
-
-/* Clases de animación aplicadas dinámicamente */
-.btn-flotante-comprobante.animate-heartbeat {
-    animation: btn-heartbeat 0.8s ease-in-out;
-}
-
-.btn-flotante-comprobante.animate-vibrate {
-    animation: btn-vibrate 0.5s ease-in-out;
-}
-
-/* Responsive */
+/* --- MOBILE: DISEÑO CIRCULAR EXPANSIBLE --- */
 @media (max-width: 768px) {
     .btn-flotante-comprobante {
-        bottom: 1.5rem;
-        right: 1.5rem;
-        padding: 0.65rem 0.9rem;
-        font-size: 0.85rem;
-        gap: 0.5rem;
+        bottom: 1.25rem;
+        right: 1.25rem;
+        width: 58px;
+        height: 58px;
+        padding: 0;
+        border-radius: 50px; /* Para que al expandirse siga siendo píldora, 50px funciona como círculo si ancho=alto */
+        gap: 0;
+        /* Animación de pulso siempre activa en móvil para visibilidad */
+        animation: fab-pulse-ring 2.5s infinite cubic-bezier(0.215, 0.61, 0.355, 1);
+        /* Transiciones para la expansión */
+        transition: width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), 
+                    padding 0.4s cubic-bezier(0.25, 0.8, 0.25, 1),
+                    background 0.3s ease,
+                    box-shadow 0.3s ease;
+        /* IMPORTANTE: Flex direction row, justify-content center por defecto, pero flex-start al expandirse */
+        justify-content: flex-start;
+    }
+
+    .btn-flotante-comprobante i {
+        /* Centrado absoluto dentro de los 58px iniciales para compensar justify-content: flex-start */
+        font-size: 1.3rem; /* Icono un poco más grande */
+        min-width: 58px;
+        text-align: center;
+        margin: 0;
     }
     
-    .btn-flotante-comprobante i {
-        font-size: 1rem;
+    .btn-flotante-texto {
+        font-size: 0.82rem;
+        letter-spacing: 0.2px;
+        white-space: nowrap;
+        opacity: 0;
+        max-width: 0;
+        transition: opacity 0.3s ease, max-width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+        display: inline-block;
+    }
+
+    /* ESTADO EXPANDIDO (Activado por JS) */
+    .btn-flotante-comprobante.is-expanded {
+        width: 200px; /* Ancho suficiente para el texto */
+        padding-right: 1.2rem;
+        gap: 0; /* Espaciado manejado por el min-width del icono */
+    }
+
+    .btn-flotante-comprobante.is-expanded .btn-flotante-texto {
+        opacity: 1;
+        max-width: 150px; /* Ancho suficiente para el texto */
     }
 }
 
 @media (max-width: 480px) {
     .btn-flotante-comprobante {
+        width: 54px;
+        height: 54px;
         bottom: 1rem;
         right: 1rem;
-        padding: 0.5rem 0.75rem;
-        font-size: 0.75rem;
-        gap: 0.4rem;
     }
     
     .btn-flotante-comprobante i {
-        font-size: 0.9rem;
+        min-width: 54px;
+        font-size: 1.2rem;
     }
     
+    .btn-flotante-comprobante.is-expanded {
+        width: 185px;
+    }
+
     .btn-flotante-texto {
-        font-size: 0.7rem;
+        font-size: 0.78rem;
     }
 }
 

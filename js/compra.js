@@ -438,11 +438,18 @@ async function verificarBoletosEnServidor(numeros) {
     let respuesta;
 
     try {
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+        const currentParams = new URLSearchParams(window.location.search);
+        const activeSlug = currentParams.get('rifa') || currentParams.get('slug') || window.rifaplusConfig?.rifa?.slug;
+        if (activeSlug) {
+            headers['x-rifaplus-rifa-slug'] = activeSlug;
+        }
+
         respuesta = await fetch(`${endpoint}/api/boletos/verificar`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: headers,
             body: JSON.stringify({ numeros }),
             signal: controller.signal
         });
@@ -866,11 +873,18 @@ async function generarNumerosVerificadosEnServidor(cantidad) {
     const seleccionadosActuales = Array.from(selectedNumbersGlobal || []);
     const excludeNumbers = Array.from(new Set(seleccionadosActuales));
 
+    const headers = {
+        'Content-Type': 'application/json'
+    };
+    const currentParams = new URLSearchParams(window.location.search);
+    const activeSlug = currentParams.get('rifa') || currentParams.get('slug') || window.rifaplusConfig?.rifa?.slug;
+    if (activeSlug) {
+        headers['x-rifaplus-rifa-slug'] = activeSlug;
+    }
+
     const respuesta = await fetch(`${endpoint}/api/boletos/disponibles-aleatorios`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
+        headers: headers,
         body: JSON.stringify({
             cantidad,
             excludeNumbers
@@ -939,13 +953,20 @@ async function cargarEstadoRangoVisibleEnBackground(endpoint, inicio, fin, opcio
         try {
             logCompraDebug(`[compra] Refrescando rango ${rangoInicio}-${rangoFin} (${reason})`);
 
-            const respuesta = await fetch(
-                `${endpoint}/api/public/boletos?inicio=${encodeURIComponent(rangoInicio)}&fin=${encodeURIComponent(rangoFin)}`,
-                {
-                    cache: 'no-store',
-                    priority: 'low'
-                }
-            );
+            const fetchUrl = new URL(`${endpoint}/api/public/boletos`);
+            fetchUrl.searchParams.set('inicio', rangoInicio);
+            fetchUrl.searchParams.set('fin', rangoFin);
+            
+            const currentParams = new URLSearchParams(window.location.search);
+            const activeSlug = currentParams.get('rifa') || currentParams.get('slug') || window.rifaplusConfig?.rifa?.slug;
+            if (activeSlug) {
+                fetchUrl.searchParams.set('rifa', activeSlug);
+            }
+
+            const respuesta = await fetch(fetchUrl.toString(), {
+                cache: 'no-store',
+                priority: 'low'
+            });
 
             if (!respuesta.ok) {
                 throw new Error(`Rango ${rangoInicio}-${rangoFin}: ${respuesta.status}`);
@@ -1244,8 +1265,14 @@ async function cargarBoletosPublicos() {
         window.rifaplusBoletosDatosActualizados = false;
         
         try {
-            // Fetch de stats desde backend
-            const statsResponse = await fetch(`${endpoint}/api/public/boletos/stats`, {
+            const statsUrl = new URL(`${endpoint}/api/public/boletos/stats`);
+            const currentParams = new URLSearchParams(window.location.search);
+            const activeSlug = currentParams.get('rifa') || currentParams.get('slug') || window.rifaplusConfig?.rifa?.slug;
+            if (activeSlug) {
+                statsUrl.searchParams.set('rifa', activeSlug);
+            }
+            
+            const statsResponse = await fetch(statsUrl.toString(), {
                 cache: 'no-store'
             });
             
@@ -3601,6 +3628,10 @@ function configurarBuscadorBoletos() {
                 searchParams.set(clave, String(valor));
             }
         });
+        const activeSlug = currentParams.get('rifa') || currentParams.get('slug') || window.rifaplusConfig?.rifa?.slug;
+        if (activeSlug && !searchParams.has('rifa')) {
+            searchParams.set('rifa', activeSlug);
+        }
         const url = `${endpoint}/api/public/boletos/busqueda?${searchParams.toString()}`;
         const maxIntentos = opciones.maxIntentos && Number.isInteger(opciones.maxIntentos)
             ? Math.max(1, opciones.maxIntentos)

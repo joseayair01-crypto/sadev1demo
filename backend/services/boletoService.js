@@ -290,12 +290,12 @@ class BoletoService {
         .whereBetween('numero', [rangoNormalizado.inicio, rangoNormalizado.fin])
         .where('estado', 'disponible')
         .whereNull('numero_orden')
-        .whereNotExists(function() {
+        .whereNotExists(function () {
           this.select(trx.raw('1'))
             .from('orden_oportunidades as oo')
             .whereRaw('oo.numero_boleto = boletos_estado.numero')
             .whereRaw('?::int IS NULL OR oo.rifa_id = ?::int', [rifaId, rifaId])
-            .where(function() {
+            .where(function () {
               this.whereNot('oo.estado', 'disponible').orWhereNotNull('oo.numero_orden');
             });
         })
@@ -354,9 +354,29 @@ class BoletoService {
     return 1;
   }
 
-  static _obtenerTotalBoletosConfig() {
-    const configManager = require('../config-manager').getInstance();
-    return Number(configManager.totalBoletos) || 0;
+  static _obtenerTotalBoletosConfig(contexto = {}) {
+    // Si el contexto ya trae el total, usarlo (es lo más seguro y rápido)
+    if (contexto && typeof contexto.totalBoletos === 'number' && contexto.totalBoletos > 0) {
+      return contexto.totalBoletos;
+    }
+
+    // Si no, intentar obtenerlo del ConfigManagerV2 por rifaId
+    const rifaId = contexto?.rifaId || null;
+    try {
+        const configManagerV2 = require('../config-manager-v2').getInstance ? require('../config-manager-v2').getInstance() : null;
+        if (configManagerV2) {
+            const config = configManagerV2.getConfig(rifaId);
+            if (config?.rifa?.totalBoletos) {
+                return Number(config.rifa.totalBoletos);
+            }
+        }
+    } catch (e) {
+        console.warn('⚠️ [BoletoService] Error accediendo a ConfigManagerV2:', e.message);
+    }
+
+    // Fallback legacy (solo si todo lo anterior falla)
+    const configManagerLegacy = require('../config-manager').getInstance();
+    return Number(configManagerLegacy.totalBoletos) || 0;
   }
 
   static _normalizarExclusiones(excludeNumbers, totalBoletos) {
@@ -501,7 +521,7 @@ class BoletoService {
         throw new Error('cantidad debe ser un entero mayor a 0');
       }
 
-      const totalBoletos = this._obtenerTotalBoletosConfig();
+      const totalBoletos = this._obtenerTotalBoletosConfig(contexto);
       if (totalBoletos < 1) {
         throw new Error('No hay totalBoletos configurado');
       }
@@ -589,15 +609,24 @@ class BoletoService {
 
       // ===== VALIDAR RANGO DE NÚMEROS =====
       // Obtener totalBoletos desde config manager (cachea en memoria)
-      const totalBoletos = this._obtenerTotalBoletosConfig();
-      
+      const totalBoletos = this._obtenerTotalBoletosConfig(contexto);
+
       const boletosInvalidos = numeros.filter(num => {
         const n = Number(num);
         return isNaN(n) || n < 0 || n >= totalBoletos;
       });
-      
+
       if (boletosInvalidos.length > 0) {
-        throw new Error(`Boletos inválidos (rango válido: 0-${totalBoletos-1}): ${boletosInvalidos.join(', ')}`);
+        console.warn(`⚠️ [BoletoService] Boletos fuera de rango (total=${totalBoletos}):`, boletosInvalidos);
+        // En lugar de lanzar error (que causa 500), los devolvemos como conflictos
+        return {
+          disponibles: [],
+          conflictos: boletosInvalidos.map(n => ({
+            numero: Number(n),
+            estado: 'invalido',
+            mensaje: `Fuera de rango (máximo permitido: ${totalBoletos - 1})`
+          }))
+        };
       }
 
       // Query optimizada: busca solo los boletos solicitados
@@ -620,7 +649,7 @@ class BoletoService {
         const boleto = boletosPorNumero.get(numeroNormalizado);
         const estado = boleto?.estado;
         const numeroOrden = boleto?.numeroOrden ?? null;
-        
+
         if (estado === undefined) {
           // No existe = disponible (se creará)
           disponibles.push(numeroNormalizado);
@@ -789,7 +818,7 @@ class BoletoService {
 
       // Verificar cuántos existen
       const existentes = await this._whereRifa(db('boletos_estado'), contexto).count('* as total').first();
-      
+
       if (existentes.total > 0) {
         console.log(`ℹ️  Ya existen ${existentes.total} boletos en la BD`);
         return { creados: 0, existentes: existentes.total };

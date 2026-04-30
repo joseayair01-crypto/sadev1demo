@@ -21,7 +21,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
-    <link rel="stylesheet" href="css/styles.css?v=20260410.6">
+    <link rel="stylesheet" href="css/styles.css?v=20260429.8">
     <script src="js/image-delivery.js"></script>
     <script>
         (function() {
@@ -77,7 +77,7 @@
                 || configLocal?.cliente?.logo
                 || configLocal?.cliente?.logotipo
                 || fallbackLogo;
-            const cachedLogo = imageDelivery?.resolverUrlImagen(rawLogo, 'logoPreload') || rawLogo;
+            const cachedLogo = imageDelivery?.resolverUrlImagen(rawLogo, 'logo') || rawLogo;
             const heroUtils = window.__RIFAPLUS_COMPRA_HERO_UTILS__ || {
                 normalizarTexto(valor) {
                     return String(valor || '').replace(/\s+/g, ' ').trim();
@@ -322,9 +322,9 @@
     <script defer src="js/oportunidades-manager.js"></script>
     <script defer src="js/carrito-global.js?v=20260406.1"></script>
     <script defer src="js/carrito-oportunidades.js?v=20260406.1"></script>
-    <script defer src="js/flujo-compra.js?v=20260329.3"></script>
+    <script defer src="js/flujo-compra.js?v=20260429.9"></script>
     <script defer src="js/modal-orden-confirmada.js?v=20260406.1"></script>
-    <script defer src="js/orden-formal.js?v=20260329.1"></script>
+    <script defer src="js/orden-formal.js?v=20260429.22"></script>
     <script defer src="js/modal-contacto.js?v=20260406.1"></script>
     <script defer src="js/public-shell.js"></script>
     <script defer>
@@ -332,7 +332,7 @@
             function loadAnimator() {
                 if (document.querySelector('script[data-rifaplus-animator]')) return;
                 const script = document.createElement('script');
-                script.src = 'js/btn-flotante-animator.js';
+                script.src = 'js/btn-flotante-animator.js?v=20260429.7';
                 script.defer = true;
                 script.dataset.rifaplusAnimator = 'true';
                 document.head.appendChild(script);
@@ -808,16 +808,12 @@
                         <span class="form-error" id="errorEstado"></span>
                     </div>
 
-                    <div class="form-group">
-                        <label for="clienteCiudad">Ciudad / Localidad *</label>
-                        <input type="text" id="clienteCiudad" name="ciudad" required maxlength="80">
-                        <span class="form-error" id="errorCiudad"></span>
-                    </div>
+
                 </form>
             </div>
             <div class="modal-footer modal-footer-contacto">
                 <button class="btn btn-outline" id="btnCancelarContacto">Cancelar</button>
-                <button class="btn btn-continuar" id="btnContinuarContacto">Continuar <span aria-hidden="true">→</span></button>
+                <button class="btn btn-continuar" id="btnContinuarContacto">Apartar boletos <span aria-hidden="true">→</span></button>
             </div>
         </div>
     </div>
@@ -962,7 +958,7 @@
     <!-- 🔌 Socket.io para actualizaciones en tiempo real (carga dinámicamente desde el backend) -->
     <script src="js/socket-handler.js"></script>
     <script defer src="js/compra-page.js?v=20260408.1"></script>
-    <script defer src="js/compra.js?v=20260401.4"></script>
+    <script defer src="js/compra.js?v=20260429.21"></script>
     <!-- ✅ Inicialización tardía (después de que todos los defer completen) -->
     <script defer src="js/carrito-init.js"></script>
 

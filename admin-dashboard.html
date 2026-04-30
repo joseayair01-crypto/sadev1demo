@@ -2469,6 +2469,10 @@
                             <span class="overview-meta-label">Modo actual</span>
                             <span class="overview-meta-value" id="overviewMode">Boletos directos</span>
                         </div>
+                        <div class="overview-meta-card">
+                            <span class="overview-meta-label">Formato de orden</span>
+                            <span class="overview-meta-value" id="overviewOrderFormat">S1-AA001</span>
+                        </div>
                     </div>
                 </div>
 
@@ -3287,6 +3291,13 @@
             dashboardSocketAdmin.on('connect', () => {
                 dashboardSocketAdminWarned = false;
                 debugAdminDashboard('Tiempo real conectado para dashboard');
+                
+                // 🔌 Unirse a la sala de la rifa activa
+                const rifaActiva = obtenerRifaActivaDashboard();
+                if (rifaActiva) {
+                    dashboardSocketAdmin.emit('joinAdminRifa', rifaActiva);
+                    console.log(`🔌 [Admin] Uniéndose a sala de admin para rifa: ${rifaActiva}`);
+                }
             });
 
             dashboardSocketAdmin.on('disconnect', (reason) => {
@@ -3354,6 +3365,20 @@
 
                 if (debeRefrescarGraficasPorEventoOrden(ordenEvento, estadoAnterior)) {
                     requestChartsRefreshTiempoReal(240);
+                }
+            });
+
+            // 🔌 ESCUCHAR cambios de rifa activa para actualizar sala del socket
+            window.addEventListener('rifaplus:admin-rifa-activa-cambiada', (event) => {
+                const rifaId = event?.detail?.rifaId;
+                if (dashboardSocketAdmin && dashboardSocketAdmin.connected) {
+                    if (rifaId) {
+                        dashboardSocketAdmin.emit('joinAdminRifa', rifaId);
+                        console.log(`🔌 [Admin] Cambiando a sala de admin para rifa: ${rifaId}`);
+                    } else {
+                        dashboardSocketAdmin.emit('leaveAdminRifa');
+                        console.log(`🔌 [Admin] Saliendo de sala de admin (sin rifa activa)`);
+                    }
                 }
             });
         }
@@ -3596,7 +3621,9 @@
             const overviewDrawDate = document.getElementById('overviewDrawDate');
             const overviewSellRate = document.getElementById('overviewSellRate');
             const overviewMode = document.getElementById('overviewMode');
+            const overviewOrderFormat = document.getElementById('overviewOrderFormat');
             const overviewAlerts = document.getElementById('overviewAlerts');
+            const prefijoOrdenActual = String(config?.cliente?.prefijoOrden || 'SS').trim().toUpperCase();
 
             if (overviewTitle) {
                 overviewTitle.textContent = rifa.nombreSorteo || 'Resumen del sorteo activo';
@@ -3616,6 +3643,11 @@
 
             if (overviewMode) {
                 overviewMode.textContent = oportunidadesActivas ? 'Boletos + oportunidades' : 'Boletos directos';
+            }
+
+            if (overviewOrderFormat) {
+                const prefijoSeguro = prefijoOrdenActual || 'SS';
+                overviewOrderFormat.textContent = `${prefijoSeguro}-AA001`;
             }
 
             if (!overviewAlerts) return;
@@ -4939,6 +4971,15 @@
 
         window.addEventListener('load', async () => {
             await inicializarConfiguracion();
+            
+            // ✅ IMPORTANTE: Esperar a que el selector de rifas se cargue completamente
+            // Esto garantiza que adminRifaActionsPanel y adminRifaSwitcher se rendericen
+            if (typeof ADMIN_LAYOUT?.cargarSelectorRifas === 'function') {
+                await ADMIN_LAYOUT.cargarSelectorRifas().catch((error) => {
+                    debugAdminDashboard('Advertencia: No se pudo cargar selector de rifas en load', error?.message);
+                });
+            }
+            
             if (window.rifaplusConfig && typeof window.rifaplusConfig.escucharEvento === 'function' && !window.__adminDashboardCountdownSyncHook) {
                 window.__adminDashboardCountdownSyncHook = true;
                 window.rifaplusConfig.escucharEvento('configuracionActualizada', () => {

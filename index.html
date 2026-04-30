@@ -22,7 +22,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
-    <link rel="stylesheet" href="css/styles.css?v=20260410.7">
+    <link rel="stylesheet" href="css/styles.css?v=20260429.2">
     <script src="js/image-delivery.js"></script>
     <script>
         (function() {
@@ -85,7 +85,7 @@
                 || configLocal?.cliente?.logo
                 || configLocal?.cliente?.logotipo
                 || 'images/placeholder-logo.svg';
-            cachedLogo = imageDelivery?.resolverUrlImagen(rawLogo, 'logoPreload') || rawLogo;
+            cachedLogo = imageDelivery?.resolverUrlImagen(rawLogo, 'logo') || rawLogo;
 
             const primeraImagenGaleriaRaw = Array.isArray(cachedGallery) && cachedGallery.length > 0
                 ? String(cachedGallery[0]?.url || '').trim()
@@ -199,19 +199,14 @@
             }
         })();
     </script>
-    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" as="style">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" media="print" data-deferred-style="true">
     <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"></noscript>
-    <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" as="style">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" data-deferred-style="true">
     <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
-    <link rel="preload" href="css/modal-contacto.css" as="style">
     <link rel="stylesheet" href="css/modal-contacto.css" media="print" data-deferred-style="true">
     <noscript><link rel="stylesheet" href="css/modal-contacto.css"></noscript>
-    <link rel="preload" href="css/orden-formal.css" as="style">
     <link rel="stylesheet" href="css/orden-formal.css" media="print" data-deferred-style="true">
     <noscript><link rel="stylesheet" href="css/orden-formal.css"></noscript>
-    <link rel="preload" href="css/sistema-premios.css?v=20260410.1" as="style">
     <link rel="stylesheet" href="css/sistema-premios.css?v=20260410.1" media="print" data-deferred-style="true">
     <noscript><link rel="stylesheet" href="css/sistema-premios.css?v=20260410.1"></noscript>
     <script>

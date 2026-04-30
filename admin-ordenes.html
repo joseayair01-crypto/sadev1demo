@@ -3582,6 +3582,14 @@ ${window.location.origin}/mis-boletos.html
         window.addEventListener('load', async () => {
             initializeConfig();
             
+            // ✅ IMPORTANTE: Esperar a que el selector de rifas se cargue completamente
+            // Esto garantiza que adminRifaActionsPanel y adminRifaSwitcher se rendericen
+            if (typeof ADMIN_LAYOUT?.cargarSelectorRifas === 'function') {
+                await ADMIN_LAYOUT.cargarSelectorRifas().catch((error) => {
+                    console.warn('Advertencia: No se pudo cargar selector de rifas en load', error?.message);
+                });
+            }
+            
             const savedToken = await ADMIN_LAYOUT.esperarAutenticacion();
             
             if (savedToken) {

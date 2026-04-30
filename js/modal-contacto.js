@@ -263,14 +263,12 @@ const modalContactoViewportManager = (() => {
 
 function obtenerDatosFormularioContacto() {
     const estadoEl = document.getElementById('clienteEstado');
-    const ciudadEl = document.getElementById('clienteCiudad');
 
     return {
         nombre: (document.getElementById('clienteNombre')?.value || '').trim(),
         apellidos: (document.getElementById('clienteApellidos')?.value || '').trim(),
         whatsapp: (document.getElementById('clienteWhatsapp')?.value || '').trim(),
-        estado: estadoEl ? (estadoEl.value || '').trim() : '',
-        ciudad: ciudadEl ? ciudadEl.value.trim() : ''
+        estado: estadoEl ? (estadoEl.value || '').trim() : ''
     };
 }
 
@@ -298,10 +296,6 @@ function validarDatosFormularioContacto(datos) {
         errores.estado = 'Selecciona tu estado';
     }
 
-    if (!datos.ciudad || datos.ciudad.length < 2) {
-        errores.ciudad = 'Por favor indica tu ciudad o localidad';
-    }
-
     return errores;
 }
 
@@ -310,8 +304,7 @@ function aplicarErroresFormularioContacto(errores) {
         nombre: 'errorNombre',
         apellidos: 'errorApellidos',
         whatsapp: 'errorWhatsapp',
-        estado: 'errorEstado',
-        ciudad: 'errorCiudad'
+        estado: 'errorEstado'
     };
 
     Object.entries(campos).forEach(([campo, errorId]) => {
@@ -367,8 +360,7 @@ async function procesarConfirmacionContacto() {
             datos.nombre,
             datos.apellidos,
             datos.whatsapp,
-            datos.estado,
-            datos.ciudad
+            datos.estado
         );
     } catch (error) {
         console.error('❌ [Modal-Contacto] No se pudo generar un numero de orden oficial:', error);
@@ -447,7 +439,7 @@ async function generarIdOrden() {
     const data = await respuesta.json();
     const ordenIdFinal = String(data?.orden_id || '').trim().toUpperCase();
 
-    if (!data?.success || !config?.esOrdenIdOficial?.(ordenIdFinal) || !config?.ordenIdTienePrefijoActual?.(ordenIdFinal)) {
+    if (!data?.success || !config?.esOrdenIdOficial?.(ordenIdFinal)) {
         throw new Error(`ORDER_COUNTER_INVALID_RESPONSE:${ordenIdFinal || 'EMPTY'}`);
     }
 
@@ -533,13 +525,12 @@ function guardarIdEnLocalStorage(orderId) {
  * @param {string} ciudad - Ciudad/Localidad
  * @returns {Promise<Object>} Objeto con datos guardados
  */
-async function guardarClienteEnStorage(nombre, apellidos, whatsapp, estado, ciudad) {
+async function guardarClienteEnStorage(nombre, apellidos, whatsapp, estado) {
     const clienteData = {
         nombre,
         apellidos,
         whatsapp,
         estado: estado || undefined,
-        ciudad: ciudad || undefined,
         ordenId: '',
         fecha: new Date().toISOString()
     };
@@ -571,11 +562,11 @@ function limpiarOrdenIdObsoletoDelStorage() {
         const ordenId = String(cliente?.ordenId || '').trim().toUpperCase();
         const config = window.rifaplusConfig;
 
-        if (!ordenId || !config?.esOrdenIdOficial || !config?.ordenIdTienePrefijoActual) {
+        if (!ordenId || !config?.esOrdenIdOficial) {
             return;
         }
 
-        if (!config.esOrdenIdOficial(ordenId) || !config.ordenIdTienePrefijoActual(ordenId)) {
+        if (!config.esOrdenIdOficial(ordenId)) {
             delete cliente.ordenId;
             setItemSafeModal('rifaplus_cliente', JSON.stringify(cliente));
         }
@@ -630,10 +621,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const inputWhatsapp = document.getElementById('clienteWhatsapp');
     const inputNombre = document.getElementById('clienteNombre');
     const inputApellidos = document.getElementById('clienteApellidos');
-    const inputCiudad = document.getElementById('clienteCiudad');
     
     // 🔤 CONVERTIR A MAYÚSCULAS AUTOMÁTICAMENTE en campos de texto
-    [inputNombre, inputApellidos, inputCiudad].forEach(enlazarCampoMayusculas);
+    [inputNombre, inputApellidos].forEach(enlazarCampoMayusculas);
     
     // Validación en tiempo real para WhatsApp: solo números
     enlazarInputWhatsapp(inputWhatsapp);

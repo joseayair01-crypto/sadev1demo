@@ -7,14 +7,14 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' http://127.0.0.1:* http://localhost:*; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://fonts.googleapis.com http://localhost:5001 http://127.0.0.1:5001; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' http://127.0.0.1:* http://localhost:* https: http://localhost:5001 http://127.0.0.1:5001 ws: wss: ws://localhost:5001 wss://localhost:5001 ws://127.0.0.1:5001 wss://127.0.0.1:5001; img-src 'self' data: https:;">
     <!-- METADATOS DINÁMICOS - Inyectados por js/meta-inyector.js desde config.js -->
     <title>Mis Boletos</title>
-    <link rel="stylesheet" href="css/styles.css?v=20260410.6">
+    <link rel="stylesheet" href="css/styles.css?v=20260429.19">
     <script src="js/image-delivery.js"></script>
 
     <script>
         (function() {
             const imageDelivery = window.RifaPlusImageDelivery;
             const rawLogo = localStorage.getItem('rifaplus_cached_logo') || 'images/placeholder-logo.svg';
-            const cachedLogo = imageDelivery?.resolverUrlImagen(rawLogo, 'logoPreload') || rawLogo;
+            const cachedLogo = imageDelivery?.resolverUrlImagen(rawLogo, 'logo') || rawLogo;
             window.__RIFAPLUS_CACHED_LOGO__ = imageDelivery?.resolverUrlImagen(rawLogo, 'logo') || rawLogo;
             document.write('<link rel="preload" as="image" href="' + cachedLogo + '" fetchpriority="high">');
             document.write('<link rel="icon" href="' + (imageDelivery?.resolverUrlImagen(rawLogo, 'logoIcon') || rawLogo) + '" sizes="32x32">');
@@ -130,15 +130,13 @@
                     </div>
                 </div>
 
-                <!-- ACORDEÓN DE INSTRUCCIONES -->
-                <div class="instrucciones-acordeon">
+                <!-- ACORDEÓN DE INSTRUCCIONES (visible cuando no hay órdenes) -->
+                <div class="instrucciones-acordeon" id="instruccionesEstaticas">
                     <div class="acordeon-item">
                         <button class="acordeon-header" data-accordion="instruccion-1">
                             <span class="acordeon-icon">📱</span>
                             <span class="acordeon-titulo">¿Cómo ver mis órdenes?</span>
-                            <span class="acordeon-toggle">
-                                <i class="fas fa-chevron-down"></i>
-                            </span>
+                            <span class="acordeon-toggle"><i class="fas fa-chevron-down"></i></span>
                         </button>
                         <div class="acordeon-body" id="instruccion-1" style="display: none;">
                             <div class="acordeon-content">
@@ -152,14 +150,11 @@
                             </div>
                         </div>
                     </div>
-
                     <div class="acordeon-item">
                         <button class="acordeon-header" data-accordion="instruccion-2">
                             <span class="acordeon-icon">📤</span>
                             <span class="acordeon-titulo">¿Cómo subir mi comprobante?</span>
-                            <span class="acordeon-toggle">
-                                <i class="fas fa-chevron-down"></i>
-                            </span>
+                            <span class="acordeon-toggle"><i class="fas fa-chevron-down"></i></span>
                         </button>
                         <div class="acordeon-body" id="instruccion-2" style="display: none;">
                             <div class="acordeon-content">
@@ -240,6 +235,43 @@
 
                 <button class="btn btn-primary" id="btnCerrarComprobanteConfirmado" style="width: 100%;">
                     Entendido, volver a mis órdenes
+                </button>
+            </div>
+        </div>
+    </div>
+    <!-- MODAL FORMAS DE PAGO (SELECTOR) -->
+    <div class="modal modal-overlay" id="modalFormasPago">
+        <div class="modal-content modal-contacto" style="background: transparent; box-shadow: none; max-width: 480px;">
+            <div class="modal-header modal-header-center" style="background: white; border-radius: 1.15rem 1.15rem 0 0; border-bottom: none;">
+                <h2 style="font-size: 1.25rem; color: var(--primary, #0b2238);">💳 Formas de Pago</h2>
+                <button class="modal-close" id="closeModalFormasPago" aria-label="Cerrar" style="color: var(--text-light);">×</button>
+            </div>
+            <div class="modal-body" style="background: white; border-radius: 0 0 1.15rem 1.15rem;" id="modalFormasPagoBody">
+                <!-- Se inyectará dinámicamente el selector fp-seccion aquí -->
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DETALLE CUENTA DE PAGO -->
+    <div class="modal modal-overlay" id="modalDetalleCuenta">
+        <div class="modal-content modal-contacto">
+            <div class="modal-header modal-header-center">
+                <h2 id="modalDetalleCuentaTitulo">💳 Datos de Pago</h2>
+                <button class="modal-close" id="closeModalDetalleCuenta" aria-label="Cerrar">×</button>
+            </div>
+            <div class="modal-body">
+                <!-- Card estilo "Cuentas de pago" -->
+                <div class="mdc-card" id="modalDetalleCuentaCard">
+                    <!-- Se rellena dinámicamente -->
+                </div>
+                <!-- Instrucción -->
+                <div class="mdc-instruccion" id="modalDetalleCuentaInstruccion">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Usa tu nombre completo como referencia/concepto al realizar el pago.</span>
+                </div>
+                <!-- Botón subir comprobante -->
+                <button class="btn btn-primary mdc-btn-subir" id="btnMDCSubirComprobante">
+                    <i class="fas fa-upload"></i> Ya pagué, subir comprobante
                 </button>
             </div>
         </div>
@@ -581,6 +613,7 @@
     <script defer src="js/main.js?v=20260408.2"></script>
     <script defer src="js/trigger-busqueda-auto.js"></script>
     <script defer src="js/calculo-precios.js?v=20251230.1"></script>
+    <script defer src="js/vendor/html2canvas.min.js"></script>
     <script defer src="js/vendor/jspdf.umd.min.js"></script>
 
     <script defer src="js/carrito-global.js?v=20260406.1"></script>
@@ -1580,6 +1613,7 @@
         .orden-confirmada-panel {
             text-align: center;
             padding: 1rem;
+            margin-top: -0.5rem;
             background: linear-gradient(135deg, rgba(95, 123, 105, 0.14) 0%, rgba(95, 123, 105, 0.08) 100%);
             border-radius: var(--radius-md);
             color: var(--success-dark);
@@ -1634,43 +1668,6 @@
             gap: 0.65rem;
             padding: 1rem 1.35rem;
             border-radius: 999px;
-            border: 1px solid rgba(255, 255, 255, 0.16);
-            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-            color: #ffffff;
-            box-shadow: 0 16px 34px rgba(15, 58, 125, 0.20);
-            font-weight: 800;
-            letter-spacing: 0.01em;
-            transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
-            animation: btnDescargarOrdenPulse 2.8s ease-in-out infinite;
-        }
-
-        .btn-descargar-orden::before {
-            content: '';
-            position: absolute;
-            inset: -20%;
-            background: radial-gradient(circle, rgba(255, 255, 255, 0.32) 0%, rgba(255, 255, 255, 0) 62%);
-            pointer-events: none;
-            animation: btnDescargarOrdenGlow 2.8s ease-in-out infinite;
-        }
-
-        .btn-descargar-orden > * {
-            position: relative;
-            z-index: 1;
-        }
-
-        .btn-descargar-orden:hover {
-            transform: translateY(-2px) scale(1.02);
-            box-shadow: 0 24px 46px rgba(15, 58, 125, 0.30);
-            filter: saturate(1.06);
-            animation-play-state: paused;
-        }
-
-        .btn-descargar-orden:active {
-            transform: translateY(0) scale(0.995);
-        }
-
-        .btn-descargar-orden:disabled {
-            opacity: 0.7;
             cursor: wait;
             transform: none;
             animation: none;
@@ -1874,7 +1871,582 @@
 
         .orden-acciones-wrap {
             margin-top: 1rem;
+            display: flex;
+            justify-content: center;
         }
+
+        .orden-card--confirmada {
+            margin-bottom: 2.4rem;
+        }
+
+        .orden-card--confirmada .orden-acciones-wrap {
+            margin-top: 1.15rem;
+            margin-bottom: -0.25rem;
+        }
+
+
+
+        /* Modificadores para versión sutil (Botón de Descargar) */
+        .orden-cta-subir-externo.is-subtle::before {
+            opacity: 0.6;
+            animation: ctaSubirHaloSubtle 3s infinite cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .btn-subir-comprobante-externo.is-subtle {
+            animation: ctaSubirPulseSubtle 3s infinite cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 14px rgba(var(--primary-rgb, 11, 34, 56), 0.3);
+        }
+
+        .btn-subir-comprobante-externo.is-subtle::after {
+            animation: ctaSubirShineSubtle 3.5s infinite;
+            opacity: 0.7;
+        }
+
+        .btn-subir-comprobante-externo.is-subtle i {
+            animation: ctaSubirIconBounceSubtle 2s infinite ease-in-out;
+        }
+
+        .btn-subir-comprobante-externo.is-subtle:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(var(--primary-rgb, 11, 34, 56), 0.5);
+            animation-play-state: paused;
+        }
+
+        @keyframes ctaSubirPulseSubtle {
+            0%   { box-shadow: 0 0 0 0 rgba(var(--primary-rgb, 11, 34, 56), 0.4); transform: scale(1); }
+            50%  { box-shadow: 0 0 0 12px rgba(var(--primary-rgb, 11, 34, 56), 0); transform: scale(1.015); }
+            100% { box-shadow: 0 0 0 0 rgba(var(--primary-rgb, 11, 34, 56), 0); transform: scale(1); }
+        }
+
+        @keyframes ctaSubirHaloSubtle {
+            0%, 100% { opacity: 0.3; transform: scale(0.95); }
+            50%       { opacity: 0.6; transform: scale(1.05); }
+        }
+
+        @keyframes ctaSubirShineSubtle {
+            0% { left: -100%; }
+            20% { left: 200%; }
+            100% { left: 200%; }
+        }
+
+        @keyframes ctaSubirIconBounceSubtle {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
+        }
+
+        /* ============================================================ */
+        /* BOTÓN EXTERNO "SUBIR COMPROBANTE" (encima de la card)        */
+        /* ============================================================ */
+
+        .orden-cta-subir-externo {
+            display: flex;
+            justify-content: center;
+            margin: 1.5rem 0 1.5rem;
+            position: relative;
+            z-index: 3;
+        }
+
+        .btn-subir-comprobante-externo {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, var(--primary, #0b2238) 0%, var(--primary-dark, #091a2a) 100%);
+            color: #fff;
+            font-family: 'Inter', sans-serif;
+            font-size: 1rem;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+            border: 2px solid transparent;
+            border-radius: 14px;
+            cursor: pointer;
+            width: 100%;
+            max-width: 280px;
+            justify-content: center;
+            box-shadow: 0 8px 24px rgba(var(--primary-rgb, 11, 34, 56), 0.4);
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            animation: ctaSubirPulse 2s infinite cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            z-index: 1;
+            overflow: hidden;
+        }
+
+        /* Efecto de brillo interior (sweep) */
+        .btn-subir-comprobante-externo::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 50%;
+            height: 100%;
+            background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.3) 50%, rgba(255,255,255,0) 100%);
+            transform: skewX(-25deg);
+            animation: ctaSubirShine 2.5s infinite;
+            z-index: 2;
+        }
+
+        .btn-subir-comprobante-externo:hover {
+            transform: translateY(-4px) scale(1.04);
+            box-shadow: 0 16px 36px rgba(var(--primary-rgb, 11, 34, 56), 0.6);
+            background: linear-gradient(135deg, var(--primary-dark, #091a2a) 0%, var(--primary, #0b2238) 100%);
+            border-color: rgba(255,255,255,0.15);
+            animation-play-state: paused;
+        }
+
+        .btn-subir-comprobante-externo:active {
+            transform: translateY(1px) scale(0.96);
+            box-shadow: 0 4px 14px rgba(var(--primary-rgb, 11, 34, 56), 0.4);
+        }
+
+        .btn-subir-comprobante-externo i {
+            font-size: 1.15rem;
+            position: relative;
+            z-index: 3;
+            animation: ctaSubirIconBounce 1.5s infinite;
+        }
+        
+        .btn-subir-comprobante-externo span {
+            position: relative;
+            z-index: 3;
+        }
+
+        .orden-cta-subir-externo::before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            max-width: 280px;
+            height: 52px;
+            border-radius: 14px;
+            background: radial-gradient(circle, var(--primary, #0b2238) 0%, transparent 75%);
+            filter: blur(12px);
+            z-index: 0;
+            animation: ctaSubirHalo 2s infinite cubic-bezier(0.4, 0, 0.2, 1);
+            pointer-events: none;
+            bottom: -6px;
+            opacity: 0.8;
+        }
+
+        @keyframes ctaSubirPulse {
+            0%   { box-shadow: 0 0 0 0 rgba(var(--primary-rgb, 11, 34, 56), 0.6); transform: scale(1); }
+            50%  { box-shadow: 0 0 0 25px rgba(var(--primary-rgb, 11, 34, 56), 0); transform: scale(1.03); }
+            100% { box-shadow: 0 0 0 0 rgba(var(--primary-rgb, 11, 34, 56), 0); transform: scale(1); }
+        }
+
+        @keyframes ctaSubirHalo {
+            0%, 100% { opacity: 0.3; transform: scale(0.9); }
+            50%       { opacity: 1; transform: scale(1.15); }
+        }
+
+        @media (max-width: 768px) {
+            .orden-cta-subir-externo {
+                margin: 1rem 0 1.2rem;
+            }
+            .btn-subir-comprobante-externo {
+                padding: 0.65rem 1.1rem;
+                font-size: 0.88rem;
+                max-width: 250px;
+                border-radius: 12px;
+                gap: 0.45rem;
+            }
+            .btn-subir-comprobante-externo i {
+                font-size: 1rem;
+            }
+            .orden-cta-subir-externo::before {
+                max-width: 250px;
+                height: 44px;
+            }
+        }
+        
+        @keyframes ctaSubirShine {
+            0% { left: -100%; }
+            15% { left: 200%; }
+            100% { left: 200%; }
+        }
+        
+        @keyframes ctaSubirIconBounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-7px); }
+            60% { transform: translateY(-3px); }
+        }
+
+        /* ============================================
+           FORMAS DE PAGO - fp-* classes
+           ============================================ */
+        .fp-seccion {
+            padding: 0.5rem 0 !important;
+        }
+
+        .fp-subtitulo {
+            font-size: 0.82rem;
+            color: var(--text-light);
+            margin: 0 0 1rem 0;
+            line-height: 1.4;
+            text-align: center;
+        }
+
+        /* Total badge (Menos exagerado, centrado y limpio) */
+        .fp-total-badge {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(15, 58, 125, 0.04);
+            border: 1px dashed rgba(15, 58, 125, 0.2);
+            color: var(--text-dark);
+            border-radius: var(--radius-md, 8px);
+            padding: 0.85rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .fp-total-label {
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: var(--text-light);
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            margin-bottom: 0.15rem;
+        }
+
+        .fp-total-amount {
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: var(--primary);
+            letter-spacing: -0.01em;
+        }
+
+        /* Tipo selector (botones Transferencia / Efectivo) */
+        .fp-tipo-selector {
+            display: flex;
+            flex-direction: column;
+            gap: 0.55rem;
+            animation: fpFadeIn 0.25s ease-out;
+        }
+
+        .fp-tipo-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            width: 100%;
+            padding: 0.85rem 1rem;
+            background: white;
+            border: 1.5px solid rgba(var(--primary-rgb, 15, 58, 125), 0.14);
+            border-radius: var(--radius-md, 8px);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-dark);
+            cursor: pointer;
+            transition: all 200ms ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            text-align: left;
+        }
+
+        .fp-tipo-btn i {
+            font-size: 1.15rem;
+            color: var(--primary, #0b2238);
+            width: 1.4rem;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        .fp-tipo-btn:hover {
+            border-color: var(--primary, #0b2238);
+            background: linear-gradient(135deg, #f8faff 0%, #eef4ff 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(var(--primary-rgb, 15, 58, 125), 0.12);
+        }
+
+        .fp-tipo-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 8px rgba(var(--primary-rgb, 15, 58, 125), 0.08);
+        }
+
+        /* Lista de cuentas */
+        .fp-cuentas-lista {
+            animation: fpSlideIn 0.28s cubic-bezier(0.34, 1.26, 0.64, 1);
+        }
+
+        .fp-lista-titulo {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--text-light);
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            margin: 0 0 0.6rem 0;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .fp-cuenta-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            width: 100%;
+            padding: 0.8rem 0.9rem;
+            background: white;
+            border: 1.5px solid rgba(var(--primary-rgb, 15, 58, 125), 0.1);
+            border-radius: var(--radius-md, 8px);
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            transition: all 180ms ease;
+            margin-bottom: 0.4rem;
+            text-align: left;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+        }
+
+        .fp-cuenta-btn:hover {
+            border-color: var(--secondary, #E8553B);
+            background: linear-gradient(135deg, #fff8f7 0%, #fff3f1 100%);
+            transform: translateX(2px);
+            box-shadow: 0 4px 14px rgba(232, 85, 59, 0.12);
+        }
+
+        .fp-cuenta-icon {
+            font-size: 1.25rem;
+            flex-shrink: 0;
+            width: 1.8rem;
+            text-align: center;
+        }
+
+        .fp-cuenta-nombre {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--text-dark);
+            flex: 1;
+        }
+
+        .fp-cuenta-tipo {
+            font-size: 0.72rem;
+            color: var(--text-light);
+            background: rgba(var(--primary-rgb, 15, 58, 125), 0.07);
+            padding: 0.15rem 0.45rem;
+            border-radius: 999px;
+            font-weight: 600;
+        }
+
+        .fp-cuenta-arrow {
+            color: var(--text-light);
+            font-size: 0.75rem;
+            flex-shrink: 0;
+            transition: transform 180ms ease;
+        }
+
+        .fp-cuenta-btn:hover .fp-cuenta-arrow {
+            color: var(--secondary, #E8553B);
+            transform: translateX(2px);
+        }
+
+        /* Botón volver */
+        .fp-back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            margin-top: 0.25rem;
+            padding: 0.4rem 0.6rem;
+            background: transparent;
+            border: none;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--text-light);
+            cursor: pointer;
+            border-radius: var(--radius-sm, 4px);
+            transition: color 150ms ease;
+        }
+
+        .fp-back-btn:hover {
+            color: var(--primary, #0b2238);
+        }
+
+        @keyframes fpFadeIn {
+            from { opacity: 0; }
+            to   { opacity: 1; }
+        }
+
+        @keyframes fpSlideIn {
+            from { opacity: 0; transform: translateY(8px) scale(0.98); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        /* ============================================
+           MODAL DETALLE CUENTA (mdc-*)
+           ============================================ */
+        .mdc-card {
+            background: linear-gradient(135deg, #f8faff 0%, #f0f4ff 100%);
+            border: 1.5px solid rgba(var(--primary-rgb, 15, 58, 125), 0.12);
+            border-radius: var(--radius-lg, 12px);
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+        }
+
+        .mdc-card-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid rgba(var(--primary-rgb, 15, 58, 125), 0.1);
+        }
+
+        .mdc-card-banco-icon {
+            font-size: 2rem;
+            flex-shrink: 0;
+        }
+
+        .mdc-card-banco-info {
+            flex: 1;
+        }
+
+        .mdc-card-banco-nombre {
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: var(--text-dark);
+            line-height: 1.2;
+        }
+
+        .mdc-card-banco-tipo {
+            font-size: 0.75rem;
+            color: var(--text-light);
+            margin-top: 0.1rem;
+        }
+
+        .mdc-card-row {
+            display: flex;
+            flex-direction: column;
+            gap: 0.85rem;
+        }
+
+        .mdc-card-field {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+        }
+
+        .mdc-card-label {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        .mdc-card-value {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text-dark);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .mdc-card-value--monospace {
+            font-family: 'SFMono-Regular', 'Consolas', monospace;
+            font-size: 1.05rem;
+            letter-spacing: 0.04em;
+        }
+
+        .mdc-card-value--total {
+            font-size: 1.6rem;
+            font-weight: 900;
+            color: var(--primary, #0b2238);
+        }
+
+        .mdc-card-value--referencia {
+            color: var(--text-dark);
+            font-weight: 800;
+        }
+
+        .mdc-copiar-btn {
+            background: rgba(15, 58, 125, 0.08);
+            color: var(--primary, #0b2238);
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: 0.35rem;
+            transition: all 150ms ease;
+            flex-shrink: 0;
+        }
+
+        .mdc-copiar-btn:hover {
+            background: var(--primary, #0b2238);
+            color: white;
+            transform: scale(1.05);
+        }
+        
+        .mdc-copiar-btn.copied {
+            background: var(--success, #10b981);
+            color: white;
+            transform: scale(1.1);
+        }
+
+        .mdc-instruccion {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.6rem;
+            padding: 0.7rem 0.85rem;
+            background: rgba(var(--primary-rgb, 15, 58, 125), 0.06);
+            border-radius: var(--radius-md, 8px);
+            border-left: 3px solid var(--primary, #0b2238);
+            margin-bottom: 1rem;
+            font-size: 0.83rem;
+            color: var(--text-dark);
+            line-height: 1.5;
+        }
+
+        .mdc-instruccion i {
+            color: var(--primary, #0b2238);
+            flex-shrink: 0;
+            margin-top: 0.15rem;
+        }
+
+        .mdc-btn-subir {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            font-size: 0.98rem;
+            font-weight: 800;
+            padding: 0.95rem;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--primary, #0b2238) 0%, var(--primary-dark, #091a2a) 100%);
+            color: white;
+            border: none;
+            box-shadow: 0 4px 14px rgba(15, 58, 125, 0.25);
+            transition: all 0.2s ease;
+            animation: mdcBtnFloat 3s ease-in-out infinite;
+        }
+
+        .mdc-btn-subir:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 8px 22px rgba(15, 58, 125, 0.35);
+            color: white;
+        }
+
+        .mdc-btn-subir i {
+            font-size: 1.1rem;
+            animation: mdcBtnIconBounce 2s infinite;
+        }
+
+        @keyframes mdcBtnFloat {
+            0%, 100% { transform: translateY(0); box-shadow: 0 4px 14px rgba(15, 58, 125, 0.25); }
+            50% { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(15, 58, 125, 0.35); }
+        }
+
+        @keyframes mdcBtnIconBounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-4px); }
+            60% { transform: translateY(-2px); }
+        }
+
 
         .orden-acciones .btn {
             flex: 1;
@@ -1882,6 +2454,7 @@
             padding: 0.5rem 0.75rem;
             font-size: 0.85rem;
         }
+
 
         @media (min-width: 769px) {
             .orden-card {
@@ -2786,6 +3359,7 @@
 
             appState.realtimeRefreshLocks[ordenIdNormalizado] = true;
 
+            let pdfRenderContainer = null;
             try {
                 buscarOrdenes();
 
@@ -3472,7 +4046,12 @@
             const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
             try {
+                const headersGetOrden = {};
+                const activeSlugOrden = new URLSearchParams(window.location.search).get('rifa') || new URLSearchParams(window.location.search).get('slug') || window.rifaplusConfig?.rifa?.slug;
+                if (activeSlugOrden) headersGetOrden['x-rifaplus-rifa-slug'] = activeSlugOrden;
+
                 const response = await fetch(`${apiBase}/api/public/ordenes-cliente/orden/${encodeURIComponent(ordenIdLimpio)}`, {
+                    headers: headersGetOrden,
                     signal: controller.signal,
                     cache: 'no-store'
                 });
@@ -3568,11 +4147,19 @@
             const ordenCard = encontrarOrdenCard(ordenIdNormalizado);
             if (!ordenCard) return false;
 
-            const objetivo = ordenCard;
+            let objetivo = ordenCard;
+            
+            // ✅ UX: Si el botón de CTA está inyectado antes de la tarjeta, lo tomamos en cuenta
+            if (ordenCard.previousElementSibling && ordenCard.previousElementSibling.classList.contains('orden-cta-subir-externo')) {
+                objetivo = ordenCard.previousElementSibling;
+            }
+
             const header = document.querySelector('.header');
-            const headerOffset = header ? Math.max(72, header.offsetHeight + 12) : 96;
-            const rect = objetivo.getBoundingClientRect();
-            const topObjetivo = Math.max(0, rect.top + window.pageYOffset - headerOffset);
+            const headerOffset = header ? Math.max(72, header.offsetHeight + 20) : 96;
+            
+            const rectObjetivo = objetivo.getBoundingClientRect();
+            const topAbsoluto = rectObjetivo.top + window.pageYOffset;
+            let topObjetivo = Math.max(0, topAbsoluto - headerOffset);
 
             const behavior = options.instant ? 'auto' : 'smooth';
             window.scrollTo({ top: topObjetivo, behavior });
@@ -3868,6 +4455,7 @@
                 : String(ordenId).replace(/"/g, '\\"');
             const boton = document.querySelector(`[data-descargar-orden="${selectorSeguro}"]`);
             const htmlOriginal = boton ? boton.innerHTML : '';
+            let pdfRenderContainer = null;
 
             try {
                 appState.ordenesDescargando.add(ordenId);
@@ -3878,19 +4466,12 @@
 
                 rifaplusUtils.showFeedback('⏳ Preparando tu orden en PDF...', 'info');
 
-                const { jsPDF } = window.jspdf;
-                const pdf = new jsPDF({
-                    orientation: 'portrait',
-                    unit: 'mm',
-                    format: 'a4'
-                });
-
-                const colors = obtenerTemaPdfOrdenConfirmada();
-                const margen = 16;
-                const anchoPagina = pdf.internal.pageSize.getWidth();
-                const altoPagina = pdf.internal.pageSize.getHeight();
-                const anchoContenido = anchoPagina - (margen * 2);
-                const anchoTextoBoletos = anchoContenido - 4;
+                if (typeof window.html2canvas !== 'function') {
+                    throw new Error('html2canvas no está disponible');
+                }
+                if (!window.jspdf || typeof window.jspdf.jsPDF !== 'function') {
+                    throw new Error('jsPDF no está disponible');
+                }
 
                 const boletosFormateados = Array.isArray(orden.boletos)
                     ? orden.boletos
@@ -3972,255 +4553,204 @@
                     }))
                     : sanitizarTextoPdf(fechaSorteo);
                 const whatsapp = sanitizarTextoPdf(orden.whatsapp || orden.telefono_cliente || appState.currentWhatsapp || '-');
-                const logoDataUrl = await cargarImagenComoDataUrl(obtenerLogoPdfOrdenConfirmada());
-                const bancoConfirmado = sanitizarTextoPdf(orden.nombre_banco || orden.banco || 'Pago confirmado');
+                const ordenOficialId = sanitizarTextoPdf(String(orden.id || orden.numero_orden || '-'));
+                const escaparHtml = (valor) => String(valor ?? '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+                const logoSrc = obtenerLogoPdfOrdenConfirmada();
+                const boletosStr = boletosFormateados.length ? boletosFormateados.join(', ') : '-';
+                const oportunidadesStr = oportunidadesFormateadas.length ? oportunidadesFormateadas.join(', ') : '';
 
-                let y = margen;
-                pdf.setFillColor(255, 255, 255);
-                pdf.rect(0, 0, anchoPagina, altoPagina, 'F');
+                // — HTML 100% inline para que html2canvas funcione sin depender de hojas externas —
+                const S = {
+                    wrap:   'width:960px;background:#fff;padding:32px;box-sizing:border-box;font-family:Inter,Arial,sans-serif;color:#1f2937;font-size:14px;line-height:1.5;',
+                    // header
+                    header: 'display:flex;justify-content:space-between;align-items:flex-start;gap:20px;padding-bottom:16px;margin-bottom:20px;border-bottom:3px solid #0f3a7d;',
+                    hLeft:  'display:flex;flex-direction:column;align-items:flex-start;gap:6px;',
+                    hImg:   'height:80px;width:auto;object-fit:contain;',
+                    hOrg:   'font-weight:800;font-size:16px;color:#1f2937;',
+                    hBadge: 'display:inline-block;background:#dcfce7;color:#166534;font-weight:800;font-size:11px;padding:5px 11px;border-radius:999px;border:1px solid #bbf7d0;',
+                    hRight: 'text-align:right;',
+                    hLabel: 'font-size:11px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;',
+                    hId:    'font-weight:900;font-family:\'Courier New\',monospace;font-size:20px;color:#0f3a7d;white-space:nowrap;margin-bottom:8px;',
+                    hDate:  'font-size:12px;color:#6b7280;',
+                    // sections
+                    sec:    'margin-bottom:16px;',
+                    secT:   'font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#1f2937;margin-bottom:6px;',
+                    secBox: 'border:1px solid #e5e7eb;border-radius:6px;padding:12px;',
+                    // estado
+                    estBox: 'background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:12px;',
+                    estT:   'color:#166534;font-weight:700;font-size:14px;margin-bottom:4px;',
+                    estS:   'color:#166534;font-size:13px;',
+                    // grid 2 columnas
+                    grid2:  'display:grid;grid-template-columns:1fr 1fr;gap:12px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:12px;',
+                    cell:   'display:flex;flex-direction:column;gap:2px;',
+                    fLabel: 'font-size:11px;color:#6b7280;font-weight:600;',
+                    fVal:   'font-weight:700;font-size:14px;color:#1f2937;word-break:break-word;',
+                    // boletos
+                    bHead:  'font-size:11px;color:#6b7280;font-weight:600;margin-bottom:4px;',
+                    bList:  'font-family:\'Courier New\',monospace;font-size:13px;color:#1f2937;line-height:1.6;word-break:break-all;',
+                    bSep:   'margin-top:12px;',
+                    // total
+                    totBar: 'display:flex;justify-content:space-between;align-items:center;background:#dcfce7;border:1px solid #bbf7d0;border-radius:6px;padding:10px 14px;margin-top:12px;',
+                    totL:   'font-size:13px;font-weight:700;color:#166534;',
+                    totV:   'font-size:22px;font-weight:900;color:#166534;',
+                    // footer
+                    foot:   'border-top:1px solid #e5e7eb;padding-top:10px;margin-top:16px;font-size:11px;color:#9ca3af;text-align:center;'
+                };
 
-                const headerAltura = 32;
-                const logoBoxWidth = 36;
-                const rightBoxWidth = 54;
-                const centerWidth = anchoContenido - logoBoxWidth - rightBoxWidth - 8;
+                const htmlConfirmada = `
+                    <div style="${S.wrap}">
 
-                pdf.setFillColor(...colors.primary);
-                pdf.roundedRect(margen, y, anchoContenido, headerAltura, 6, 6, 'F');
+                        <!-- ENCABEZADO -->
+                        <div style="${S.header}">
+                            <div style="${S.hLeft}">
+                                <img src="${escaparHtml(logoSrc)}" alt="logo" style="${S.hImg}" onerror="this.onerror=null;this.src='images/placeholder-logo.svg';" crossorigin="anonymous">
+                                <div style="${S.hOrg}">${escaparHtml(nombreOrganizador)}</div>
+                                <div style="${S.hBadge}">✓ ORDEN CONFIRMADA</div>
+                            </div>
+                            <div style="${S.hRight}">
+                                <div style="${S.hLabel}">Comprobante Oficial</div>
+                                <div style="${S.hId}">#${escaparHtml(ordenOficialId)}</div>
+                                <div style="${S.hDate}">📅 ${escaparHtml(fechaOrdenLarga)}</div>
+                            </div>
+                        </div>
 
-                if (logoDataUrl?.dataUrl) {
-                    try {
-                        const logoBoxX = margen + 5;
-                        const logoBoxY = y + 4;
-                        const logoMaxWidth = 26;
-                        const logoMaxHeight = 24;
-                        const logoFit = calcularCajaAjustadaPdf({
-                            maxWidth: logoMaxWidth,
-                            maxHeight: logoMaxHeight,
-                            sourceWidth: logoDataUrl.width,
-                            sourceHeight: logoDataUrl.height
-                        });
+                        <!-- ESTADO -->
+                        <div style="${S.sec}">
+                            <div style="${S.secT}">Estado de Participación</div>
+                            <div style="${S.estBox}">
+                                <div style="${S.estT}">✅ Ya estás participando en este sorteo</div>
+                                <div style="${S.estS}">Tu pago fue validado correctamente. Esta orden es tu comprobante oficial con los números confirmados.</div>
+                            </div>
+                        </div>
 
-                        pdf.addImage(
-                            logoDataUrl.dataUrl,
-                            'PNG',
-                            logoBoxX + logoFit.offsetX,
-                            logoBoxY + logoFit.offsetY,
-                            logoFit.width,
-                            logoFit.height,
-                            undefined,
-                            'FAST'
-                        );
-                    } catch (_) {
-                        // Si falla el logo, seguimos solo con texto.
-                    }
-                }
+                        <!-- DATOS CLIENTE Y SORTEO -->
+                        <div style="${S.sec}">
+                            <div style="${S.secT}">Datos del Cliente y Sorteo</div>
+                            <div style="${S.grid2}">
+                                <div style="${S.cell}">
+                                    <span style="${S.fLabel}">Nombre del Cliente</span>
+                                    <span style="${S.fVal}">${escaparHtml(nombreCliente)}</span>
+                                </div>
+                                <div style="${S.cell}">
+                                    <span style="${S.fLabel}">WhatsApp</span>
+                                    <span style="${S.fVal}">${escaparHtml(whatsapp)}</span>
+                                </div>
+                                <div style="${S.cell}">
+                                    <span style="${S.fLabel}">Sorteo</span>
+                                    <span style="${S.fVal}">${escaparHtml(nombreSorteo)}</span>
+                                </div>
+                                <div style="${S.cell}">
+                                    <span style="${S.fLabel}">Fecha del Sorteo</span>
+                                    <span style="${S.fVal}">${escaparHtml(fechaSorteoBonita || fechaSorteo)}</span>
+                                </div>
+                            </div>
+                        </div>
 
-                const xTextoHeader = margen + logoBoxWidth;
-                pdf.setTextColor(255, 255, 255);
-                pdf.setFont('helvetica', 'bold');
-                pdf.setFontSize(15);
-                pdf.text(pdf.splitTextToSize(nombreOrganizador, centerWidth).slice(0, 1), xTextoHeader, y + 10);
-                pdf.setFont('helvetica', 'normal');
-                pdf.setFontSize(9.5);
-                pdf.text('Constancia de participacion confirmada', xTextoHeader, y + 18);
-                pdf.setFontSize(8.2);
-                pdf.text('Documento oficial de orden confirmada', xTextoHeader, y + 24);
+                        <!-- RESUMEN CONFIRMADO -->
+                        <div style="${S.sec}">
+                            <div style="${S.secT}">Resumen de Compra Confirmada</div>
+                            <div style="${S.secBox}">
+                                <div style="${S.bHead}">Boletos Confirmados (${boletosFormateados.length})</div>
+                                <div style="${S.bList}">${escaparHtml(boletosStr)}</div>
 
-                dibujarEtiquetaEstadoPdf(pdf, {
-                    x: anchoPagina - margen - rightBoxWidth + 4,
-                    y: y + 4.5,
-                    texto: 'PAGO VERIFICADO',
-                    fillColor: colors.successBg,
-                    textColor: colors.successText
+                                ${(oportunidadesHabilitadas && oportunidadesTotales > 0) ? `
+                                <div style="${S.bSep}">
+                                    <div style="${S.bHead}">Oportunidades Confirmadas (${oportunidadesTotales})</div>
+                                    <div style="${S.bList}">${escaparHtml(oportunidadesStr || `${oportunidadesTotales} oportunidad(es) confirmada(s)`)}</div>
+                                </div>
+                                ` : ''}
+
+                                <div style="${S.totBar}">
+                                    <span style="${S.totL}">TOTAL PAGADO</span>
+                                    <span style="${S.totV}">$${Number(total).toFixed(2)}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- PIE -->
+                        <div style="${S.foot}">
+                            Documento de respaldo oficial emitido por el sistema. Consérvalo para cualquier aclaración sobre tus boletos.
+                        </div>
+
+                    </div>
+                `;
+
+                pdfRenderContainer = document.createElement('div');
+                // IMPORTANTE: NO usar visibility:hidden ni display:none
+                // porque se hereda a los hijos y html2canvas captura en blanco.
+                // Mover fuera del viewport con left:-9999px es suficiente.
+                pdfRenderContainer.style.cssText = [
+                    'position:absolute',
+                    'left:-9999px',
+                    'top:0',
+                    'width:960px',
+                    'pointer-events:none',
+                    'overflow:visible',
+                    'z-index:-9999'
+                ].join(';');
+                pdfRenderContainer.innerHTML = htmlConfirmada;
+                document.body.appendChild(pdfRenderContainer);
+
+                const target = pdfRenderContainer.firstElementChild;
+
+                // Esperar que el logo cargue (o falle) antes de capturar
+                const logoImg = target.querySelector('img');
+                await new Promise((resolve) => {
+                    if (!logoImg || logoImg.complete) { resolve(); return; }
+                    const t = setTimeout(resolve, 3000); // máx 3s
+                    logoImg.onload  = () => { clearTimeout(t); resolve(); };
+                    logoImg.onerror = () => { clearTimeout(t); resolve(); };
                 });
+                // Pequeña pausa extra para que el layout se estabilice
+                await new Promise((resolve) => setTimeout(resolve, 120));
 
-                const xDatosDerecha = anchoPagina - margen - 6;
-                pdf.setTextColor(255, 255, 255);
-                pdf.setFont('helvetica', 'bold');
-                pdf.setFontSize(10.5);
-                pdf.text(`#${sanitizarTextoPdf(String(orden.id || orden.numero_orden || '-'))}`, xDatosDerecha, y + 18, { align: 'right' });
-                pdf.setFont('helvetica', 'normal');
-                pdf.setFontSize(8.2);
-                pdf.text(pdf.splitTextToSize(sanitizarTextoPdf(fechaOrdenLarga), rightBoxWidth - 4).slice(0, 2), xDatosDerecha, y + 24, { align: 'right' });
-
-                y += 36;
-
-                pdf.setFillColor(...colors.white);
-                pdf.setDrawColor(...colors.border);
-                pdf.roundedRect(margen, y, anchoContenido, 16, 4, 4, 'FD');
-                pdf.setTextColor(...colors.textDark);
-                pdf.setFont('helvetica', 'bold');
-                pdf.setFontSize(10.4);
-                pdf.text(pdf.splitTextToSize(`Sorteo: ${nombreSorteo}`, anchoContenido - 12).slice(0, 2), margen + 6, y + 10);
-
-                y += 22;
-
-                pdf.setFillColor(...colors.white);
-                pdf.setDrawColor(...colors.border);
-                pdf.roundedRect(margen, y, anchoContenido, 22, 5, 5, 'FD');
-                pdf.setTextColor(...colors.textDark);
-                pdf.setFont('helvetica', 'bold');
-                pdf.setFontSize(13.2);
-                pdf.text('Ya estas participando en este sorteo', margen + 6, y + 9);
-                pdf.setFont('helvetica', 'normal');
-                pdf.setFontSize(9.6);
-                const subtituloParticipacion = pdf.splitTextToSize(
-                    'Tu pago fue validado correctamente. Conserva este documento como respaldo oficial de tu participacion y de tus boletos asignados.',
-                    anchoContenido - 12
-                );
-                pdf.text(subtituloParticipacion, margen + 6, y + 15);
-
-                y += 28;
-
-                const mitad = (anchoContenido - 4) / 2;
-                const yCliente = dibujarBloqueInfoPdf(pdf, {
-                    x: margen,
-                    y,
-                    width: mitad,
-                    title: 'Titular de la orden',
-                    rows: [
-                        { label: 'Cliente', value: nombreCliente },
-                        { label: 'WhatsApp', value: whatsapp },
-                        { label: 'Orden', value: String(orden.id || orden.numero_orden || '-') }
-                    ]
+                const canvas = await window.html2canvas(target, {
+                    scale: 2,
+                    useCORS: true,
+                    allowTaint: false,
+                    logging: false,
+                    backgroundColor: '#ffffff',
+                    width: 960,
+                    windowWidth: 960
                 });
-                const ySorteo = dibujarBloqueInfoPdf(pdf, {
-                    x: margen + mitad + 4,
-                    y,
-                    width: mitad,
-                    title: 'Datos del sorteo',
-                    rows: [
-                        { label: 'Sorteo', value: nombreSorteo },
-                        { label: 'Fecha sorteo', value: fechaSorteoBonita || fechaSorteo },
-                        { label: 'Estado pago', value: 'Verificado y confirmado' },
-                        { label: 'Banco', value: bancoConfirmado }
-                    ]
-                });
-                y = Math.max(yCliente, ySorteo) + 8;
+                document.body.removeChild(pdfRenderContainer);
+                pdfRenderContainer = null;
 
-                const yCompra = dibujarBloqueInfoPdf(pdf, {
-                    x: margen,
-                    y,
-                    width: anchoContenido,
-                    title: 'Resumen de la participacion',
-                    rows: [
-                        { label: 'Cantidad', value: `${boletosFormateados.length} boleto(s)` },
-                        ...(oportunidadesHabilitadas && oportunidadesTotales > 0
-                            ? [{ label: 'Oportunidades', value: `${oportunidadesTotales}` }]
-                            : []),
-                        { label: 'Subtotal', value: `$${subtotal.toFixed(2)}` },
-                        ...(descuento > 0 ? [{ label: 'Descuento', value: `-$${descuento.toFixed(2)}` }] : []),
-                        { label: 'Total pagado', value: `$${total.toFixed(2)}` }
-                    ]
-                });
-                y = yCompra + 8;
+                const imgData = canvas.toDataURL('image/jpeg', 0.92);
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true });
+                const pdfWidth = 210;
+                const pdfHeight = 297;
+                const margin = 10;
+                const availableWidth = pdfWidth - (margin * 2);
+                const availableHeight = pdfHeight - (margin * 2);
+                const canvasRatio = canvas.height / canvas.width;
+                const imgHeight = availableWidth * canvasRatio;
+                const pagesNeeded = Math.ceil(imgHeight / availableHeight);
 
-                pdf.setFillColor(...colors.white);
-                pdf.setDrawColor(...colors.border);
-                pdf.roundedRect(margen, y, anchoContenido, 16, 4, 4, 'FD');
-                pdf.setFont('helvetica', 'bold');
-                pdf.setFontSize(11);
-                pdf.setTextColor(...colors.textDark);
-                pdf.text('Boletos confirmados', margen + 5, y + 9);
-                pdf.setFont('helvetica', 'normal');
-                pdf.setFontSize(9.1);
-                pdf.setTextColor(...colors.textSoft);
-                pdf.text('Estos son los boletos con los que ya participas en el sorteo.', anchoPagina - margen - 5, y + 9, { align: 'right' });
-                y += 20;
-
-                const lineasBoletos = construirLineasBoletosPdf(boletosFormateados);
-                pdf.setFont('courier', 'bold');
-                pdf.setFontSize(10);
-                pdf.setTextColor(...colors.textDark);
-
-                lineasBoletos.forEach((linea) => {
-                    const lineasRender = pdf.splitTextToSize(linea, anchoTextoBoletos);
-                    const altoLinea = Math.max(1, lineasRender.length) * 5.2;
-
-                    if (y + altoLinea > altoPagina - 36) {
-                        pdf.addPage();
-                        pdf.setFillColor(255, 255, 255);
-                        pdf.rect(0, 0, anchoPagina, altoPagina, 'F');
-                        y = margen + 8;
-                    }
-
-                    pdf.text(lineasRender, margen + 2, y);
-                    y += altoLinea;
-                });
-
-                if (oportunidadesHabilitadas && oportunidadesTotales > 0) {
-                    if (y + 24 > altoPagina - 36) {
-                        pdf.addPage();
-                        pdf.setFillColor(255, 255, 255);
-                        pdf.rect(0, 0, anchoPagina, altoPagina, 'F');
-                        y = margen + 8;
-                    }
-
-                    pdf.setFillColor(...colors.white);
-                    pdf.setDrawColor(...colors.border);
-                    pdf.roundedRect(margen, y, anchoContenido, 16, 4, 4, 'FD');
-                    pdf.setFont('helvetica', 'bold');
-                    pdf.setFontSize(11);
-                    pdf.setTextColor(...colors.textDark);
-                    pdf.text('Oportunidades confirmadas', margen + 5, y + 9);
-                    pdf.setFont('helvetica', 'normal');
-                    pdf.setFontSize(9.1);
-                    pdf.setTextColor(...colors.textSoft);
-                    pdf.text(
-                        oportunidadesFormateadas.length > 0
-                            ? 'Estas son las oportunidades adicionales ligadas a tu orden confirmada.'
-                            : 'Tu orden incluye oportunidades adicionales confirmadas.',
-                        anchoPagina - margen - 5,
-                        y + 9,
-                        { align: 'right' }
-                    );
-                    y += 20;
-
-                    if (oportunidadesFormateadas.length > 0) {
-                        const lineasOportunidades = construirLineasBoletosPdf(oportunidadesFormateadas);
-                        pdf.setFont('courier', 'bold');
-                        pdf.setFontSize(10);
-                        pdf.setTextColor(...colors.textDark);
-
-                        lineasOportunidades.forEach((linea) => {
-                            const lineasRender = pdf.splitTextToSize(linea, anchoTextoBoletos);
-                            const altoLinea = Math.max(1, lineasRender.length) * 5.2;
-
-                            if (y + altoLinea > altoPagina - 36) {
-                                pdf.addPage();
-                                pdf.setFillColor(255, 255, 255);
-                                pdf.rect(0, 0, anchoPagina, altoPagina, 'F');
-                                y = margen + 8;
-                            }
-
-                            pdf.text(lineasRender, margen + 2, y);
-                            y += altoLinea;
-                        });
+                if (pagesNeeded === 1) {
+                    const yPos = margin; // alineado desde arriba
+                    pdf.addImage(imgData, 'JPEG', margin, yPos, availableWidth, imgHeight);
                     } else {
-                        pdf.setFont('helvetica', 'bold');
-                        pdf.setFontSize(10.4);
-                        pdf.setTextColor(...colors.textDark);
-                        pdf.text(`${oportunidadesTotales} oportunidad${oportunidadesTotales === 1 ? '' : 'es'} confirmada${oportunidadesTotales === 1 ? '' : 's'}`, margen + 2, y);
-                        y += 7;
+                    const heightPerPage = imgHeight / pagesNeeded;
+                    for (let i = 0; i < pagesNeeded; i++) {
+                        if (i > 0) pdf.addPage('a4', 'portrait');
+                        const sourceY = (i / pagesNeeded) * canvas.height;
+                        const sourceHeight = canvas.height / pagesNeeded;
+                        const tempCanvas = document.createElement('canvas');
+                        tempCanvas.width = canvas.width;
+                        tempCanvas.height = sourceHeight;
+                        const tempCtx = tempCanvas.getContext('2d');
+                        tempCtx.drawImage(canvas, 0, sourceY, canvas.width, sourceHeight, 0, 0, canvas.width, sourceHeight);
+                        const portionImgData = tempCanvas.toDataURL('image/jpeg', 0.92);
+                        pdf.addImage(portionImgData, 'JPEG', margin, margin, availableWidth, heightPerPage);
                     }
                 }
-
-                const yFooter = altoPagina - 26;
-                pdf.setDrawColor(...mezclarColorPdf(colors.primary, [255, 255, 255], 0.75));
-                pdf.line(margen, yFooter - 5, anchoPagina - margen, yFooter - 5);
-                pdf.setFont('helvetica', 'bold');
-                pdf.setFontSize(10);
-                pdf.setTextColor(...colors.textDark);
-                pdf.text('Documento de respaldo de orden confirmada', margen, yFooter);
-                pdf.setFont('helvetica', 'normal');
-                pdf.setFontSize(8.8);
-                pdf.setTextColor(...colors.textSoft);
-                pdf.text(
-                    'Conserva este PDF. Tu participacion ya fue validada y tu pago fue confirmado por el organizador.',
-                    margen,
-                    yFooter + 6
-                );
-                pdf.text(`Emitido para ${nombreCliente}`, anchoPagina - margen, yFooter + 6, { align: 'right' });
 
                 const nombreArchivo = `orden-${String(orden.id || orden.numero_orden || 'confirmada').replace(/[^a-zA-Z0-9-_]/g, '-')}.pdf`;
                 pdf.save(nombreArchivo);
@@ -4229,6 +4759,9 @@
                 console.error('Error al descargar orden confirmada:', error);
                 rifaplusUtils.showFeedback('❌ No pudimos generar el PDF de tu orden.', 'error');
             } finally {
+                if (pdfRenderContainer?.parentNode) {
+                    pdfRenderContainer.parentNode.removeChild(pdfRenderContainer);
+                }
                 appState.ordenesDescargando.delete(ordenId);
                 if (boton) {
                     boton.disabled = false;
@@ -4402,7 +4935,12 @@
                     || window.rifaplusConfig?.obtenerApiBase?.()
                     || window.location.origin;
 
+                const headersGetCliente = {};
+                const activeSlugCliente = new URLSearchParams(window.location.search).get('rifa') || new URLSearchParams(window.location.search).get('slug') || window.rifaplusConfig?.rifa?.slug;
+                if (activeSlugCliente) headersGetCliente['x-rifaplus-rifa-slug'] = activeSlugCliente;
+
                 fetch(`${apiBase}/api/public/ordenes-cliente?whatsapp=${encodeURIComponent(whatsapp)}`, {
+                    headers: headersGetCliente,
                     signal: controller.signal
                 })
                     .then(response => {
@@ -4589,6 +5127,10 @@
             listaOrdenes.innerHTML = '';
             const config = window.rifaplusConfig;
 
+            // Ocultar acordeón estático: el dinámico (debajo de las cards) toma su lugar
+            const instruccionesEstaticas = document.getElementById('instruccionesEstaticas');
+            if (instruccionesEstaticas) instruccionesEstaticas.style.display = 'none';
+
             ordenes.forEach((orden, idx) => {
                 // DEBUG: Log de datos de cada orden
                 console.log(`\n📋 Orden ${idx + 1}:`);
@@ -4636,6 +5178,9 @@
 
                 // Validar estado (protección contra XSS e inyección)
                 const estadoValidado = validarEstadoOrden(orden.estado);
+                if (estadoValidado === 'confirmada') {
+                    ordenCard.classList.add('orden-card--confirmada');
+                }
 
                 // Sanear boletos y formatear con padding dinámico
                 const boletosList = orden.boletos && Array.isArray(orden.boletos)
@@ -4750,18 +5295,16 @@
                 }
                 nombreBeneficiario = nombreBeneficiario || '-';
                 
-                const comprobanteSubido = orden.comprobante_path ? true : false;
+                // Detección robusta de comprobante: revisa todos los campos posibles
+                const comprobanteSubido = !!(orden.comprobante_path || orden.comprobante_url || orden.comprobante_subido);
                 const referencia = orden.numero_referencia || '-';
 
                 // Generar botones de acción según estado y comprobante
                 let botonesAccion = '';
                 if (estadoValidado === 'pendiente' && !comprobanteSubido) {
-                    // Estado pendiente SIN comprobante: Mostrar botón para subir
-                    botonesAccion = `
-                        <button class="btn btn-primary btn-pulse" onclick="abrirModalComprobante('${ordenId.replace(/'/g, '')}', '${totalFormato.replace(/'/g, '')}')">
-                            <i class="fas fa-upload"></i> Subir Comprobante
-                        </button>
-                    `;
+                    // Estado pendiente SIN comprobante:
+                    // El botón "Subir Comprobante" se renderiza FUERA de la card (ver más abajo)
+                    botonesAccion = '';
                 } else if (estadoValidado === 'pendiente' && comprobanteSubido) {
                     // Estado pendiente CON comprobante: Mostrar estado "en revisión"
                     botonesAccion = `
@@ -4776,15 +5319,6 @@
                         <div class="orden-confirmada-panel">
                             <h4>🎉 ¡Ya Estás Participando!</h4>
                             <p>Mucha suerte en el sorteo. Revisa nuestras redes sociales para los resultados.</p>
-                        </div>
-                        <div class="orden-acciones-descarga">
-                            <button
-                                type="button"
-                                class="btn-descargar-orden"
-                                data-descargar-orden="${ordenId}"
-                                onclick="descargarOrdenConfirmada('${ordenId.replace(/'/g, '')}')">
-                                <i class="fas fa-download"></i> Descargar orden
-                            </button>
                         </div>
                     `;
                 } else if (estadoValidado === 'cancelada') {
@@ -5015,66 +5549,14 @@
                             })()}
                         </div>
 
-                        <!-- SECCIÓN: DATOS DE PAGO - Solo si está pendiente SIN comprobante subido -->
-                        ${estadoValidado === 'pendiente' && !comprobanteSubido ? `
-                        <div class="orden-seccion">
-                            <div class="orden-seccion-titulo">💳 Datos para Transferencia</div>
-                            ${banco !== '-' ? `
-                            <div style="margin-bottom: 1.5rem;">
-                                <div style="font-size: 0.85rem; font-weight: 600; color: #6B7280; margin-bottom: 0.3rem;">Banco</div>
-                                <div style="font-size: 1.1rem; color: #111111; font-weight: 700;">${banco}</div>
-                            </div>
-                            ` : ''}
-                            ${numeroCuenta !== '-' ? `
-                            <div style="margin-bottom: 1.5rem;">
-                                <div style="font-size: 0.85rem; font-weight: 600; color: #6B7280; margin-bottom: 0.5rem;">Número de Cuenta</div>
-                                <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                    <span style="font-size: 1.1rem; color: #111111; font-weight: 700;">${numeroCuenta}</span>
-                                    <button type="button" class="btn-copiar-inline" data-copiar="${numeroCuenta}" title="Copiar número" style="background: #111111; color: white; border: none; padding: 0.4rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.7rem; font-weight: 700; display: flex; align-items: center; gap: 0.3rem; white-space: nowrap;">
-                                        <i class="fas fa-copy"></i> Copiar
-                                    </button>
-                                </div>
-                            </div>
-                            ` : ''}
-                            <div style="margin-bottom: 1.5rem;">
-                                <div style="font-size: 0.85rem; font-weight: 600; color: #6B7280; margin-bottom: 0.5rem;">Beneficiario</div>
-                                <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                    <span style="font-size: 1.1rem; color: #111111; font-weight: 700;">${nombreBeneficiario !== '-' ? nombreBeneficiario : 'No especificado'}</span>
-                                    ${nombreBeneficiario !== '-' ? `
-                                    <button type="button" class="btn-copiar-inline" data-copiar="${nombreBeneficiario}" title="Copiar beneficiario" style="background: #111111; color: white; border: none; padding: 0.4rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.7rem; font-weight: 700; display: flex; align-items: center; gap: 0.3rem; white-space: nowrap;">
-                                        <i class="fas fa-copy"></i> Copiar
-                                    </button>
-                                    ` : ''}
-                                </div>
-                            </div>
-                            <div style="margin-bottom: 1.5rem;">
-                                <div style="font-size: 0.85rem; font-weight: 600; color: #6B7280; margin-bottom: 0.5rem;">Referencia de Pago</div>
-                                <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                    <span style="font-size: 1.1rem; color: #111111; font-weight: 800;">${referenciaPagoCliente}</span>
-                                    <button type="button" class="btn-copiar-inline" data-copiar="${referenciaPagoCliente}" title="Copiar referencia" style="background: #111111; color: white; border: none; padding: 0.4rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.7rem; font-weight: 700; display: flex; align-items: center; gap: 0.3rem; white-space: nowrap;">
-                                        <i class="fas fa-copy"></i> Copiar
-                                    </button>
-                                </div>
-                            </div>
-                            <div style="margin-top: 1rem;">
-                                <div style="font-size: 0.85rem; font-weight: 600; color: #6B7280; margin-bottom: 0.3rem;">${estadoValidado === 'pendiente' ? 'Total a Pagar' : 'Total Pagado'}</div>
-                                <div style="font-size: 2rem; font-weight: 900; color: #111111;">$${totalFormato}</div>
-                            </div>
-                            <div style="margin-top: 1.5rem;">
-                                <a href="cuentas-pago.html" class="btn-mas-opciones" style="width: auto; display: inline-flex;">
-                                    <i class="fas fa-plus-circle"></i> Ver más opciones de pago
-                                </a>
-                            </div>
-                        </div>
-                        ` : `
+                        <!-- SECCIÓN: TOTAL -->
                         <div class="orden-seccion">
                             <div class="orden-seccion-titulo">💳 Total</div>
                             <div style="text-align: center; padding: 1rem; background: linear-gradient(135deg, #fcf8f2 0%, #f7f1e9 100%); border-radius: var(--radius-md);">
-                                <div style="font-size: 0.9rem; color: var(--text-light); margin-bottom: 0.5rem;">Total Pagado</div>
+                                <div style="font-size: 0.9rem; color: var(--text-light); margin-bottom: 0.5rem;">${estadoValidado === 'pendiente' ? 'Total a Pagar' : 'Total Pagado'}</div>
                                 <div class="orden-pago-total">$${totalFormato}</div>
                             </div>
                         </div>
-                        `}
 
                         <!-- SECCIÓN: ACCIONES -->
                         ${accionesPushHtml}
@@ -5086,8 +5568,136 @@
                 `;
 
                 listaOrdenes.appendChild(ordenCard);
+
+                // ✅ BLOQUE EXTERNO "Formas de Pago": se inserta ANTES de la card
+                // ✅ BOTÓN EXTERNO "Ver Cuentas y Pagar": se inserta ANTES de la card
+                // Solo cuando la orden es pendiente Y no tiene comprobante subido
+                if (estadoValidado === 'pendiente' && !comprobanteSubido) {
+                    const ctaPagar = document.createElement('div');
+                    ctaPagar.className = 'orden-cta-subir-externo';
+                    ctaPagar.dataset.ordenId = ordenId;
+                    const ordenIdSafe = ordenId.replace(/[^A-Z0-9\-]/gi, '');
+                    const totalSafe = String(totalFormato).replace(/[^0-9.]/g, '');
+                    const referenciaSafe = referenciaPagoCliente.replace(/'/g, '&#39;');
+                    
+                    ctaPagar.innerHTML = `
+                        <button
+                            type="button"
+                            class="btn-subir-comprobante-externo"
+                            data-orden-id="${ordenIdSafe}"
+                            data-total="${totalSafe}"
+                            onclick="abrirModalFormasPago('${ordenIdSafe}', '${totalSafe}', '${referenciaSafe}')"
+                            aria-label="Ver opciones de pago para la orden ${ordenIdSafe}">
+                            <i class="fas fa-wallet" aria-hidden="true"></i>
+                            <span>Ver Cuentas y Pagar</span>
+                        </button>
+                    `;
+                    listaOrdenes.insertBefore(ctaPagar, ordenCard);
+                }
+
+                if (estadoValidado === 'confirmada') {
+                    const bloqueDescargaExterno = document.createElement('div');
+                    // Usamos las mismas clases del botón de pago para que tenga idéntico estilo y halo
+                    // Agregamos .is-subtle para suavizar las animaciones
+                    bloqueDescargaExterno.className = 'orden-cta-subir-externo is-subtle';
+                    bloqueDescargaExterno.innerHTML = `
+                        <button
+                            type="button"
+                            class="btn-subir-comprobante-externo is-subtle"
+                            data-descargar-orden="${ordenId}"
+                            onclick="descargarOrdenConfirmada('${ordenId.replace(/'/g, '')}')">
+                            <i class="fas fa-download"></i>
+                            <span>Descargar orden</span>
+                        </button>
+                    `;
+                    // Insertamos ANTES de la tarjeta, igual que el botón de pagar
+                    listaOrdenes.insertBefore(bloqueDescargaExterno, ordenCard);
+                }
             });
-            
+
+            // ✅ INSTRUCCIONES: Inyectar acordeón debajo de las orden-cards
+            // Solo se agrega si hay órdenes y no existe ya
+            const acordeonExistente = listaOrdenes.querySelector('.instrucciones-acordeon');
+            if (!acordeonExistente) {
+                const acordeonEl = document.createElement('div');
+                acordeonEl.className = 'instrucciones-acordeon instrucciones-acordeon--inline';
+                acordeonEl.innerHTML = `
+                    <div class="acordeon-item">
+                        <button class="acordeon-header" data-accordion="instruccion-inline-1">
+                            <span class="acordeon-icon">📱</span>
+                            <span class="acordeon-titulo">¿Cómo ver mis órdenes?</span>
+                            <span class="acordeon-toggle"><i class="fas fa-chevron-down"></i></span>
+                        </button>
+                        <div class="acordeon-body" id="instruccion-inline-1" style="display: none;">
+                            <div class="acordeon-content">
+                                <p>Es muy fácil ver el resumen de tu compra y tus boletos asignados:</p>
+                                <ol class="steps-list">
+                                    <li><strong>Ingresa tu número:</strong> Escribe el mismo WhatsApp (10 dígitos) que usaste al apartar.</li>
+                                    <li><strong>Presiona "Buscar":</strong> Aparecerá tu tarjeta digital con tus boletos y el total a pagar.</li>
+                                    <li><strong>Revisa el estado:</strong> Dirá <strong>"Pendiente"</strong> si falta el pago, <strong>"En revisión"</strong> si ya lo enviaste, o <strong>"Confirmada"</strong> si ya estás participando.</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="acordeon-item">
+                        <button class="acordeon-header" data-accordion="instruccion-inline-2">
+                            <span class="acordeon-icon">📤</span>
+                            <span class="acordeon-titulo">¿Cómo reporto mi pago?</span>
+                            <span class="acordeon-toggle"><i class="fas fa-chevron-down"></i></span>
+                        </button>
+                        <div class="acordeon-body" id="instruccion-inline-2" style="display: none;">
+                            <div class="acordeon-content">
+                                <p>Para confirmar tu participación debes enviarnos la foto de tu pago. Sigue estos pasos:</p>
+                                <ol class="steps-list">
+                                    <li><strong>Encuentra tu orden:</strong> Búscala con tu número de WhatsApp.</li>
+                                    <li><strong>Abre las opciones de pago:</strong> En tu orden Pendiente, toca el botón <strong>"Ver Cuentas y Pagar"</strong> que está justo arriba de tu tarjeta.</li>
+                                    <li><strong>Realiza tu pago:</strong> Verás nuestras cuentas bancarias; copia la que prefieras y haz el depósito o transferencia.</li>
+                                    <li><strong>Envía la foto:</strong> Presiona el botón <strong>"Subir comprobante"</strong> que está en la parte inferior o usa el botón flotante que te acompaña en la pantalla. Adjunta tu captura o foto clara.</li>
+                                    <li><strong>¡Listo!:</strong> Espera a que validemos tu ticket. Si todo está correcto, tu orden cambiará a Confirmada y te aparecerá el botón para descargar tu comprobante digital.</li>
+                                </ol>
+                                <div class="comprobante-info">
+                                    <i class="fas fa-info-circle"></i>
+                                    <span><strong>Importante:</strong> Asegúrate de que la foto de tu pago sea legible y contenga el monto exacto para evitar demoras en la validación.</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                listaOrdenes.appendChild(acordeonEl);
+
+                // Reasignar listeners al acordeón recién creado (misma lógica que initializeAcordeon)
+                acordeonEl.querySelectorAll('.acordeon-header').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const acordeonItem = this.closest('.acordeon-item');
+                        const acordeonBody = acordeonItem.querySelector('.acordeon-body');
+                        const isActive = this.classList.contains('active');
+
+                        // Cerrar otros dentro del mismo acordeón
+                        acordeonEl.querySelectorAll('.acordeon-header').forEach(h => {
+                            if (h !== this) h.classList.remove('active');
+                        });
+                        acordeonEl.querySelectorAll('.acordeon-body').forEach(body => {
+                            if (body !== acordeonBody) {
+                                body.classList.remove('active');
+                                body.style.display = 'none';
+                            }
+                        });
+
+                        // Toggle actual
+                        if (isActive) {
+                            this.classList.remove('active');
+                            acordeonBody.classList.remove('active');
+                            acordeonBody.style.display = 'none';
+                        } else {
+                            this.classList.add('active');
+                            acordeonBody.classList.add('active');
+                            acordeonBody.style.display = 'block';
+                        }
+                    });
+                });
+            }
+
+
             configurarBotonesPushOrdenes();
             sincronizarEstadoPushOrdenesVisibles().catch((error) => {
                 console.warn('[Push] No fue posible sincronizar botones de notificaciones:', error?.message || error);
@@ -5215,7 +5825,280 @@
             if (btnCerrarComprobanteConfirmado) {
                 btnCerrarComprobanteConfirmado.addEventListener('click', cerrarModalComprobanteConfirmado);
             }
+            
+            // Cerrar modal detalle cuenta
+            const closeModalDetalleCuenta = document.getElementById('closeModalDetalleCuenta');
+            if (closeModalDetalleCuenta) {
+                closeModalDetalleCuenta.addEventListener('click', () => {
+                    const modal = document.getElementById('modalDetalleCuenta');
+                    if (modal) modal.classList.remove('show');
+                });
+            }
+            
+            // Cerrar modal formas de pago
+            const closeModalFormasPago = document.getElementById('closeModalFormasPago');
+            if (closeModalFormasPago) {
+                closeModalFormasPago.addEventListener('click', () => {
+                    const modal = document.getElementById('modalFormasPago');
+                    if (modal) modal.classList.remove('show');
+                });
+            }
         }
+
+        // ============================================
+        // LOGICA DE INTERFAZ FORMAS DE PAGO
+        // ============================================
+        window.seleccionarTipoPago = function(btn) {
+            const tipo = btn.dataset.tipo;
+            const fpId = btn.dataset.fpId;
+            const selectorDiv = document.getElementById(`${fpId}-selector`);
+            const listaDiv = document.getElementById(`${fpId}-${tipo}`);
+            
+            if (selectorDiv && listaDiv) {
+                selectorDiv.style.display = 'none';
+                listaDiv.style.display = 'block';
+            }
+        };
+
+        window.volverSelectorPago = function(btn) {
+            const fpId = btn.dataset.fpId;
+            const seccion = document.getElementById('modalFormasPagoBody');
+            if (seccion) {
+                const listas = seccion.querySelectorAll('.fp-cuentas-lista');
+                listas.forEach(l => l.style.display = 'none');
+                
+                const selector = document.getElementById(`${fpId}-selector`);
+                if (selector) selector.style.display = 'flex';
+            }
+        };
+        
+        window.abrirModalFormasPago = function(ordenId, totalFormato, referenciaPagoCliente) {
+            const modal = document.getElementById('modalFormasPago');
+            const body = document.getElementById('modalFormasPagoBody');
+            if (!modal || !body) return;
+            
+            const todasCuentas = window.rifaplusConfig?.tecnica?.bankAccounts || [];
+            const cuentasTransferencia = todasCuentas.filter(c => (c.paymentType || '').toLowerCase() === 'transferencia');
+            const cuentasEfectivo = todasCuentas.filter(c => (c.paymentType || '').toLowerCase() === 'efectivo');
+            const hayTransferencia = cuentasTransferencia.length > 0;
+            const hayEfectivo = cuentasEfectivo.length > 0;
+            const fpId = `fp-${ordenId}`;
+            
+            const renderOpcionBtn = (cuenta, fpId) => {
+                const dataCuenta = JSON.stringify(cuenta).replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+                const iconoBanco = cuenta.paymentType === 'efectivo' ? '🏪' : '🏦';
+                return `<button type="button" 
+                    class="fp-cuenta-btn"
+                    data-fp-id="${fpId}"
+                    data-cuenta='${dataCuenta}'
+                    data-total="${totalFormato}"
+                    data-referencia="${referenciaPagoCliente.replace(/'/g, '&#39;')}"
+                    onclick="abrirModalDetalleCuenta(this)"
+                >
+                    <span class="fp-cuenta-icon">${iconoBanco}</span>
+                    <span class="fp-cuenta-nombre">${cuenta.nombreBanco}</span>
+                    <span class="fp-cuenta-tipo">${cuenta.accountType || ''}</span>
+                    <i class="fas fa-chevron-right fp-cuenta-arrow"></i>
+                </button>`;
+            };
+
+            body.innerHTML = `
+                <div class="orden-seccion fp-seccion" data-fp-id="${fpId}" style="margin-bottom: 0; padding: 0;">
+                    <p class="fp-subtitulo" style="text-align: center; font-size: 1.05rem;">Elige cómo quieres pagar tu orden</p>
+                    
+                    <!-- Total destacado -->
+                    <div class="fp-total-badge">
+                        <span class="fp-total-label">Total a pagar</span>
+                        <span class="fp-total-amount">$${totalFormato}</span>
+                    </div>
+
+                    <!-- Selector de tipo de pago -->
+                    <div class="fp-tipo-selector" id="${fpId}-selector">
+                        ${hayTransferencia ? `
+                        <button type="button" class="fp-tipo-btn" data-tipo="transferencia" data-fp-id="${fpId}" onclick="seleccionarTipoPago(this)">
+                            <i class="fas fa-university"></i>
+                            <span>Transferencia bancaria</span>
+                        </button>
+                        ` : ''}
+                        ${hayEfectivo ? `
+                        <button type="button" class="fp-tipo-btn" data-tipo="efectivo" data-fp-id="${fpId}" onclick="seleccionarTipoPago(this)">
+                            <i class="fas fa-store"></i>
+                            <span>Depósito en efectivo</span>
+                        </button>
+                        ` : ''}
+                    </div>
+                    
+                    <!-- Lista cuentas transferencia -->
+                    ${hayTransferencia ? `
+                    <div class="fp-cuentas-lista" id="${fpId}-transferencia" style="display:none;">
+                        <p class="fp-lista-titulo"><i class="fas fa-university"></i> Transferencia bancaria</p>
+                        ${cuentasTransferencia.map(c => renderOpcionBtn(c, fpId)).join('')}
+                        <button type="button" class="fp-back-btn" data-fp-id="${fpId}" onclick="volverSelectorPago(this)">
+                            <i class="fas fa-arrow-left"></i> Ver otras formas de pago
+                        </button>
+                    </div>
+                    ` : ''}
+                    
+                    <!-- Lista cuentas efectivo -->
+                    ${hayEfectivo ? `
+                    <div class="fp-cuentas-lista" id="${fpId}-efectivo" style="display:none;">
+                        <p class="fp-lista-titulo"><i class="fas fa-store"></i> Depósito en efectivo</p>
+                        ${cuentasEfectivo.map(c => renderOpcionBtn(c, fpId)).join('')}
+                        <button type="button" class="fp-back-btn" data-fp-id="${fpId}" onclick="volverSelectorPago(this)">
+                            <i class="fas fa-arrow-left"></i> Ver otras formas de pago
+                        </button>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+            
+            modal.classList.add('show');
+        };
+
+        window.copiarTextoPago = function(btn, texto) {
+            const icon = btn.querySelector('i');
+            const originalClass = icon ? icon.className : 'fas fa-copy';
+            
+            const animateButton = () => {
+                btn.classList.add('copied');
+                if (icon) icon.className = 'fas fa-check';
+                setTimeout(() => {
+                    btn.classList.remove('copied');
+                    if (icon) icon.className = originalClass;
+                }, 2000);
+            };
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(texto).then(() => {
+                    animateButton();
+                    if (typeof rifaplusUtils !== 'undefined' && rifaplusUtils.showFeedback) {
+                        rifaplusUtils.showFeedback('✅ Dato copiado al portapapeles', 'success');
+                    }
+                }).catch(err => console.error('Error al copiar:', err));
+            } else {
+                const textArea = document.createElement("textarea");
+                textArea.value = texto;
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    animateButton();
+                    if (typeof rifaplusUtils !== 'undefined' && rifaplusUtils.showFeedback) {
+                        rifaplusUtils.showFeedback('✅ Dato copiado al portapapeles', 'success');
+                    }
+                } catch (err) {
+                    console.error('Error al copiar:', err);
+                }
+                document.body.removeChild(textArea);
+            }
+        };
+
+        window.abrirModalDetalleCuenta = function(btn) {
+            const fpId = btn.dataset.fpId;
+            // The raw ID string is retrieved by stripping 'fp-'
+            const ordenId = fpId.replace('fp-', '');
+            const cuentaStr = btn.dataset.cuenta;
+            const totalStr = btn.dataset.total;
+            const referencia = btn.dataset.referencia;
+            
+            if (!cuentaStr) return;
+            
+            try {
+                const cuenta = JSON.parse(cuentaStr);
+                const modalFormas = document.getElementById('modalFormasPago');
+                const modal = document.getElementById('modalDetalleCuenta');
+                const cardContainer = document.getElementById('modalDetalleCuentaCard');
+                const btnSubir = document.getElementById('btnMDCSubirComprobante');
+                
+                if (modalFormas) modalFormas.classList.remove('show');
+                if (!modal || !cardContainer) return;
+                
+                const iconoBanco = cuenta.paymentType === 'efectivo' ? '🏪' : '🏦';
+                
+                const toTitleCase = (str) => {
+                    if (!str) return '';
+                    return str.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+                };
+                const referenciaFormateada = toTitleCase(referencia);
+                
+                // Rellenar card
+                let html = `
+                    <div class="mdc-card-header">
+                        <div class="mdc-card-banco-icon">${iconoBanco}</div>
+                        <div class="mdc-card-banco-info">
+                            <div class="mdc-card-banco-nombre">${cuenta.nombreBanco || 'Banco'}</div>
+                            <div class="mdc-card-banco-tipo">${cuenta.accountType || ''}</div>
+                        </div>
+                    </div>
+                    <div class="mdc-card-row">
+                `;
+                
+                if (cuenta.accountNumber) {
+                    html += `
+                        <div class="mdc-card-field">
+                            <div class="mdc-card-label">Número de cuenta / CLABE</div>
+                            <div class="mdc-card-value mdc-card-value--monospace">
+                                ${cuenta.accountNumber}
+                                <button type="button" class="mdc-copiar-btn" onclick="copiarTextoPago(this, '${cuenta.accountNumber}')" aria-label="Copiar número de cuenta">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                if (cuenta.beneficiary) {
+                    const beneficiaryFormatted = toTitleCase(cuenta.beneficiary);
+                    html += `
+                        <div class="mdc-card-field">
+                            <div class="mdc-card-label">Beneficiario</div>
+                            <div class="mdc-card-value">
+                                ${beneficiaryFormatted}
+                                <button type="button" class="mdc-copiar-btn" onclick="copiarTextoPago(this, '${cuenta.beneficiary}')" aria-label="Copiar beneficiario">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                html += `
+                        <div class="mdc-card-field" style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed rgba(11, 34, 56, 0.1);">
+                            <div class="mdc-card-label">Total a pagar</div>
+                            <div class="mdc-card-value mdc-card-value--total">$${totalStr}</div>
+                        </div>
+                        <div class="mdc-card-field">
+                            <div class="mdc-card-label">Concepto / Referencia</div>
+                            <div class="mdc-card-value mdc-card-value--referencia">
+                                ${referenciaFormateada}
+                                <button type="button" class="mdc-copiar-btn" onclick="copiarTextoPago(this, '${referencia}')" aria-label="Copiar referencia">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                cardContainer.innerHTML = html;
+                
+                // Configurar botón de subir comprobante
+                if (btnSubir) {
+                    btnSubir.onclick = function() {
+                        modal.classList.remove('show');
+                        // Use the global function to open the comprobante modal
+                        if (typeof window.abrirModalComprobante === 'function') {
+                            window.abrirModalComprobante(ordenId, totalStr);
+                        }
+                    };
+                }
+                
+                // Mostrar modal
+                modal.classList.add('show');
+                
+            } catch (e) {
+                console.error("Error al parsear cuenta de pago:", e);
+            }
+        };
 
         window.abrirModalComprobante = function(ordenId, total) {
             // Validar parámetros
@@ -5592,8 +6475,13 @@
                     || window.rifaplusConfig?.obtenerApiBase?.()
                     || window.location.origin;
                 const apiUrl = `${apiBase}/api/public/ordenes-cliente/${encodeURIComponent(ordenId)}/comprobante`;
+                const headersComprobante = {};
+                const activeSlugComprobante = new URLSearchParams(window.location.search).get('rifa') || new URLSearchParams(window.location.search).get('slug') || window.rifaplusConfig?.rifa?.slug;
+                if (activeSlugComprobante) headersComprobante['x-rifaplus-rifa-slug'] = activeSlugComprobante;
+
                 const response = await fetch(apiUrl, {
                     method: 'POST',
+                    headers: headersComprobante,
                     body: formData,
                     signal: controller.signal
                 });
