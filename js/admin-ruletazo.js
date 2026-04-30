@@ -1247,10 +1247,15 @@ async function testSpin() {
  * Actualiza los conteos de participantes en el acordeón
  */
 function updateParticipantsCounts() {
-    if (!machine.currentRifa) return;
+    if (!machine.currentRifa) {
+        console.warn('⚠️ updateParticipantsCounts: No hay rifa seleccionada');
+        return;
+    }
 
     const totalCount = machine.currentRifa.totalNumbers || 0;
     const soldCount = machine.currentRifa.soldNumbers?.length || 0;
+    
+    console.log(`📊 updateParticipantsCounts: totalCount=${totalCount}, soldCount=${soldCount}, rifaId=${machine.currentRifa.id}`);
     
     // Actualizar "Todos"
     document.getElementById('allCount').textContent = totalCount;
