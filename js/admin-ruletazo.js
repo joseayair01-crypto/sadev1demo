@@ -898,25 +898,23 @@ async function loadCurrentRifa() {
         // ⚠️ OBTENER RIFA SELECCIONADA DEL SELECTOR ADMIN (MÚLTIPLES FUENTES)
         let rifaIdSeleccionada = null;
         
-        // Fuente 1: adminLayout API
-        if (window.adminLayout?.getActiveRifaId) {
+        // Fuente 1: Selector DOM (MÁS CONFIABLE - lo que tú realmente seleccionaste)
+        const selectElement = document.getElementById('adminRifaSelect');
+        if (selectElement && selectElement.value) {
+            rifaIdSeleccionada = Number.parseInt(selectElement.value, 10);
+            console.log(`📋 Ruletazo: Rifa ID desde SELECTOR DOM: ${rifaIdSeleccionada}`);
+        }
+        
+        // Fuente 2: adminLayout API (si selector no tiene valor)
+        if (!rifaIdSeleccionada && window.adminLayout?.getActiveRifaId) {
             rifaIdSeleccionada = window.adminLayout.getActiveRifaId();
             console.log(`📋 Ruletazo: Rifa ID desde adminLayout: ${rifaIdSeleccionada}`);
         }
         
-        // Fuente 2: localStorage (fallback)
+        // Fuente 3: localStorage (fallback de último recurso)
         if (!rifaIdSeleccionada) {
             rifaIdSeleccionada = localStorage.getItem('rifaplus_rifa_activa');
-            console.log(`📋 Ruletazo: Rifa ID desde localStorage: ${rifaIdSeleccionada}`);
-        }
-        
-        // Fuente 3: Selector DOM (último fallback)
-        if (!rifaIdSeleccionada) {
-            const selectElement = document.getElementById('adminRifaSelect');
-            if (selectElement && selectElement.value) {
-                rifaIdSeleccionada = Number.parseInt(selectElement.value, 10);
-                console.log(`📋 Ruletazo: Rifa ID desde selector DOM: ${rifaIdSeleccionada}`);
-            }
+            console.log(`📋 Ruletazo: Rifa ID desde localStorage (fallback): ${rifaIdSeleccionada}`);
         }
         
         // Fallback final
