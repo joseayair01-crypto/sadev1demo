@@ -4,7 +4,7 @@
 (function configurarDeployRifaPlus() {
     const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1']);
     const SOCKET_CDN_URL = 'https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.8.1/socket.io.min.js';
-    const FORCE_LOCAL_ONLY = true;
+    const FORCE_LOCAL_ONLY = false;
     const LOCAL_API_BASE = 'http://localhost:5001';
     const LOCAL_PUBLIC_BASE = 'http://localhost:5001';
 
@@ -98,8 +98,8 @@
             socketScriptUrl: SOCKET_CDN_URL
         },
         production: {
-            apiBase,
-            publicBase,
+            apiBase: 'https://sadev1demo.railway.internal',
+            publicBase: 'https://sadev1demo.pages.dev',
             socketScriptUrl: SOCKET_CDN_URL
         }
     };
