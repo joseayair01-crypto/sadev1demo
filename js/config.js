@@ -1833,12 +1833,15 @@ window.rifaplusConfig.obtenerTotalBoletos = function() {
     }
 
     try {
-        const cached = Number(localStorage.getItem('rifaplus_total_boletos_cache') || 0);
+        const cacheKey = typeof construirClaveLocalRifaPlus === 'function' 
+            ? construirClaveLocalRifaPlus('total_boletos_cache') 
+            : 'rifaplus_total_boletos_cache';
+        const cached = Number(localStorage.getItem(cacheKey) || localStorage.getItem('rifaplus_total_boletos_cache') || 0);
         if (Number.isFinite(cached) && cached > 0) {
             return Math.floor(cached);
         }
     } catch (error) {
-        console.debug('ℹ️ No se pudo leer rifaplus_total_boletos_cache:', error.message);
+        console.debug('ℹ️ No se pudo leer cache de totalBoletos:', error.message);
     }
 
     return 1000;

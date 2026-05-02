@@ -1550,20 +1550,41 @@ async function actualizarBarraProgreso() {
             return;
         }
         
-        // 🎯 PASO 2: Obtener datos de boletos (PRIMERO en memoria, LUEGO backend)
+        // 🎯 PASO 2: Obtener datos de boletos (Prioridad: 1. Estado Global, 2. Memoria Parcial, 3. Backend)
+        const estadoGlobal = window.rifaplusConfig?.estado || {};
+        const soldGlobalCount = Number(estadoGlobal.boletosVendidos);
+        const reservedGlobalCount = Number(estadoGlobal.boletosApartados);
+
+        // Si tenemos el estado global (totales), usarlo directamente
+        if (Number.isFinite(soldGlobalCount) && soldGlobalCount >= 0) {
+            console.debug('[main] Usando totales globales desde config.estado');
+            actualizarInterfazProgreso(
+                { length: soldGlobalCount }, 
+                { length: reservedGlobalCount || 0 }, 
+                totalParaMostrar, 
+                rangoVisible
+            );
+            return;
+        }
+
         const sold = (window.rifaplusSoldNumbers && Array.isArray(window.rifaplusSoldNumbers)) ? window.rifaplusSoldNumbers : [];
         const reserved = (window.rifaplusReservedNumbers && Array.isArray(window.rifaplusReservedNumbers)) ? window.rifaplusReservedNumbers : [];
         
-        // Si tenemos datos en memoria, usarlos
+        // Fallback: Si tenemos datos en memoria (grid), usarlos (aunque sean parciales, es mejor que 0)
         if (window.rifaplusBoletosLoaded && (sold.length > 0 || reserved.length > 0)) {
-            console.debug('[main] Usando datos en memoria (tiempo real)');
+            console.debug('[main] Usando datos en memoria (parciales)');
             actualizarInterfazProgreso(sold, reserved, totalParaMostrar, rangoVisible);
             return;
         }
         
         // 🎯 PASO 3: FALLBACK - Obtener del backend si no hay datos en memoria
         const apiBase = config.backend.apiBase;
-        const url = `${apiBase}/api/public/ordenes-stats`;
+        
+        // Usar constructor contextual para incluir ?rifa=slug si estamos en multi-rifa
+        const url = typeof syncConstruirUrlPublicaContextualRifaPlus === 'function'
+            ? syncConstruirUrlPublicaContextualRifaPlus(apiBase, '/api/public/ordenes-stats')
+            : `${apiBase}/api/public/ordenes-stats`;
+
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 segundos timeout
         
@@ -1627,25 +1648,24 @@ function actualizarInterfazProgreso(sold = [], reserved = [], totalParaMostrar =
     // Los reservados son boletos temporales sin pago confirmado
     let boletosVendidosParaMostrar = 0;
     
-    if (rangoVisible && rangoVisible.inicio !== undefined && rangoVisible.fin !== undefined) {
+    // 🎯 DETERMINAR FUENTE DE VERDAD
+    if (backendVendidos !== null && (!Array.isArray(sold) || sold.length === 0)) {
+        // PRIORIDAD: Si tenemos data del backend y nada en memoria (típico en carga inicial de Index)
+        boletosVendidosParaMostrar = backendVendidos;
+        console.debug('[main] Usando backendVendidos (Prioridad):', boletosVendidosParaMostrar);
+    } else if (rangoVisible && rangoVisible.inicio !== undefined && rangoVisible.fin !== undefined) {
         // 🎯 MODO OPORTUNIDADES: Contar solo boletos VENDIDOS del rango visible
-        // NO incluir reservados (apartados sin pago)
         sold.forEach(num => {
             const n = Number(num);
             if (n >= rangoVisible.inicio && n <= rangoVisible.fin) {
                 boletosVendidosParaMostrar++;
             }
         });
-        
-        console.debug('[main] MODO OPORTUNIDADES - Rango visible:', rangoVisible, 'Vendidos en rango:', boletosVendidosParaMostrar, 'Total sold:', sold.length, 'Total reserved:', reserved.length);
-    } else if (backendVendidos !== null) {
-        // FALLBACK: Si solo tenemos data del backend
-        boletosVendidosParaMostrar = backendVendidos;
-        console.debug('[main] FALLBACK BACKEND - Vendidos:', boletosVendidosParaMostrar);
+        console.debug('[main] MODO OPORTUNIDADES - Vendidos en rango:', boletosVendidosParaMostrar);
     } else {
-        // 🎯 MODO NORMAL (sin oportunidades): Contar SOLO los vendidos
-        boletosVendidosParaMostrar = sold.length;
-        console.debug('[main] MODO NORMAL - Total vendidos:', boletosVendidosParaMostrar, 'Total reserved:', reserved.length);
+        // 🎯 MODO NORMAL: Contar los vendidos en memoria
+        boletosVendidosParaMostrar = Array.isArray(sold) ? sold.length : 0;
+        console.debug('[main] MODO NORMAL - Total vendidos (memoria):', boletosVendidosParaMostrar);
     }
     
     // 🎯 CALCULAR DISPONIBLES Y PORCENTAJE

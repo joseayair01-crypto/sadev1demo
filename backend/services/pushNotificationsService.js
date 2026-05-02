@@ -401,7 +401,9 @@ function resolverOrganizerKeyPush(input = {}) {
     ];
 
     const raw = candidates.find((candidate) => String(candidate || '').trim());
-    return normalizarOrganizerKeyPush(raw || 'rifaplus');
+    // Robustez: Eliminar comillas literales si el parser de .env no las quitó
+    const clean = String(raw || '').trim().replace(/^["']|["']$/g, '');
+    return normalizarOrganizerKeyPush(clean || 'rifaplus');
 }
 
 function resolverFechaActividadCampanaPush(value, fallback = null) {
@@ -536,9 +538,7 @@ async function upsertSuscripcionCampanaPush(knex, data = {}) {
     const lastPurchaseRifaSlug = String(data.lastPurchaseRifaSlug || data.sourceRifaSlug || existing?.last_purchase_rifa_slug || '')
         .trim()
         .slice(0, 120) || null;
-    const audienceStatus = subscriptionState.status === PUSH_STATUS_ACTIVE
-        && subscriptionState.marketingOptIn !== false
-        && (lastPurchaseAt || lastPurchaseRifaId || lastPurchaseRifaSlug)
+    const audienceStatus = (subscriptionState.status === PUSH_STATUS_ACTIVE && subscriptionState.marketingOptIn !== false)
         ? PUSH_CAMPAIGN_AUDIENCE_ACTIVE
         : (existing?.audience_status || PUSH_CAMPAIGN_AUDIENCE_INACTIVE);
     const payload = {

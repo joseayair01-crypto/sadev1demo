@@ -531,7 +531,9 @@ window.rifaplusConfig.sincronizarConfigDelBackend = async function(opciones = {}
     try {
         this._sincronizandoBackend = true;
         const apiBase = this.backend.apiBase;
-        const endpoint = usarConfigAdmin ? `${apiBase}/api/admin/config` : `${apiBase}/api/cliente`;
+        const endpoint = usarConfigAdmin 
+            ? `${apiBase}/api/admin/config` 
+            : syncConstruirUrlPublicaContextualRifaPlus(apiBase, '/api/cliente');
         
         // 🚨 TIMEOUT REAL: AbortController (5 segundos)
         timeoutId = setTimeout(() => {
@@ -615,7 +617,10 @@ window.rifaplusConfig.sincronizarConfigDelBackend = async function(opciones = {}
 
                 try {
                     if (Number.isFinite(Number(this.rifa.totalBoletos)) && Number(this.rifa.totalBoletos) > 0) {
-                        localStorage.setItem('rifaplus_total_boletos_cache', String(Math.floor(Number(this.rifa.totalBoletos))));
+                        const cacheKey = typeof this.construirClaveLocal === 'function' 
+                            ? this.construirClaveLocal('total_boletos_cache') 
+                            : 'rifaplus_total_boletos_cache';
+                        localStorage.setItem(cacheKey, String(Math.floor(Number(this.rifa.totalBoletos))));
                     }
                 } catch (storageError) {
                     console.debug('ℹ️ No se pudo cachear totalBoletos sincronizado:', storageError.message);

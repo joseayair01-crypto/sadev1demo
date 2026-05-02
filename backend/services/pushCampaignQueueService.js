@@ -163,10 +163,14 @@ class PushCampaignQueueService {
         const config = obtenerConfigPush();
         const organizerKey = resolverOrganizerKeyPush(campaign);
         const eventType = String(campaign.eventType || PUSH_CAMPAIGN_EVENT_TYPE_NUEVA_RIFA).trim();
-        const eventKey = String(campaign.eventKey || '').trim()
+        let eventKey = String(campaign.eventKey || '').trim()
             || (eventType === PUSH_CAMPAIGN_EVENT_TYPE_NUEVA_RIFA
                 ? `${eventType}:rifa:${Number.parseInt(campaign.rifaId, 10) || String(campaign.rifaSlug || 'sin-id').trim() || 'sin-id'}`
                 : '');
+
+        if (options.force && eventKey) {
+            eventKey = `${eventKey}:manual:${Date.now()}`;
+        }
 
         if (!config.enabled) {
             return {
@@ -566,11 +570,15 @@ class PushCampaignQueueService {
             .update({
                 audience_status: this.knex.raw(`
                     CASE
-                        WHEN status = ? AND marketing_opt_in = true AND last_purchase_at IS NOT NULL AND last_purchase_at >= ?
+                        WHEN status = ? AND marketing_opt_in = true 
+                             AND (
+                                COALESCE(last_purchase_at, created_at) >= ?
+                                OR updated_at >= ?
+                             )
                             THEN ?
                         ELSE 'inactive'
                     END
-                `, [PUSH_STATUS_ACTIVE, cutoffDate, PUSH_CAMPAIGN_AUDIENCE_ACTIVE]),
+                `, [PUSH_STATUS_ACTIVE, cutoffDate, cutoffDate, PUSH_CAMPAIGN_AUDIENCE_ACTIVE]),
                 updated_at: this.knex.fn.now()
             });
     }
@@ -636,12 +644,18 @@ class PushCampaignQueueService {
 
         try {
             const pushOptions = construirOpcionesPushCampana(job, subscription.endpoint);
+            console.log(`[PushCampaignQueue] 🚀 Envíando a ${subscriptionRow.endpoint.substring(0, 50)}... (Key: ${job.organizer_key})`);
+            
             await enviarNotificacionPushConRetry(subscription, payload, pushOptions);
+            
+            console.log(`[PushCampaignQueue] ✅ Entregado a ${subscriptionRow.endpoint.substring(0, 50)}...`);
             await this.marcarSuscripcionCampanaEntregada(job, subscriptionRow);
             return 'delivered';
         } catch (error) {
             const statusCode = Number(error?.statusCode || error?.status || 0);
             const message = String(error?.body || error?.message || 'Push delivery failed').slice(0, 2000);
+            
+            console.log(`[PushCampaignQueue] ❌ Fallo (${statusCode}): ${message.substring(0, 100)}`);
             if (statusCode === 404 || statusCode === 410) {
                 await this.marcarSuscripcionCampanaInvalida(job, subscriptionRow, message);
                 return 'expired';

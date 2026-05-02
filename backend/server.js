@@ -3785,6 +3785,7 @@ app.post('/api/admin/push-campaigns/sync-audience', verificarToken, async (req, 
 
 app.post('/api/admin/push-campaigns/send', verificarToken, async (req, res) => {
     try {
+        console.log('[API] 📦 Solicitud envio campaña recibida:', req.body);
         if (req.usuario?.rol !== 'administrador') {
             return res.status(403).json({
                 success: false,
@@ -3793,10 +3794,14 @@ app.post('/api/admin/push-campaigns/send', verificarToken, async (req, res) => {
         }
 
         const requestedRifaId = Number.parseInt(req.body?.rifaId || req.rifaContext?.id, 10) || null;
+        console.log('[API] 🎯 Rifa ID solicitado:', requestedRifaId);
+        
         const contexto = requestedRifaId && rifaService?.enabled
             ? await rifaService.resolverContexto({ rifaId: requestedRifaId, fallbackActive: false })
             : (req.rifaContext || construirContextoRifaFallback());
 
+        console.log('[API] 📄 Contexto resuelto:', contexto ? `Rifa: ${contexto.nombre} (ID: ${contexto.id})` : 'Nulo');
+        
         if (!contexto) {
             return res.status(404).json({
                 success: false,
@@ -3839,7 +3844,8 @@ app.post('/api/admin/push-campaigns/send', verificarToken, async (req, res) => {
         const resultado = await encolarCampanaPushDesdeServidor(campaign, {
             createdByUserId: req.usuario?.id,
             createdByEmail: req.usuario?.email,
-            priority: 180
+            priority: 180,
+            force: true
         });
         const resumen = await construirResumenCampanasPushAdmin({
             contexto
@@ -9269,7 +9275,7 @@ app.get('/api/public/ordenes-stats', async (req, res) => {
             });
         }
 
-        const rifaIdActual = Number.parseInt(req.rifaContext?.id, 10) || null;
+        const totalBoletosRifa = Number(req.rifaContext?.configuracion?.rifa?.totalBoletos) || 1000;
         const stats = await resolverSingleFlightPublico(`public:ordenes-stats:${cacheSuffix}`, async () => {
             const result = await db('ordenes')
                 .modify((qb) => {
@@ -9282,9 +9288,13 @@ app.get('/api/public/ordenes-stats', async (req, res) => {
                 )
                 .first();
 
+            const vendidos = Number(result?.total_boletos_vendidos) || 0;
+            const porcentaje = totalBoletosRifa > 0 ? Math.round((vendidos / totalBoletosRifa) * 100) : 0;
+
             return {
                 total_ordenes: Number(result?.total_ordenes) || 0,
-                total_boletos_vendidos: Number(result?.total_boletos_vendidos) || 0
+                total_boletos_vendidos: vendidos,
+                porcentaje_vendido: porcentaje
             };
         });
 
@@ -9298,7 +9308,7 @@ app.get('/api/public/ordenes-stats', async (req, res) => {
             data: {
                 total_ordenes: stats.total_ordenes,
                 total_boletos_vendidos: stats.total_boletos_vendidos,
-                porcentaje_vendido: 0,
+                porcentaje_vendido: stats.porcentaje_vendido,
                 queryTime: Date.now() - startTime,
                 cached: false
             }
@@ -9307,12 +9317,13 @@ app.get('/api/public/ordenes-stats', async (req, res) => {
         console.error('GET /api/public/ordenes-stats error:', error);
 
         if (serverCache.ordenesStatsCached?.[cacheSuffix]) {
+            const cached = serverCache.ordenesStatsCached[cacheSuffix];
             return res.json({
                 success: true,
                 data: {
-                    total_ordenes: serverCache.ordenesStatsCached[cacheSuffix].total_ordenes,
-                    total_boletos_vendidos: serverCache.ordenesStatsCached[cacheSuffix].total_boletos_vendidos,
-                    porcentaje_vendido: 0,
+                    total_ordenes: cached.total_ordenes,
+                    total_boletos_vendidos: cached.total_boletos_vendidos,
+                    porcentaje_vendido: cached.porcentaje_vendido,
                     queryTime: 0,
                     cached: true,
                     stale: true
