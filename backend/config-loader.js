@@ -19,6 +19,10 @@ const path = require('path');
 function cargarConfigJavaScript() {
     try {
         const configPath = path.join(__dirname, '..', 'js', 'config.js');
+        if (!fs.existsSync(configPath)) {
+            // Archivo legacy no incluido en builds que solo despliegan /backend
+            return {};
+        }
         const codigo = fs.readFileSync(configPath, 'utf8');
         
         // Buscar la sección rifa: { ... }
