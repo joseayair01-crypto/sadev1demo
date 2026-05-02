@@ -98,7 +98,7 @@
             socketScriptUrl: SOCKET_CDN_URL
         },
         production: {
-            apiBase: 'https://sadev1demo.up.railway.app',
+            apiBase: 'https://sadev1demo-production.up.railway.app',
             publicBase: 'https://sadev1demo.pages.dev',
             socketScriptUrl: SOCKET_CDN_URL
         }
