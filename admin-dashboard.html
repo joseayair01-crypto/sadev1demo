@@ -2259,7 +2259,22 @@
 </head>
 <body>
     <!-- LOGIN SCREEN -->
-    <div id="loginScreen" class="login-container">
+    <!-- FORMULARIO DE LOGIN (OCULTO POR DEFECTO) -->
+    <div id="loginScreen" class="login-container" style="display: none;">
+        <script>
+            // ✅ VERIFICACIÓN INSTANTÁNEA (Anti-Flash)
+            // Si hay un token en localStorage, mantenemos el login oculto.
+            // Si NO hay token, lo mostramos inmediatamente antes de que cargue el resto.
+            (function fastAuthCheck() {
+                const token = localStorage.getItem('rifaplus_token') || 
+                             localStorage.getItem('rifaplus_admin_token') ||
+                             localStorage.getItem('admin_token') ||
+                             localStorage.getItem('token');
+                if (!token) {
+                    document.getElementById('loginScreen').style.display = 'flex';
+                }
+            })();
+        </script>
         <div class="login-box">
             <div class="login-logo">
                 <img src="images/placeholder-logo.svg" alt="Logo" id="loginLogo" width="100" height="50">
@@ -4969,36 +4984,63 @@
             desconectarTiempoRealDashboard();
         });
 
-        window.addEventListener('load', async () => {
-            await inicializarConfiguracion();
+        // ✅ OPTIMIZACIÓN DE CARGA (Relámpago)
+        document.addEventListener('DOMContentLoaded', async () => {
+            const dashboardEl = document.getElementById('dashboard');
+            const loginScreen = document.getElementById('loginScreen');
             
-            // ✅ IMPORTANTE: Esperar a que el selector de rifas se cargue completamente
-            // Esto garantiza que adminRifaActionsPanel y adminRifaSwitcher se rendericen
-            if (typeof ADMIN_LAYOUT?.cargarSelectorRifas === 'function') {
-                await ADMIN_LAYOUT.cargarSelectorRifas().catch((error) => {
-                    debugAdminDashboard('Advertencia: No se pudo cargar selector de rifas en load', error?.message);
-                });
-            }
+            // 🚀 VISIBILIDAD INSTANTÁNEA
+            const tokenLocal = localStorage.getItem('rifaplus_token') || 
+                             localStorage.getItem('rifaplus_admin_token') ||
+                             localStorage.getItem('admin_token') ||
+                             localStorage.getItem('token');
             
-            if (window.rifaplusConfig && typeof window.rifaplusConfig.escucharEvento === 'function' && !window.__adminDashboardCountdownSyncHook) {
-                window.__adminDashboardCountdownSyncHook = true;
-                window.rifaplusConfig.escucharEvento('configuracionActualizada', () => {
-                    programarCuentaRegresivaCuandoEsteLista();
-                });
+            if (tokenLocal) {
+                if (dashboardEl) {
+                    dashboardEl.classList.add('active');
+                    dashboardEl.style.display = 'block';
+                }
+                if (loginScreen) loginScreen.style.display = 'none';
             }
-            const tokenGuardado = await ADMIN_LAYOUT.esperarAutenticacion();
-            debugAdminDashboard('Token verificado al cargar la pagina', !!tokenGuardado);
 
-            if (tokenGuardado) {
-                tokenAutenticacion = tokenGuardado;
-                document.getElementById('loginScreen').style.display = 'none';
-                document.getElementById('dashboard').classList.add('logged-in');
-                // ⭐ Mostrar usuario en el header cuando hay sesión activa
-                mostrarUsuarioEnHeader();
-                inicializarDashboard();
+            // Lanzar tareas en paralelo
+            const configPromise = (async () => {
+                try {
+                    await inicializarConfiguracion();
+                    if (window.rifaplusConfig?.escucharEvento && !window.__adminDashboardCountdownSyncHook) {
+                        window.__adminDashboardCountdownSyncHook = true;
+                        window.rifaplusConfig.escucharEvento('configuracionActualizada', () => {
+                            programarCuentaRegresivaCuandoEsteLista();
+                        });
+                    }
+                } catch (e) {}
+            })();
+            
+            const selectorPromise = (typeof ADMIN_LAYOUT?.cargarSelectorRifas === 'function') 
+                ? ADMIN_LAYOUT.cargarSelectorRifas().catch(e => console.warn('Error selector:', e))
+                : Promise.resolve();
+
+            // Verificar autenticación real
+            const authOk = !!obtenerTokenActual();
+            
+            if (authOk) {
+                if (loginScreen) loginScreen.style.display = 'none';
+                if (dashboardEl) {
+                    dashboardEl.classList.add('active');
+                    dashboardEl.style.display = 'block';
+                }
+                
+                await Promise.all([configPromise, selectorPromise]);
+                
+                await iniciarTiempoRealDashboard();
+                await Promise.all([
+                    requestStatsRefreshTiempoReal('inicio', 150),
+                    requestChartsRefreshTiempoReal(300),
+                    requestPendingRefreshTiempoReal(200)
+                ]);
             } else {
-                document.getElementById('loginScreen').style.display = 'flex';
-                document.getElementById('dashboard').classList.remove('logged-in');
+                if (loginScreen) loginScreen.style.display = 'flex';
+                if (dashboardEl) dashboardEl.classList.remove('active');
             }
         });
     </script>

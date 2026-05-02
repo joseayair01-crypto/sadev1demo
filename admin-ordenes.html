@@ -1429,7 +1429,22 @@
 </head>
 <body>
     <!-- LOGIN SCREEN -->
-    <div id="loginScreen" class="login-container">
+    <!-- FORMULARIO DE LOGIN (OCULTO POR DEFECTO) -->
+    <div id="loginScreen" class="login-container" style="display: none;">
+        <script>
+            // ✅ VERIFICACIÓN INSTANTÁNEA (Anti-Flash)
+            // Si hay un token en localStorage, mantenemos el login oculto.
+            // Si NO hay token, lo mostramos inmediatamente antes de que cargue el resto.
+            (function fastAuthCheck() {
+                const token = localStorage.getItem('rifaplus_token') || 
+                             localStorage.getItem('rifaplus_admin_token') ||
+                             localStorage.getItem('admin_token') ||
+                             localStorage.getItem('token');
+                if (!token) {
+                    document.getElementById('loginScreen').style.display = 'flex';
+                }
+            })();
+        </script>
         <div class="login-box">
             <div class="login-logo">
                 <img src="images/placeholder-logo.svg" alt="Logo" id="loginLogo" width="100" height="50">
@@ -1653,6 +1668,14 @@
             || window.rifaplusConfig?.obtenerApiBase?.()
             || window.location.origin;
         let token = null;
+
+        function obtenerTokenActual() {
+            return localStorage.getItem('rifaplus_admin_token') || 
+                   localStorage.getItem('rifaplus_token') || 
+                   localStorage.getItem('admin_token') || 
+                   localStorage.getItem('token');
+        }
+
         let currentPage = 1;
         const ITEMS_PER_PAGE = 20;
         let allOrdenes = [];
@@ -3579,31 +3602,50 @@ ${window.location.origin}/mis-boletos.html
 
         // ===== ON LOAD =====
 
-        window.addEventListener('load', async () => {
-            initializeConfig();
+        // ✅ OPTIMIZACIÓN DE CARGA (Relámpago)
+        document.addEventListener('DOMContentLoaded', async () => {
+            const pageEl = document.getElementById('page');
+            const loginScreen = document.getElementById('loginScreen');
             
-            // ✅ IMPORTANTE: Esperar a que el selector de rifas se cargue completamente
-            // Esto garantiza que adminRifaActionsPanel y adminRifaSwitcher se rendericen
-            if (typeof ADMIN_LAYOUT?.cargarSelectorRifas === 'function') {
-                await ADMIN_LAYOUT.cargarSelectorRifas().catch((error) => {
-                    console.warn('Advertencia: No se pudo cargar selector de rifas en load', error?.message);
-                });
+            // 🚀 VISIBILIDAD INSTANTÁNEA
+            const tokenLocal = localStorage.getItem('rifaplus_token') || 
+                             localStorage.getItem('rifaplus_admin_token') ||
+                             localStorage.getItem('admin_token') ||
+                             localStorage.getItem('token');
+            
+            if (tokenLocal) {
+                if (pageEl) {
+                    pageEl.classList.add('active');
+                    pageEl.style.display = 'block';
+                }
+                if (loginScreen) loginScreen.style.display = 'none';
             }
+
+            // Lanzar tareas en paralelo
+            const configPromise = (async () => {
+                try {
+                    initializeConfig();
+                } catch (e) {}
+            })();
             
-            const savedToken = await ADMIN_LAYOUT.esperarAutenticacion();
+            const selectorPromise = (typeof ADMIN_LAYOUT?.cargarSelectorRifas === 'function') 
+                ? ADMIN_LAYOUT.cargarSelectorRifas().catch(e => console.warn('Error selector:', e))
+                : Promise.resolve();
+
+            // Verificar autenticación real
+            token = obtenerTokenActual();
+            const authOk = !!token;
             
-            if (savedToken) {
-                token = savedToken;
-                // Asegurar que está en todas las claves para consistencia
-                localStorage.setItem('rifaplus_token', token);
-                localStorage.setItem('rifaplus_admin_token', token);
-                document.getElementById('loginScreen').style.display = 'none';
-                document.getElementById('page').classList.add('active');
+            if (authOk) {
+                token = localStorage.getItem('rifaplus_admin_token') || localStorage.getItem('rifaplus_token');
+                
+                await Promise.all([configPromise, selectorPromise]);
+                
                 await iniciarTiempoRealOrdenes();
                 loadOrdenes();
             } else {
-                document.getElementById('loginScreen').style.display = 'flex';
-                document.getElementById('page').classList.remove('active');
+                if (loginScreen) loginScreen.style.display = 'flex';
+                if (pageEl) pageEl.classList.remove('active');
             }
         });
 

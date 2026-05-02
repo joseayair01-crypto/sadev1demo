@@ -3777,7 +3777,9 @@ function configurarBuscadorBoletos() {
                 searchParams.set(clave, String(valor));
             }
         });
+        const currentParams = new URLSearchParams(window.location.search);
         const activeSlug = currentParams.get('rifa') || currentParams.get('slug') || window.rifaplusConfig?.rifa?.slug;
+
         if (activeSlug && !searchParams.has('rifa')) {
             searchParams.set('rifa', activeSlug);
         }

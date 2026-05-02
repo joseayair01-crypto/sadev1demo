@@ -6,7 +6,20 @@
 /*              - Navegación entre páginas                          */
 /* ================================================================ */
 
-document.documentElement.classList.add('admin-auth-checking');
+// 🚀 OPTIMIZACIÓN: Solo bloquear visibilidad si NO hay un token local
+(function() {
+    const token = localStorage.getItem('rifaplus_token') || 
+                  localStorage.getItem('rifaplus_admin_token') ||
+                  localStorage.getItem('admin_token') ||
+                  localStorage.getItem('token');
+    
+    if (!token) {
+        document.documentElement.classList.add('admin-auth-checking');
+    } else {
+        // Si hay token, permitimos visibilidad inmediata
+        document.documentElement.classList.remove('admin-auth-checking');
+    }
+})();
 
 function debugAdminLayout() {
     let enabled = window.RIFAPLUS_DEBUG_ADMIN === true;

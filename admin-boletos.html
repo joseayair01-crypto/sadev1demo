@@ -3024,126 +3024,100 @@
         }
 
         // ===== INIT =====
+        // ✅ OPTIMIZACIÓN DE CARGA (Sin bucles de espera)
         document.addEventListener('DOMContentLoaded', async () => {
-            try {
-                if (window.GanadoresManager?.refrescarDesdeServidor) {
-                    try {
-                        await window.GanadoresManager.refrescarDesdeServidor();
-                    } catch (error) {
-                        console.warn('[admin-boletos] No se pudieron refrescar ganadores desde servidor:', error);
-                    }
-                }
+            const pageEl = document.getElementById('page');
+            
+            // 🚀 VISIBILIDAD INSTANTÁNEA
+            const tokenLocal = localStorage.getItem('rifaplus_token') || 
+                             localStorage.getItem('rifaplus_admin_token') ||
+                             localStorage.getItem('admin_token') ||
+                             localStorage.getItem('token');
+            
+            if (tokenLocal && pageEl) {
+                pageEl.classList.add('active');
+                pageEl.style.display = 'block';
+            }
 
-                // Inicializar configuración - debe ser lo primero
+            // Lanzar tareas en paralelo
+            const configPromise = (async () => {
                 try {
                     initializeConfig();
                     sincronizarNombreSorteoConReintento();
-                } catch (error) {
-                    console.warn('⚠️ Error al inicializar configuración:', error);
-                    // Continuar aunque falle la configuración
-                }
-                
-                // ✅ IMPORTANTE: Esperar a que el selector de rifas se cargue completamente
-                // Esto garantiza que adminRifaActionsPanel y adminRifaSwitcher se rendericen
-                if (typeof ADMIN_LAYOUT?.cargarSelectorRifas === 'function') {
-                    await ADMIN_LAYOUT.cargarSelectorRifas().catch((error) => {
-                        console.warn('Advertencia: No se pudo cargar selector de rifas en DOMContentLoaded', error?.message);
-                    });
-                }
-                
-                // Verificar autenticación
-                if (!verificarAutenticacion()) {
-                    // Si no hay token, esperar a que localStorage se sincronice desde otras pestañas
-                    let intentos = 0;
-                    const checkToken = setInterval(() => {
-                        try {
-                            if (getToken()) {
-                                clearInterval(checkToken);
-                                cargarBoletos();
-                                configurarToggleBoletosSoldVisibility();
-                                const searchInput = document.getElementById('searchBoleto');
-                                if (searchInput) {
-                                    searchInput.focus();
-                                }
-                            } else if (intentos++ > 10) {
-                                clearInterval(checkToken);
-                                // No hay token después de varios intentos, redirigir
-                                localStorage.setItem('redirectAfterLogin', 'admin-boletos.html');
-                                window.location.href = 'admin-dashboard.html';
-                            }
-                        } catch (error) {
-                            console.error('Error en checkToken:', error);
-                            clearInterval(checkToken);
-                        }
-                    }, 100);
-                return;
-            }
+                } catch (e) {}
+            })();
             
-            try {
-                await cargarBoletos();
+            // 1. Iniciar carga del selector (sin bloquear aún)
+            const selectorPromise = (typeof ADMIN_LAYOUT?.cargarSelectorRifas === 'function') 
+                ? ADMIN_LAYOUT.cargarSelectorRifas().catch(e => console.warn('Error selector:', e))
+                : Promise.resolve();
+
+            // Verificar autenticación real
+            const authOk = verificarAutenticacion(); // Sincrónico inicialmente para rapidez
+            
+            if (authOk) {
+                // Cargar datos en paralelo con la config
+                const dataPromise = cargarBoletos();
                 configurarToggleBoletosSoldVisibility();
                 
-                // 🔥 NUEVO: Inicializar search container con rango dinámico
+                await configPromise;
+                await dataPromise;
+                
                 inicializarSearchContainer();
-                
                 const searchInput = document.getElementById('searchBoleto');
-                if (searchInput) {
-                    searchInput.focus();
-                }
+                if (searchInput) searchInput.focus();
+            } else {
+                // Redirigir si no hay token después del check inmediato
+                localStorage.setItem('redirectAfterLogin', 'admin-boletos.html');
+                window.location.href = 'admin-dashboard.html';
+            }
+
+            // ===================================
+            // 🔥 SISTEMA REACTIVO: Escuchar cambios en el selector de rifas
+            // ===================================
+            await selectorPromise; // 👈 CRÍTICO: Esperar a que el selector exista en el DOM
+            const adminRifaSelect = document.getElementById('adminRifaSelect');
+
+            if (adminRifaSelect) {
+                console.log(`✅ AdminBoletos: Event listener agregado a adminRifaSelect`);
                 
-                // ===================================
-                // 🔥 SISTEMA REACTIVO: Escuchar cambios en el selector de rifas
-                // ===================================
-                const adminRifaSelect = document.getElementById('adminRifaSelect');
-                if (adminRifaSelect) {
-                    console.log(`✅ AdminBoletos: Event listener agregado a adminRifaSelect`);
+                adminRifaSelect.addEventListener('change', async (e) => {
+                    const nuevaRifaId = e.target.value;
+                    console.log(`🔄 AdminBoletos: CAMBIO DE RIFA DETECTADO - Nueva ID: ${nuevaRifaId}`);
                     
-                    adminRifaSelect.addEventListener('change', async (e) => {
-                        const nuevaRifaId = e.target.value;
-                        console.log(`🔄 AdminBoletos: CAMBIO DE RIFA DETECTADO - Nueva ID: ${nuevaRifaId}`);
+                    // Validar que la nueva rifa ID sea válida
+                    if (nuevaRifaId && /^\d+$/.test(String(nuevaRifaId))) {
+                        // Guardar en localStorage como referencia
+                        localStorage.setItem('rifaplus_rifa_activa', String(nuevaRifaId));
+                        console.log(`✅ AdminBoletos: localStorage actualizado con rifaId: ${nuevaRifaId}`);
                         
-                        // Validar que la nueva rifa ID sea válida
-                        if (nuevaRifaId && /^\d+$/.test(String(nuevaRifaId))) {
-                            // Guardar en localStorage como referencia
-                            localStorage.setItem('rifaplus_rifa_activa', String(nuevaRifaId));
-                            console.log(`✅ AdminBoletos: localStorage actualizado con rifaId: ${nuevaRifaId}`);
-                            
-                            // Recargar boletos de la rifa seleccionada
-                            console.log(`⏳ AdminBoletos: Recargando boletos para rifa ${nuevaRifaId}...`);
-                            await cargarBoletos();
-                            actualizarEstadisticas();
-                            inicializarSearchContainer();
-                            
-                            // Limpiar el resultado anterior
-                            const ticketResult = document.getElementById('ticketResult');
-                            if (ticketResult) {
-                                ticketResult.classList.remove('active');
-                            }
-                            const searchInput = document.getElementById('searchBoleto');
-                            if (searchInput) {
-                                searchInput.value = '';
-                                searchInput.focus();
-                            }
-                            
-                            console.log(`✅ AdminBoletos: Rifa ${nuevaRifaId} cargada correctamente`);
-                        } else {
-                            console.warn(`⚠️ AdminBoletos: RifaId inválida en onChange: ${nuevaRifaId}`);
+                        // Recargar boletos de la rifa seleccionada
+                        console.log(`⏳ AdminBoletos: Recargando boletos para rifa ${nuevaRifaId}...`);
+                        await cargarBoletos();
+                        actualizarEstadisticas();
+                        inicializarSearchContainer();
+                        
+                        // Limpiar el resultado anterior
+                        const ticketResult = document.getElementById('ticketResult');
+                        if (ticketResult) {
+                            ticketResult.classList.remove('active');
                         }
-                    });
-                } else {
-                    console.warn(`⚠️ AdminBoletos: No se encontró elemento adminRifaSelect`);
-                }
-            } catch (error) {
-                console.error('❌ Error al cargar boletos:', error);
-                const errorDiv = document.getElementById('errorMessage');
-                if (errorDiv) {
-                    errorDiv.textContent = '❌ Error al cargar los boletos. Por favor, recarga la página.';
-                    errorDiv.classList.add('show');
-                }
+                        const searchInput = document.getElementById('searchBoleto');
+                        if (searchInput) {
+                            searchInput.value = '';
+                            searchInput.focus();
+                        }
+                        
+                        console.log(`✅ AdminBoletos: Rifa ${nuevaRifaId} cargada correctamente`);
+                    } else {
+                        console.warn(`⚠️ AdminBoletos: RifaId inválida en onChange: ${nuevaRifaId}`);
+                    }
+                });
+            } else {
+                console.warn(`⚠️ AdminBoletos: No se encontró elemento adminRifaSelect`);
             }
-            } catch (error) {
-                console.error('❌ Error fatal durante inicialización:', error);
-            }
+        });
+
 
             window.addEventListener('configSyncCompleto', () => {
                 try {
@@ -3328,10 +3302,8 @@
             }
             liberarBoletoNumero(numero);
         };
-        });
+
     </script>
-    </div>
-    </div>
 
     <style>
         .modal-ganador {
