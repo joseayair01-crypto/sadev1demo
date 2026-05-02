@@ -134,6 +134,9 @@ var actualizacionEstadoGridVersion = 0;
 var loadingGridHideTimeoutId = 0;
 var loadingGridShowTimeoutId = 0;
 var loadingGridVisibleSince = 0;
+// Máquina de la suerte: reintentos para verificar config
+var maquinaVerificacionRetryCount = 0;
+var maquinaVerificacionRetryTimer = 0;
 
 // Inicializar arrays de boletos vendidos/apartados (se llenan después desde API)
 if (!window.rifaplusSoldNumbers) window.rifaplusSoldNumbers = [];
@@ -147,7 +150,7 @@ window.rifaplusBoletosLoaded = true;
 /* INFINITE SCROLL STATE */
 /* ============================================================ */
 var infiniteScrollState = {
-    rangoActual: { inicio: 0, fin: 99 },
+    rangoActual: { inicio: 0, fin: 0 },
     boletosCargados: 0,
     cursorNumero: 0,
     modoDisponibles: false,
@@ -178,7 +181,8 @@ function obtenerApiBaseCompra() {
 }
 
 function obtenerRangoVisibleInicial() {
-    const totalTickets = window.rifaplusConfig?.rifa?.totalBoletos || 100;
+    const totalRaw = window.rifaplusConfig?.rifa?.totalBoletos;
+    const totalTickets = Number.isFinite(Number(totalRaw)) && Number(totalRaw) > 0 ? Number(totalRaw) : 0;
     const oportunidadesConfig = window.rifaplusConfig?.rifa?.oportunidades;
 
     if (oportunidadesConfig && oportunidadesConfig.enabled && oportunidadesConfig.rango_visible) {
@@ -938,13 +942,19 @@ async function generarNumerosVerificadosEnServidor(cantidad) {
     if (activeSlug) {
         headers['x-rifaplus-rifa-slug'] = activeSlug;
     }
+    const activeRifaId = Number(window.rifaplusConfig?.rifa?.id || window.rifaplusConfig?.rifa?.rifa_id || 0);
+    if (Number.isInteger(activeRifaId) && activeRifaId > 0) {
+        headers['x-rifaplus-rifa-id'] = String(activeRifaId);
+        headers['X-Rifa-Id'] = String(activeRifaId);
+    }
 
     const respuesta = await fetch(`${endpoint}/api/boletos/disponibles-aleatorios`, {
         method: 'POST',
         headers: headers,
         body: JSON.stringify({
             cantidad,
-            excludeNumbers
+            excludeNumbers,
+            rifa: obtenerSlugRifaActualCompra()
         })
     });
 
@@ -1673,11 +1683,12 @@ function inicializarMaquinaSuerteMejorada() {
     // Configurar botón generar
     if (btnGenerar) {
         btnGenerar.addEventListener('click', generarNumerosAleatoriosMejorado);
-        // Inicialmente deshabilitar si datos no listos
-        if (!window.rifaplusBoletosLoaded) {
+        // Inicialmente deshabilitar si datos no listos o si no hay totalBoletos configurado
+        const totalBoletosConfig = Number(window.rifaplusConfig?.rifa?.totalBoletos);
+        if (!window.rifaplusBoletosLoaded || !Number.isFinite(totalBoletosConfig) || totalBoletosConfig <= 0) {
             btnGenerar.disabled = true;
-            // crear indicador visual si no existe
             if (!btnGenerar.dataset.origText) btnGenerar.dataset.origText = btnGenerar.textContent || 'Generar';
+            btnGenerar.title = 'La máquina estará disponible cuando la configuración de la rifa esté cargada.';
         }
     }
     
@@ -1705,6 +1716,7 @@ function inicializarMaquinaSuerteMejorada() {
             actualizarLimiteMaquinaSuerteUI();
             actualizarEstadoBotonGenerar();
             actualizarNotaDisponibilidad();
+            verificarYHabilitarMaquina();
         });
         
         window.addEventListener('configSyncCompleto', () => {
@@ -1712,6 +1724,7 @@ function inicializarMaquinaSuerteMejorada() {
             actualizarLimiteMaquinaSuerteUI();
             actualizarEstadoBotonGenerar();
             actualizarNotaDisponibilidad();
+            verificarYHabilitarMaquina();
         });
         
         // ✅ CRÍTICO: Escuchar cambios de rifa (para multirifa)
@@ -1721,6 +1734,7 @@ function inicializarMaquinaSuerteMejorada() {
                 // Forzar re-validación de disponibles
                 actualizarEstadoBotonGenerar();
                 actualizarNotaDisponibilidad();
+                verificarYHabilitarMaquina();
             });
         }
         
@@ -2895,6 +2909,13 @@ function inicializarRangoDefault() {
         return false;
     }
     
+    // Verificar que totalBoletos esté configurado para esta rifa
+    const totalBoletosConfig = Number(window.rifaplusConfig?.rifa?.totalBoletos);
+    if (!Number.isFinite(totalBoletosConfig) || totalBoletosConfig <= 0) {
+        console.warn('[Máquina] totalBoletos no disponible aún, postponiendo inicialización de rango');
+        return false;
+    }
+
     // Usar SIEMPRE el primer rango de config.js
     const primerRango = (window.rifaplusConfig?.rifa?.rangos || []).find(rango =>
         Number.isInteger(parseInt(rango?.inicio, 10)) &&
@@ -2916,6 +2937,57 @@ function inicializarRangoDefault() {
         reason: 'rango-inicial'
     });
     return true;
+}
+
+function verificarYHabilitarMaquina() {
+    const btnGenerar = document.getElementById('btnGenerarNumeros');
+    const totalBoletosConfig = Number(window.rifaplusConfig?.rifa?.totalBoletos);
+    const rangos = (window.rifaplusConfig?.rifa?.rangos || []);
+
+    // Intentar inicializar rangos si es posible
+    if (Number.isFinite(totalBoletosConfig) && totalBoletosConfig > 0 && rangos.length > 0) {
+        if (!inicializarRangoDefault()) {
+            // reintentar más tarde si falla
+            solicitarInicializacionRangoCuandoConfigEsteLista();
+        }
+    }
+
+    // Mostrar estado visual
+    const statusEl = document.getElementById('maquinaStatus');
+    if (statusEl) {
+        if (Number.isFinite(totalBoletosConfig) && totalBoletosConfig > 0) {
+            statusEl.style.display = 'none';
+        } else {
+            statusEl.textContent = 'Cargando configuración de la rifa...';
+            statusEl.style.display = 'block';
+        }
+    }
+
+    // Habilitar botón si tenemos totalBoletos y la máquina está lista
+    if (btnGenerar) {
+        if (Number.isFinite(totalBoletosConfig) && totalBoletosConfig > 0 && window.rifaplusBoletosLoaded) {
+            btnGenerar.disabled = false;
+            btnGenerar.title = btnGenerar.dataset.origText || '';
+            logCompraDebug('[Máquina] Botón GENERAR habilitado (config lista)');
+            // limpiar reintentos previos
+            maquinaVerificacionRetryCount = 0;
+            if (maquinaVerificacionRetryTimer) {
+                clearTimeout(maquinaVerificacionRetryTimer);
+                maquinaVerificacionRetryTimer = 0;
+            }
+        } else {
+            btnGenerar.disabled = true;
+            // programar reintento con backoff si no hay config
+            if (maquinaVerificacionRetryCount < 6) {
+                maquinaVerificacionRetryCount += 1;
+                const delay = 500 * Math.pow(2, maquinaVerificacionRetryCount - 1); // 500ms,1s,2s,4s...
+                if (maquinaVerificacionRetryTimer) clearTimeout(maquinaVerificacionRetryTimer);
+                maquinaVerificacionRetryTimer = setTimeout(() => {
+                    verificarYHabilitarMaquina();
+                }, delay);
+            }
+        }
+    }
 }
 
 async function renderRange(inicio, fin, opciones = {}) {
