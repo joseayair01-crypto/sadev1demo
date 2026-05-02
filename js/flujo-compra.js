@@ -248,7 +248,7 @@ async function obtenerOrdenIdOficialFlujo(clienteGuardado = {}) {
     const apiBase = config?.backend?.apiBase;
     const esOrdenIdOficial = typeof config?.esOrdenIdOficial === 'function'
         ? config.esOrdenIdOficial.bind(config)
-        : (valor => /^[A-Z0-9]+-[A-Z]{2}\d{3}$/.test(String(valor || '').trim().toUpperCase()));
+        : (valor => /^[A-Z0-9]+(?:-[A-Z0-9]+)*-[A-Z]{2}\d{3}$/.test(String(valor || '').trim().toUpperCase()));
 
     let clienteId = String(config?.cliente?.id || '').trim();
     if ((!clienteId || !config?.cliente?.prefijoOrden) && typeof config?.sincronizarConfigDelBackend === 'function') {
@@ -460,7 +460,7 @@ async function apartarDirectamente() {
     let ordenId = String(clienteGuardado.ordenId || '').trim().toUpperCase();
     const esOficial = typeof window.rifaplusConfig?.esOrdenIdOficial === 'function'
         ? window.rifaplusConfig.esOrdenIdOficial.bind(window.rifaplusConfig)
-        : (v) => /^[A-Z0-9]+-[A-Z]{2}\d{3}$/.test(String(v || '').trim().toUpperCase());
+        : (v) => /^[A-Z0-9]+(?:-[A-Z0-9]+)*-[A-Z]{2}\d{3}$/.test(String(v || '').trim().toUpperCase());
 
     if (!ordenId || !esOficial(ordenId)) {
         ordenId = await obtenerOrdenIdOficialFlujo(clienteGuardado).catch(() => '');
@@ -634,7 +634,7 @@ async function mostrarOrdenFormal(cuenta, opciones = {}) {
     let ordenIdActual = String(clienteGuardado.ordenId || '').trim().toUpperCase();
     const esOrdenIdOficial = typeof window.rifaplusConfig?.esOrdenIdOficial === 'function'
         ? window.rifaplusConfig.esOrdenIdOficial.bind(window.rifaplusConfig)
-        : (valor => /^[A-Z0-9]+-[A-Z]{2}\d{3}$/.test(String(valor || '').trim().toUpperCase()));
+        : (valor => /^[A-Z0-9]+(?:-[A-Z0-9]+)*-[A-Z]{2}\d{3}$/.test(String(valor || '').trim().toUpperCase()));
 
     if (ordenIdActual && !esOrdenIdOficial(ordenIdActual)) {
         console.warn('⚠️ [flujo-compra] Se descartó un ordenId viejo o no oficial:', ordenIdActual);
@@ -831,4 +831,3 @@ window.apartarDirectamente = apartarDirectamente;
 window.abrirModalSeleccionCuenta = abrirModalSeleccionCuenta;
 window.cerrarModalSeleccionCuenta = cerrarModalSeleccionCuenta;
 window.mostrarOrdenFormal = mostrarOrdenFormal;
-

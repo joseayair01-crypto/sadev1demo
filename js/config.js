@@ -1748,17 +1748,21 @@ window.rifaplusConfig.formatearNumeroBoleto = function(numero) {
  * Obtiene prefijo de orden
  */
 window.rifaplusConfig.obtenerPrefijoOrden = function() {
+    const rifaId = Number(this.rifa?.id || this._activeRifaId || 0);
+    if (Number.isInteger(rifaId) && rifaId > 0) {
+        return `S${rifaId}`;
+    }
     return this.cliente.prefijoOrden;
 };
 
 window.rifaplusConfig.esOrdenIdOficial = function(ordenId) {
     const valor = String(ordenId || '').trim().toUpperCase();
-    return /^[A-Z0-9]+-[A-Z]{2}\d{3}$/.test(valor);
+    return /^[A-Z0-9]+(?:-[A-Z0-9]+)*-[A-Z]{2}\d{3}$/.test(valor);
 };
 
 window.rifaplusConfig.ordenIdTienePrefijoActual = function(ordenId) {
     const valor = String(ordenId || '').trim().toUpperCase();
-    const prefijoActual = String(this.cliente.prefijoOrden || '').trim().toUpperCase();
+    const prefijoActual = String(this.obtenerPrefijoOrden?.() || this.cliente.prefijoOrden || '').trim().toUpperCase();
 
     if (!valor || !prefijoActual) return false;
     return valor.startsWith(`${prefijoActual}-`);
@@ -1768,16 +1772,17 @@ window.rifaplusConfig.ordenIdTienePrefijoActual = function(ordenId) {
  * Reconstruye ID de orden con prefijo actual
  */
 window.rifaplusConfig.reconstruirIdOrdenConPrefijoActual = function(ordenId) {
-    if (!ordenId) return `${this.cliente.prefijoOrden}-AA001`;
+    const prefijoActual = String(this.obtenerPrefijoOrden?.() || this.cliente.prefijoOrden || '').trim().toUpperCase();
+    if (!ordenId) return `${prefijoActual}-AA000`;
     
-    const prefijoActual = this.cliente.prefijoOrden;
+    if (!prefijoActual) return String(ordenId || '').trim().toUpperCase();
     
     if (ordenId.startsWith(prefijoActual + '-')) {
         return ordenId;
     }
     
     const secuenciaMatch = ordenId.match(/-(.+)$|^([A-Z0-9]+)$/);
-    let secuencia = 'AA001';
+    let secuencia = 'AA000';
     
     if (secuenciaMatch) {
         if (secuenciaMatch[1]) {
@@ -1865,10 +1870,16 @@ window.rifaplusConfig.obtenerTotalBoletos = function() {
  * @returns {number} Precio unitario (con fallback)
  */
 window.rifaplusConfig.obtenerPrecioBoleto = function() {
+    const slug = typeof obtenerSlugRifaDesdeUrlRifaPlus === 'function'
+        ? obtenerSlugRifaDesdeUrlRifaPlus()
+        : '';
+    const cacheKey = slug || '__default__';
+    const cache = this._configPublicaCache?.[cacheKey] || this._configPublicaCache;
+
     const candidatos = [
         this.rifa?.precioBoleto,
-        this._configPublicaCache?.rifa?.precioBoleto,
-        this._configPublicaCache?.precioBoleto
+        cache?.rifa?.precioBoleto,
+        cache?.precioBoleto
     ];
 
     for (const valor of candidatos) {

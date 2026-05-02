@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="rifaplus-api-base" content="">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' http://127.0.0.1:* http://localhost:*; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://fonts.googleapis.com https://cdn.sheetjs.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' http://127.0.0.1:* http://localhost:* https: http://localhost:5001 http://127.0.0.1:5001 ws: wss: ws://localhost:5001 wss://localhost:5001 ws://127.0.0.1:5001 wss://127.0.0.1:5001; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; form-action 'self';">
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self' http://127.0.0.1:* http://localhost:*; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://fonts.googleapis.com https://cdn.sheetjs.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' http://127.0.0.1:* http://localhost:* https: http://localhost:5001 http://127.0.0.1:5001 ws: wss: ws://localhost:5001 wss://localhost:5001 ws://127.0.0.1:5001 wss://127.0.0.1:5001; img-src 'self' data: https:; object-src 'none'; base-uri 'self'; form-action 'self';">
     <title>Panel Admin</title>
     <link rel="icon" href="images/placeholder-logo.svg" sizes="32x32">
     <link rel="preload" as="image" href="images/placeholder-logo.svg" fetchpriority="high">
@@ -36,14 +38,14 @@
                 'rifaplus_fecha',
                 'rifaplus_timestamp'
             ];
-            
+
             keysABorrar.forEach(key => {
                 if (localStorage.getItem(key)) {
                     console.warn(`🧹 Limpiando localStorage: ${key}`);
                     localStorage.removeItem(key);
                 }
             });
-            
+
         })();
     </script>
     <script src="js/deploy-config.js"></script>
@@ -73,7 +75,7 @@
     <script>
         // Aplicar estado de visibilidad de ingresos ANTES de renderizar el DOM
         // Esto evita el "flash" donde se muestra la cantidad antes de ocultarse
-        (function() {
+        (function () {
             if (localStorage.getItem('rifaplus_revenue_hidden') === 'true') {
                 document.documentElement.setAttribute('data-revenue-hidden', 'true');
             }
@@ -98,31 +100,31 @@
             --color-primario-claro: #E7F3FF;
             --color-secundario: #31A24C;
             --color-acento: #0084FF;
-            
+
             /* Estados */
             --color-exito: #31A24C;
             --color-peligro: #E4163A;
             --color-advertencia: #B4740C;
-            
+
             /* Texto */
             --color-texto-oscuro: #0A0E27;
             --color-texto-normal: #65676B;
             --color-texto-claro: #8A8D91;
-            
+
             /* Fondos */
             --color-fondo-claro: #F0F2F5;
             --color-fondo-blanco: #FFFFFF;
             --color-fondo-oscuro: #E4E6EB;
-            
+
             /* Bordes */
             --color-borde: #CED0D4;
             --color-divisor: #E5E7EB;
-            
+
             /* Sombras */
             --sombra-pequena: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
             --sombra-media: 0 2px 4px rgba(0, 0, 0, 0.1);
             --sombra-grande: 0 4px 12px rgba(0, 0, 0, 0.12);
-            
+
             /* Compatibilidad con nomenclatura anterior */
             --primary: var(--color-primario);
             --primary-dark: var(--color-primario-oscuro);
@@ -341,7 +343,7 @@
         /* ========================================================== */
         /* SECCIÓN 4: HEADER Y NAVEGACIÓN SUPERIOR                    */
         /* ========================================================== */
-        
+
         /* Estilos del header antiguo deshabilitados - usar admin-layout.css */
         .header,
         .top-nav,
@@ -671,7 +673,7 @@
             flex: 1;
             width: 100%;
         }
-        
+
         /* Usar el ID del nuevo main content */
         /* ========================================================== */
         /* SECCIÓN 7: GRID DE ESTADÍSTICAS                            */
@@ -787,7 +789,7 @@
             position: absolute;
             inset: 0;
             border-radius: inherit;
-            background: linear-gradient(90deg, rgba(226,232,240,0.82) 20%, rgba(241,245,249,0.98) 50%, rgba(226,232,240,0.82) 80%);
+            background: linear-gradient(90deg, rgba(226, 232, 240, 0.82) 20%, rgba(241, 245, 249, 0.98) 50%, rgba(226, 232, 240, 0.82) 80%);
             background-size: 220% 100%;
             animation: stats-skeleton-wave 1.15s linear infinite;
         }
@@ -800,6 +802,7 @@
             0% {
                 background-position: 200% 0;
             }
+
             100% {
                 background-position: -200% 0;
             }
@@ -827,10 +830,13 @@
         }
 
         @keyframes pulse-badge {
-            0%, 100% {
+
+            0%,
+            100% {
                 box-shadow: 0 2px 8px rgba(228, 22, 58, 0.3);
                 transform: scale(1);
             }
+
             50% {
                 box-shadow: 0 4px 16px rgba(228, 22, 58, 0.5);
                 transform: scale(1.1);
@@ -2053,6 +2059,7 @@
                 flex-direction: column;
                 align-items: flex-start;
             }
+
             .stats-grid {
                 grid-template-columns: repeat(2, 1fr);
                 gap: 1rem;
@@ -2257,6 +2264,7 @@
     </style>
     <link rel="stylesheet" href="css/admin-theme.css?v=20260321.01">
 </head>
+
 <body>
     <!-- LOGIN SCREEN -->
     <!-- FORMULARIO DE LOGIN (OCULTO POR DEFECTO) -->
@@ -2266,10 +2274,10 @@
             // Si hay un token en localStorage, mantenemos el login oculto.
             // Si NO hay token, lo mostramos inmediatamente antes de que cargue el resto.
             (function fastAuthCheck() {
-                const token = localStorage.getItem('rifaplus_token') || 
-                             localStorage.getItem('rifaplus_admin_token') ||
-                             localStorage.getItem('admin_token') ||
-                             localStorage.getItem('token');
+                const token = localStorage.getItem('rifaplus_token') ||
+                    localStorage.getItem('rifaplus_admin_token') ||
+                    localStorage.getItem('admin_token') ||
+                    localStorage.getItem('token');
                 if (!token) {
                     document.getElementById('loginScreen').style.display = 'flex';
                 }
@@ -2317,7 +2325,8 @@
                         </div>
                         <div class="admin-user-details">
                             <div class="admin-user-name" id="userDisplayName">-</div>
-                            <div class="admin-user-role" id="userDisplayRole" style="font-size: 0.75rem; opacity: 0.7;">-</div>
+                            <div class="admin-user-role" id="userDisplayRole" style="font-size: 0.75rem; opacity: 0.7;">
+                                -</div>
                         </div>
                     </div>
                     <button class="admin-logout-btn" id="logoutBtn">
@@ -2412,7 +2421,8 @@
                     <div class="stat-subtext">Pagos verificados</div>
                 </div>
 
-                <div class="stat-card danger clickable" id="pendingOrdersCard" onclick="window.location.href='admin-ordenes.html'" style="cursor: pointer;">
+                <div class="stat-card danger clickable" id="pendingOrdersCard"
+                    onclick="window.location.href='admin-ordenes.html'" style="cursor: pointer;">
                     <div class="pending-badge" id="pendingBadge">0</div>
                     <div class="stat-label">
                         <i class="fas fa-clock stat-icon"></i>
@@ -2462,7 +2472,7 @@
 
             <div class="dashboard-overview">
                 <div class="overview-hero">
-                <div class="overview-eyebrow">
+                    <div class="overview-eyebrow">
                         <i class="fas fa-bolt"></i>
                         Centro de control
                     </div>
@@ -2501,7 +2511,8 @@
                             <span class="overview-alert-icon"><i class="fas fa-spinner fa-spin"></i></span>
                             <div>
                                 <div class="overview-alert-title">Cargando resumen operativo</div>
-                                <div class="overview-alert-text">Estamos preparando los indicadores prioritarios del dashboard.</div>
+                                <div class="overview-alert-text">Estamos preparando los indicadores prioritarios del
+                                    dashboard.</div>
                             </div>
                         </div>
                     </div>
@@ -2516,7 +2527,8 @@
                             <i class="fas fa-chart-line"></i>
                             Pronóstico de ventas
                         </div>
-                        <div class="forecast-header-subtitle">Mide el ritmo actual, la proyección al cierre y lo que falta vender por día.</div>
+                        <div class="forecast-header-subtitle">Mide el ritmo actual, la proyección al cierre y lo que
+                            falta vender por día.</div>
                     </div>
                     <div class="forecast-chip">
                         <i class="fas fa-calendar-day"></i>
@@ -2557,8 +2569,10 @@
                         <div class="forecast-status">
                             <span class="forecast-status-icon" id="forecastStatusIcon">📊</span>
                             <div>
-                                <div class="forecast-status-title" id="forecastStatusTitle">Cargando estado del ritmo</div>
-                                <div class="forecast-status-text" id="forecastStatusText">Estamos calculando la proyección con base en la venta actual.</div>
+                                <div class="forecast-status-title" id="forecastStatusTitle">Cargando estado del ritmo
+                                </div>
+                                <div class="forecast-status-text" id="forecastStatusText">Estamos calculando la
+                                    proyección con base en la venta actual.</div>
                             </div>
                         </div>
                     </div>
@@ -2639,7 +2653,8 @@
                         </div>
                     </div>
                     <div class="countdown-date" id="countdownDate">Cargando fecha del sorteo...</div>
-                    <div class="countdown-note" id="countdownNote">Estamos preparando la lectura del tiempo restante para el sorteo activo.</div>
+                    <div class="countdown-note" id="countdownNote">Estamos preparando la lectura del tiempo restante
+                        para el sorteo activo.</div>
                 </div>
             </div>
 
@@ -2665,13 +2680,15 @@
                             <i class="fas fa-chart-pie"></i>
                             Análisis de Datos
                         </div>
-                        <div class="charts-subtitle">Lee de un vistazo cómo está repartido el inventario y cómo se han movido las ventas recientes.</div>
+                        <div class="charts-subtitle">Lee de un vistazo cómo está repartido el inventario y cómo se han
+                            movido las ventas recientes.</div>
                     </div>
                 </div>
                 <div class="charts-insights">
                     <div class="charts-insight">
                         <span class="charts-insight-label">Inventario</span>
-                        <span class="charts-insight-value" id="chartInventoryInsight">Cargando distribución actual...</span>
+                        <span class="charts-insight-value" id="chartInventoryInsight">Cargando distribución
+                            actual...</span>
                     </div>
                     <div class="charts-insight">
                         <span class="charts-insight-label">Tendencia</span>
@@ -2694,7 +2711,8 @@
                             </div>
                             <div class="chart-filter-group" role="group" aria-label="Filtro de tendencia">
                                 <button type="button" class="chart-filter-btn" data-chart-range="1">Hoy</button>
-                                <button type="button" class="chart-filter-btn active" data-chart-range="7">7 días</button>
+                                <button type="button" class="chart-filter-btn active" data-chart-range="7">7
+                                    días</button>
                                 <button type="button" class="chart-filter-btn" data-chart-range="30">30 días</button>
                             </div>
                         </div>
@@ -2719,20 +2737,20 @@
         /* ============================================================ */
 
         // Obtener URL de API desde config si está disponible, sino usar default
-        const URL_API = (window.rifaplusConfig && window.rifaplusConfig.backend) 
-            ? window.rifaplusConfig.backend.apiBase 
+        const URL_API = (window.rifaplusConfig && window.rifaplusConfig.backend)
+            ? window.rifaplusConfig.backend.apiBase
             : ((window.rifaplusConfig && typeof window.rifaplusConfig.obtenerApiBase === 'function')
                 ? window.rifaplusConfig.obtenerApiBase()
                 : window.location.origin);
-        
+
         // 🔐 FUNCIÓN CENTRAL: Obtener token dinámicamente del localStorage
         // Esto asegura que siempre se use el token más actualizado
         function obtenerTokenActual() {
-            return localStorage.getItem('rifaplus_token') || 
-                   localStorage.getItem('rifaplus_admin_token') ||
-                   localStorage.getItem('admin_token') ||
-                   localStorage.getItem('token') ||
-                   null;
+            return localStorage.getItem('rifaplus_token') ||
+                localStorage.getItem('rifaplus_admin_token') ||
+                localStorage.getItem('admin_token') ||
+                localStorage.getItem('token') ||
+                null;
         }
 
         function escapeHtmlAdmin(value) {
@@ -2752,7 +2770,7 @@
                 .replace(/\n/g, '\\n')
                 .replace(/<\/script/gi, '<\\/script');
         }
-        
+
         const DASHBOARD_REFRESH_POLICY = Object.freeze({
             statsFallbackMs: 60000,
             chartsFallbackMs: 120000,
@@ -3306,7 +3324,7 @@
             dashboardSocketAdmin.on('connect', () => {
                 dashboardSocketAdminWarned = false;
                 debugAdminDashboard('Tiempo real conectado para dashboard');
-                
+
                 // 🔌 Unirse a la sala de la rifa activa
                 const rifaActiva = obtenerRifaActivaDashboard();
                 if (rifaActiva) {
@@ -3493,13 +3511,30 @@
 
                 // Mostrar usuario en header (dashboard)
                 mostrarUsuarioEnHeader();
-                
+
                 // Actualizar header components (admin-header-user.js)
                 if (window.AdminHeaderManager) {
                     window.AdminHeaderManager.reload();
                 }
-                
+
                 restringirAccesoConfiguracion();
+
+                // Invalidar caché de autenticación previa
+                if (ADMIN_LAYOUT) {
+                    ADMIN_LAYOUT.authPromise = null;
+                }
+
+                // Sincronizar la configuración admin con token actual antes de renderizar el dashboard
+                if (window.rifaplusConfig?.sincronizarConfigDelBackend) {
+                    await window.rifaplusConfig.sincronizarConfigDelBackend({ force: true }).catch((e) => {
+                        console.warn('Error sincronizando config admin tras login:', e);
+                    });
+                }
+
+                // Recargar el selector de rifas inmediatamente después del login
+                if (typeof ADMIN_LAYOUT?.cargarSelectorRifas === 'function') {
+                    await ADMIN_LAYOUT.cargarSelectorRifas().catch((e) => console.warn('Error cargando selector de rifas tras login:', e));
+                }
 
                 // Si hay un redirect pendiente, ir a esa página
                 const redirectPendiente = localStorage.getItem('redirectAfterLogin');
@@ -3523,14 +3558,14 @@
          */
         // El logout ahora se maneja en admin-layout.js, pero agregamos lógica adicional del dashboard
         const originalLogout = ADMIN_LAYOUT.logout.bind(ADMIN_LAYOUT);
-        ADMIN_LAYOUT.logout = function() {
+        ADMIN_LAYOUT.logout = function () {
             // Limpiar recursos del dashboard
             tokenAutenticacion = null;
             if (intervaloConteoRegresivo) clearInterval(intervaloConteoRegresivo);
             if (intervaloEstadisticas) clearInterval(intervaloEstadisticas);
             if (window.graficoDistribucion) window.graficoDistribucion.destroy();
             if (window.graficoTendencia) window.graficoTendencia.destroy();
-            
+
             // Llamar al logout original
             originalLogout();
         };
@@ -3543,22 +3578,22 @@
             try {
                 const token = localStorage.getItem('rifaplus_token') || localStorage.getItem('rifaplus_admin_token');
                 if (!token) return null;
-                
+
                 // JWT tiene formato: header.payload.signature
                 const partes = token.split('.');
                 if (partes.length !== 3) return null;
-                
+
                 // Decodificar payload (segunda parte)
                 const payload = partes[1];
                 const payloadDecodificado = JSON.parse(atob(payload));
-                
+
                 window.currentUser = {
                     id: payloadDecodificado.id,
                     username: payloadDecodificado.username,
                     email: payloadDecodificado.email,
                     rol: payloadDecodificado.rol  // ✅ Sin default - validado en backend
                 };
-                
+
                 return window.currentUser;
             } catch (error) {
                 console.error('Error decodificando JWT:', error);
@@ -3572,10 +3607,10 @@
         function mostrarUsuarioEnHeader() {
             const usuario = decodificarTokenJWT();
             if (!usuario) return;
-            
+
             const nombreDisplay = document.getElementById('userDisplayName');
             const rolDisplay = document.getElementById('userDisplayRole');
-            
+
             if (nombreDisplay) nombreDisplay.textContent = usuario.username;
             if (rolDisplay) {
                 const rolMensaje = usuario.rol === 'administrador' ? 'Administrador' : 'Gestor de Órdenes';
@@ -3701,10 +3736,10 @@
                 texto: inventarioAgotadoPorVenta
                     ? 'Se colocó el 100% del inventario. El siguiente foco operativo es cierre, ganadores y seguimiento postventa.'
                     : porcentajeVendido >= 70
-                    ? 'El sorteo va en muy buen ritmo y se acerca a cierre fuerte.'
-                    : (porcentajeVendido >= 35
-                        ? 'El ritmo es aceptable, pero todavía hay margen para empujar conversión.'
-                        : 'El sorteo necesita más empuje comercial para acercarse a meta.')
+                        ? 'El sorteo va en muy buen ritmo y se acerca a cierre fuerte.'
+                        : (porcentajeVendido >= 35
+                            ? 'El ritmo es aceptable, pero todavía hay margen para empujar conversión.'
+                            : 'El sorteo necesita más empuje comercial para acercarse a meta.')
             });
 
             alertas.push({
@@ -3744,7 +3779,7 @@
                     botónConfig.style.display = 'none';
                 }
             }
-            
+
             // Ocultar botón de configuración en sidebar si no es admin
             const botónConfig = document.getElementById('navConfig');
             if (botónConfig && !esAdministrador()) {
@@ -3765,7 +3800,7 @@
                 // Obtener datos actuales
                 const statVendidos = document.getElementById('statSold');
                 const statTotal = document.getElementById('totalTickets');
-                
+
                 if (!statVendidos || !statTotal) {
                     console.warn('⚠️ [Pronóstico] Stats no encontrados');
                     return;
@@ -3813,10 +3848,10 @@
                 const metaDiaria = diasRestantes > 0 ? Math.ceil(boletosRestantes / diasRestantes) : boletosRestantes;
                 const ingresoProyectado = proyeccionFinal * precioBoleto;
                 const comprometidos = boletosVendidos + apartados;
-                
+
                 // Determinar estado
                 let estado = { icon: '📊', titulo: 'Lectura general del ritmo', texto: 'Cargando...', color: '#1877F2' };
-                
+
                 if (porcentajeProyectado >= 80) {
                     estado = {
                         icon: '🔥',
@@ -3846,7 +3881,7 @@
                         color: '#E4163A'
                     };
                 }
-                
+
                 // Actualizar DOM
                 document.getElementById('forecastSpeed').textContent = velocidad.toLocaleString();
                 document.getElementById('forecastProjection').textContent = `${Math.round(proyeccionFinal)} / ${totalBoletos}`;
@@ -3859,15 +3894,15 @@
                 document.getElementById('forecastStatusIcon').textContent = estado.icon;
                 document.getElementById('forecastStatusTitle').textContent = estado.titulo;
                 document.getElementById('forecastStatusText').textContent = estado.texto;
-                
+
                 // Actualizar barra de progreso
                 const barraLleno = document.getElementById('forecastProgressFill');
                 if (barraLleno) {
                     barraLleno.style.width = porcentajeProyectado + '%';
                 }
-                
+
                 debugAdminDashboard('Pronostico calculado', { boletosVendidos, velocidad, diasRestantes, proyeccionFinal, porcentajeProyectado });
-                
+
             } catch (error) {
                 console.error('❌ [Pronóstico] Error:', error);
             }
@@ -3958,7 +3993,7 @@
                 document.getElementById('countdownHours').textContent = String(horas).padStart(2, '0');
                 document.getElementById('countdownMinutes').textContent = String(minutos).padStart(2, '0');
                 document.getElementById('countdownSeconds').textContent = String(segundos).padStart(2, '0');
-                
+
                 const objetivo = new Date(timestampObjetivo);
                 document.getElementById('countdownDate').textContent = `Sorteo: ${objetivo.toLocaleDateString('es-MX')} a las ${objetivo.toLocaleTimeString('es-MX')}`;
 
@@ -4204,10 +4239,10 @@
 
                 // Consultar datos REALES desde BD
                 debugAdminDashboard('cargarEstadisticasOportunidades request', '/api/admin/oportunidades-stats');
-                
+
                 const respuesta = await fetch(`${URL_API}/api/admin/oportunidades-stats`, {
                     method: 'GET',
-                    headers: { 
+                    headers: {
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
                     },
@@ -4232,7 +4267,7 @@
 
                 // Actualizar las 3 cards con datos REALES
                 const stats = datos.data;
-                
+
                 const elemAvail = document.getElementById('statOpportunitiesAvailable');
                 const elemAssigned = document.getElementById('statOpportunitiesAssigned');
                 const elemReserved = document.getElementById('statOpportunitiesReserved');
@@ -4250,7 +4285,7 @@
                 }
 
                 console.error('❌ [cargarEstadisticasOportunidades] Error:', error.message);
-                
+
                 const elemAvail = document.getElementById('statOpportunitiesAvailable');
                 const elemAssigned = document.getElementById('statOpportunitiesAssigned');
                 const elemReserved = document.getElementById('statOpportunitiesReserved');
@@ -4258,7 +4293,7 @@
                 if (elemAvail) elemAvail.textContent = 'Error';
                 if (elemAssigned) elemAssigned.textContent = 'Error';
                 if (elemReserved) elemReserved.textContent = 'Error';
-                
+
                 debugAdminDashboard('cargarEstadisticasOportunidades finalizo con error');
             }
         }
@@ -4266,16 +4301,16 @@
         /**
          * FUNCIÓN DEBUGGING: Mostrar tarjetas oportunidades manualmente desde consola
          */
-        window.mostrarOportunidadesTest = function() {
+        window.mostrarOportunidadesTest = function () {
             debugAdminDashboard('Mostrando tarjetas de oportunidades manualmente');
             document.getElementById('oportunidadesCard').style.display = 'block';
             document.getElementById('oportunidadesAsignadasCard').style.display = 'block';
             document.getElementById('oportunidadesApartadasCard').style.display = 'block';
-            
+
             document.getElementById('statOpportunitiesAvailable').textContent = '5,000';
             document.getElementById('statOpportunitiesAssigned').textContent = '3,000';
             document.getElementById('statOpportunitiesReserved').textContent = '1,153';
-            
+
         };
 
         /* ============================================================ */
@@ -4302,13 +4337,13 @@
 
                 dashboardChartsAbortController = new AbortController();
                 const { signal } = dashboardChartsAbortController;
-                
+
                 let intentos = 0;
                 while (typeof Chart === 'undefined' && intentos < 50) {
                     await new Promise(resolve => setTimeout(resolve, 50));
                     intentos++;
                 }
-                
+
                 if (typeof Chart === 'undefined') {
                     console.error('❌ Chart.js no pudo cargarse después de múltiples intentos');
                     console.error('   Verificar CSP: https://cdn.jsdelivr.net debe estar permitido en script-src');
@@ -4481,20 +4516,20 @@
                     console.error('Canvas distributionChart no encontrado');
                     return;
                 }
-                
+
                 const ctxDistribucion = canvasDistribucion.getContext('2d');
-                
+
                 // Destruir gráfica anterior si existe
                 if (window.graficoDistribucion && typeof window.graficoDistribucion.destroy === 'function') {
                     window.graficoDistribucion.destroy();
                 }
-                
+
                 // Calcular porcentajes
                 const totalBoletos = vendidos + disponibles + apartados;
                 const porcVendidos = totalBoletos > 0 ? ((vendidos / totalBoletos) * 100).toFixed(1) : 0;
                 const porcDisponibles = totalBoletos > 0 ? ((disponibles / totalBoletos) * 100).toFixed(1) : 0;
                 const porcApartados = totalBoletos > 0 ? ((apartados / totalBoletos) * 100).toFixed(1) : 0;
-                
+
                 window.graficoDistribucion = new Chart(ctxDistribucion, {
                     type: 'doughnut',
                     data: {
@@ -4521,7 +4556,7 @@
                                     padding: 20,
                                     usePointStyle: true,
                                     color: '#1F2937',
-                                    generateLabels: function(grafico) {
+                                    generateLabels: function (grafico) {
                                         const datos = grafico.data;
                                         const total = (datos.datasets[0].data || []).reduce((sum, value) => sum + (Number(value) || 0), 0);
                                         return datos.labels.map((etiqueta, i) => ({
@@ -4541,10 +4576,10 @@
                                 titleFont: { size: 13, weight: 'bold', family: 'Inter' },
                                 bodyFont: { size: 12, family: 'Inter' },
                                 callbacks: {
-                                    title: function(contexto) {
+                                    title: function (contexto) {
                                         return contexto[0].label;
                                     },
-                                    label: function(contexto) {
+                                    label: function (contexto) {
                                         const valor = contexto.parsed;
                                         const total = contexto.dataset.data.reduce((a, b) => a + b, 0);
                                         const porcentaje = ((valor / total) * 100).toFixed(1);
@@ -4574,7 +4609,7 @@
                     const num = fecha.getDate();
                     return `${dia} ${num}`;
                 }) : ['Sin datos'];
-                
+
                 const boletos = datosGrafica.length > 0 ? datosGrafica.map(item => {
                     const cantidad = parseInt(item.boletos) || 0;
                     return cantidad;
@@ -4587,14 +4622,14 @@
                     console.error('Canvas trendChart no encontrado');
                     return;
                 }
-                
+
                 const ctxTendencia = canvasTendencia.getContext('2d');
-                
+
                 // Destruir gráfica anterior si existe
                 if (window.graficoTendencia && typeof window.graficoTendencia.destroy === 'function') {
                     window.graficoTendencia.destroy();
                 }
-                
+
                 const maxBoletos = boletos.length ? Math.max(...boletos, 0) : 0;
                 const stepSizeY = maxBoletos <= 25
                     ? 1
@@ -4635,7 +4670,7 @@
                         plugins: {
                             legend: {
                                 display: true,
-                                labels: { 
+                                labels: {
                                     font: { size: 12, family: 'Inter', weight: '600' },
                                     color: '#1F2937',
                                     padding: 15
@@ -4649,7 +4684,7 @@
                                 bodyFont: { size: 12, family: 'Inter' },
                                 displayColors: true,
                                 callbacks: {
-                                    label: function(contexto) {
+                                    label: function (contexto) {
                                         return `Vendidos: ${contexto.parsed.y} boletos`;
                                     }
                                 }
@@ -4664,13 +4699,13 @@
                                     font: { family: 'Inter' },
                                     color: '#6B7280'
                                 },
-                                grid: { 
+                                grid: {
                                     color: 'rgba(0,0,0,0.05)',
                                     drawBorder: true
                                 }
                             },
                             x: {
-                                ticks: { 
+                                ticks: {
                                     font: { family: 'Inter', size: 11 },
                                     color: '#6B7280'
                                 },
@@ -4743,7 +4778,7 @@
                 const token = obtenerTokenActual();
                 debugAdminDashboard('cargarOrdenesPendientes token disponible', !!token);
                 debugAdminDashboard('cargarOrdenesPendientes request', `${URL_API}/api/ordenes?limit=1000`);
-                
+
                 if (!token) {
                     console.error('⚠️ [cargarOrdenesPendientes] No hay token disponible');
                     return;
@@ -4755,13 +4790,13 @@
 
                 dashboardPendingAbortController = new AbortController();
                 const { signal } = dashboardPendingAbortController;
-                
+
                 const respuesta = await fetch(`${URL_API}/api/ordenes?limit=1000`, {
                     headers: { 'Authorization': `Bearer ${token}` },
                     cache: 'no-store',
                     signal
                 });
-                
+
                 debugAdminDashboard('cargarOrdenesPendientes status', respuesta.status);
                 const datos = await respuesta.json();
 
@@ -4770,7 +4805,7 @@
                 }
 
                 debugAdminDashboard('cargarOrdenesPendientes response', datos);
-                
+
                 if (!datos.success) throw new Error(datos.message);
 
                 const todasOrdenes = Array.isArray(datos.data) ? datos.data : [];
@@ -4811,7 +4846,7 @@
                 }
                 const respuesta = await fetch(`${URL_API}/api/ordenes/${ordenId}/estado`, {
                     method: 'PUT',
-                    headers: { 
+                    headers: {
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
                     },
@@ -4877,32 +4912,32 @@
                 debugAdminDashboard('Dashboard inicializandose');
 
                 desconectarTiempoRealDashboard();
-                
+
                 // Ocultar opciones del sidebar según el rol del usuario
                 restringirAccesoConfiguracion();
                 inicializarFiltrosGraficaTendencia();
-                
+
                 programarCuentaRegresivaCuandoEsteLista();
-                
+
                 // ⭐ IMPORTANTE: Hacer requests SECUENCIALMENTE para respetar límite de conexiones de Supabase
                 debugAdminDashboard('Cargando estadisticas iniciales');
                 await cargarEstadisticas();
                 // Esperar antes del siguiente request (evitar saturar conexiones)
                 await new Promise(resolve => setTimeout(resolve, 300));
-                
+
                 calcularPronosticoVentas(); // 🎯 Calcular pronóstico después de cargar stats
                 debugAdminDashboard('Estadisticas cargadas; cargando graficas');
-                
+
                 // Esperar antes de cargar gráficas
                 await new Promise(resolve => setTimeout(resolve, 500));
                 await cargarGraficas(rangoActual);
-                
+
                 // Esperar antes de cargar órdenes
                 await new Promise(resolve => setTimeout(resolve, 300));
                 await cargarOrdenesPendientes();
-                
+
                 debugAdminDashboard('Dashboard inicializado completamente');
-                
+
                 // Polling de respaldo: más espaciado porque el socket ya cubre el tiempo real.
                 intervaloEstadisticas = setInterval(() => {
                     cargarEstadisticas({ silent: true }).catch(e => console.warn('Error en intervalo de stats:', e));
@@ -4911,11 +4946,11 @@
                 intervaloGraficas = setInterval(() => {
                     cargarGraficas(rangoActual).catch(e => console.warn('Error en intervalo de gráficas:', e));
                 }, DASHBOARD_REFRESH_POLICY.chartsFallbackMs);
-                
+
                 intervaloOrdenesPendientes = setInterval(() => {
                     cargarOrdenesPendientes().catch(e => console.warn('Error en intervalo de órdenes:', e));
                 }, DASHBOARD_REFRESH_POLICY.pendingFallbackMs);
-                
+
                 // Inicializar toggle de visibilidad de ingresos
                 configurarToggleVisibilidad();
                 iniciarTiempoRealDashboard().catch((error) => {
@@ -4932,9 +4967,9 @@
         function configurarToggleVisibilidad() {
             const toggleBtn = document.getElementById('toggleRevenueVisibility');
             const statValue = document.getElementById('statRevenue');
-            
+
             if (!toggleBtn || !statValue) return;
-            
+
             // Restaurar estado guardado al cargar (ya está en el HTML via atributo data)
             const revenueOculto = localStorage.getItem('rifaplus_revenue_hidden') === 'true';
             if (revenueOculto) {
@@ -4943,14 +4978,14 @@
                 toggleBtn.title = 'Mostrar ingresos';
                 toggleBtn.innerHTML = '<i class="fas fa-eye-slash"></i>';
             }
-            
+
             toggleBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                
+
                 const isHidden = statValue.classList.toggle('hidden');
                 toggleBtn.classList.toggle('hidden', isHidden);
-                
+
                 // Guardar estado en localStorage y en atributo del documento
                 localStorage.setItem('rifaplus_revenue_hidden', isHidden);
                 if (isHidden) {
@@ -4988,13 +5023,13 @@
         document.addEventListener('DOMContentLoaded', async () => {
             const dashboardEl = document.getElementById('dashboard');
             const loginScreen = document.getElementById('loginScreen');
-            
+
             // 🚀 VISIBILIDAD INSTANTÁNEA
-            const tokenLocal = localStorage.getItem('rifaplus_token') || 
-                             localStorage.getItem('rifaplus_admin_token') ||
-                             localStorage.getItem('admin_token') ||
-                             localStorage.getItem('token');
-            
+            const tokenLocal = localStorage.getItem('rifaplus_token') ||
+                localStorage.getItem('rifaplus_admin_token') ||
+                localStorage.getItem('admin_token') ||
+                localStorage.getItem('token');
+
             if (tokenLocal) {
                 if (dashboardEl) {
                     dashboardEl.classList.add('active');
@@ -5013,25 +5048,25 @@
                             programarCuentaRegresivaCuandoEsteLista();
                         });
                     }
-                } catch (e) {}
+                } catch (e) { }
             })();
-            
-            const selectorPromise = (typeof ADMIN_LAYOUT?.cargarSelectorRifas === 'function') 
+
+            const selectorPromise = (typeof ADMIN_LAYOUT?.cargarSelectorRifas === 'function')
                 ? ADMIN_LAYOUT.cargarSelectorRifas().catch(e => console.warn('Error selector:', e))
                 : Promise.resolve();
 
             // Verificar autenticación real
             const authOk = !!obtenerTokenActual();
-            
+
             if (authOk) {
                 if (loginScreen) loginScreen.style.display = 'none';
                 if (dashboardEl) {
                     dashboardEl.classList.add('active');
                     dashboardEl.style.display = 'block';
                 }
-                
+
                 await Promise.all([configPromise, selectorPromise]);
-                
+
                 await iniciarTiempoRealDashboard();
                 await Promise.all([
                     requestStatsRefreshTiempoReal('inicio', 150),
@@ -5045,4 +5080,5 @@
         });
     </script>
 </body>
+
 </html>

@@ -21,7 +21,10 @@
  */
 function setItemSafeOrden(key, value) {
     try {
-        localStorage.setItem(key, value);
+        const scopedKey = typeof window.rifaplusConfig?.construirClaveLocal === 'function'
+            ? window.rifaplusConfig.construirClaveLocal(key)
+            : key;
+        localStorage.setItem(scopedKey, value);
         return true;
     } catch (error) {
         console.warn(`⚠️  [ORDEN] Cuota localStorage excedida para '${key}'. Usando memoria.`, error.message);
@@ -38,13 +41,27 @@ function setItemSafeOrden(key, value) {
  */
 function getItemSafeOrden(key) {
     try {
-        return localStorage.getItem(key);
+        const scopedKey = typeof window.rifaplusConfig?.construirClaveLocal === 'function'
+            ? window.rifaplusConfig.construirClaveLocal(key)
+            : key;
+        return localStorage.getItem(scopedKey);
     } catch (error) {
         console.warn(`⚠️  [ORDEN] Error leyendo '${key}'. Intentando memoria.`, error.message);
         if (window.StorageMemoryFallback && window.StorageMemoryFallback[key]) {
             return window.StorageMemoryFallback[key];
         }
         return null;
+    }
+}
+
+function removeItemSafeOrden(key) {
+    try {
+        const scopedKey = typeof window.rifaplusConfig?.construirClaveLocal === 'function'
+            ? window.rifaplusConfig.construirClaveLocal(key)
+            : key;
+        localStorage.removeItem(scopedKey);
+    } catch (error) {
+        console.warn(`⚠️  [ORDEN] Error eliminando '${key}'.`, error.message);
     }
 }
 
@@ -287,13 +304,13 @@ function abrirOrdenFormal(cuenta, opciones = {}) {
     }
     
     // Compilar datos de la orden
-    const cliente = JSON.parse(localStorage.getItem('rifaplus_cliente') || '{}');
-    let boletos = JSON.parse(localStorage.getItem('rifaplus_boletos') || '[]');
-    const totales = JSON.parse(localStorage.getItem('rifaplus_total') || '{}');
+    const cliente = JSON.parse(getItemSafeOrden('rifaplus_cliente') || '{}');
+    let boletos = JSON.parse(getItemSafeOrden('rifaplus_boletos') || '[]');
+    const totales = JSON.parse(getItemSafeOrden('rifaplus_total') || '{}');
 
     // Si rifaplus_boletos está vacío, intentar recuperar de rifaplusSelectedNumbers
     if (!boletos || boletos.length === 0) {
-        const selectedNumbers = JSON.parse(localStorage.getItem('rifaplusSelectedNumbers') || '[]');
+        const selectedNumbers = JSON.parse(getItemSafeOrden('rifaplusSelectedNumbers') || '[]');
         if (selectedNumbers && selectedNumbers.length > 0) {
             console.warn('⚠️  rifaplus_boletos está vacío, usando rifaplusSelectedNumbers como fallback');
             boletos = selectedNumbers;
@@ -735,7 +752,7 @@ function limpiarCarritoCompletamente() {
         
         keysALimpiar.forEach(key => {
             try {
-                localStorage.removeItem(key);
+                removeItemSafeOrden(key);
             } catch (e) {
                 console.warn(`⚠️  Error removiendo ${key}:`, e.message);
             }
@@ -1029,12 +1046,12 @@ async function guardarOrden() {
                                 } else {
                                     console.warn('⚠️  removerBoletoSeleccionado no disponible, removiendo manualmente...');
                                     // Fallback manual si la función no está disponible
-                                    let stored = localStorage.getItem('rifaplusSelectedNumbers');
+                                    let stored = getItemSafeOrden('rifaplusSelectedNumbers');
                                     let numbers = stored ? JSON.parse(stored).map(n => parseInt(n, 10)) : [];
                                     numbers = numbers.filter(n => !errorData.boletosConflicto.includes(n));
-                                    localStorage.setItem('rifaplusSelectedNumbers', JSON.stringify(numbers));
+                                    setItemSafeOrden('rifaplusSelectedNumbers', JSON.stringify(numbers));
                                 }
-                                
+
                                 // Volver a la tienda para que seleccione otros
                                 alert('Por favor, selecciona otros boletos de la tienda.\n\n✓ Los boletos en conflicto han sido removidos automáticamente de tu carrito.');
                                 window.location.href = 'compra.html';
@@ -1048,7 +1065,7 @@ async function guardarOrden() {
                                 boletosArray = opcionUsuario.boletosSeleccionados;
                                 
                                 // 🔴 CRÍTICO: Limpiar localStorage de boletos para sincronizar UI
-                                localStorage.setItem('rifaplusSelectedNumbers', JSON.stringify(boletosArray));
+                                setItemSafeOrden('rifaplusSelectedNumbers', JSON.stringify(boletosArray));
                                 
                                 // ✅ CRÍTICO: Recalcular oportunidades removiendo las de boletos conflictivos
                                 // Usar el array original de oportunidades que ya tenemos en memoria
@@ -1056,7 +1073,7 @@ async function guardarOrden() {
                                 
                                 try {
                                     // Obtener oportunidades por boleto del localStorage (antes de limpiar)
-                                    const oportunidadesGuardadas = localStorage.getItem('rifaplus_oportunidades');
+                                    const oportunidadesGuardadas = getItemSafeOrden('rifaplus_oportunidades');
                                     if (oportunidadesGuardadas) {
                                         const datosOpp = JSON.parse(oportunidadesGuardadas);
                                         
@@ -1530,4 +1547,3 @@ window.guardarOrden = guardarOrden;
 window.abrirOrdenFormal = abrirOrdenFormal;
 window.cerrarOrdenFormal = cerrarOrdenFormal;
 window.obtenerOportunidadesValidadasOrdenActual = obtenerOportunidadesValidadasOrdenActual;
-

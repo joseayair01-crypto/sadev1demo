@@ -1719,7 +1719,13 @@ function obtenerConfigActual(rifaId = null) {
 function cargarConfigSorteo(rifaId = null) {
     const rifaIdActual = rifaId || obtenerRifaIdActual();
     const configActual = obtenerConfigActual(rifaIdActual);
-    const oportunidadesActuales = configActual?.rifa?.oportunidades || configManager.config?.rifa?.oportunidades || {};
+    const configManagerConfig = configManager?.config || {};
+    const oportunidadesActuales = configActual?.rifa?.oportunidades || configManagerConfig?.rifa?.oportunidades || {};
+    const clienteActual = configActual?.cliente || {};
+    const clienteFallback = configManagerConfig?.cliente || {};
+    const clienteNombreResuelto = String(clienteActual?.nombre || clienteFallback?.nombre || '').trim();
+    const clienteIdResuelto = String(clienteActual?.id || clienteFallback?.id || '').trim();
+    const prefijoOrdenResuelto = String(clienteActual?.prefijoOrden || clienteFallback?.prefijoOrden || '').trim().toUpperCase();
 
     return {
         rifaId: rifaIdActual,
@@ -1727,22 +1733,22 @@ function cargarConfigSorteo(rifaId = null) {
         totalBoletos: configActual?.rifa?.totalBoletos || configManager.totalBoletos,
         precioBoleta: configActual?.rifa?.precioBoleto || configManager.precioBoleto,
         precioBoleto: configActual?.rifa?.precioBoleto || configManager.precioBoleto,
-        clienteNombre: configActual?.cliente?.nombre || 'SORTEOS TORRES',
+        clienteNombre: clienteNombreResuelto || 'Sorteo',
         // ✅ AGREGADO: Información de cliente y prefijo
         cliente: {
-            id: configActual?.cliente?.id || configManager.config?.cliente?.id || 'Sorteos_El_Trebol',
-            nombre: configActual?.cliente?.nombre || configManager.config?.cliente?.nombre || 'SORTEOS TORRES',
-            prefijoOrden: configActual?.cliente?.prefijoOrden || configManager.config?.cliente?.prefijoOrden || 'SS'
+            id: clienteIdResuelto || '',
+            nombre: clienteNombreResuelto || 'Sorteo',
+            prefijoOrden: prefijoOrdenResuelto || ''
         },
         // ✅ AGREGADO: Información de descuentos desde config
         rifa: {
-            precioBoleto: configActual?.rifa?.precioBoleto || configManager.config?.rifa?.precioBoleto || configManager.precioBoleto,
-            tiempoApartadoHoras: configActual?.rifa?.tiempoApartadoHoras || configManager.config?.rifa?.tiempoApartadoHoras || TIEMPO_APARTADO_HORAS,
-            intervaloLimpiezaMinutos: configActual?.rifa?.intervaloLimpiezaMinutos || configManager.config?.rifa?.intervaloLimpiezaMinutos || INTERVALO_LIMPIEZA_MINUTOS,
-            descuentos: configActual?.rifa?.descuentos || configManager.config?.rifa?.descuentos || { enabled: false, reglas: [] },
-            promocionesCombo: configActual?.rifa?.promocionesCombo || configManager.config?.rifa?.promocionesCombo || { enabled: false, reglas: [] },
-            promocionPorTiempo: configActual?.rifa?.promocionPorTiempo || configManager.config?.rifa?.promocionPorTiempo || { enabled: false },
-            descuentoPorcentaje: configActual?.rifa?.descuentoPorcentaje || configManager.config?.rifa?.descuentoPorcentaje || { enabled: false },
+            precioBoleto: configActual?.rifa?.precioBoleto || configManagerConfig?.rifa?.precioBoleto || configManager.precioBoleto,
+            tiempoApartadoHoras: configActual?.rifa?.tiempoApartadoHoras || configManagerConfig?.rifa?.tiempoApartadoHoras || TIEMPO_APARTADO_HORAS,
+            intervaloLimpiezaMinutos: configActual?.rifa?.intervaloLimpiezaMinutos || configManagerConfig?.rifa?.intervaloLimpiezaMinutos || INTERVALO_LIMPIEZA_MINUTOS,
+            descuentos: configActual?.rifa?.descuentos || configManagerConfig?.rifa?.descuentos || { enabled: false, reglas: [] },
+            promocionesCombo: configActual?.rifa?.promocionesCombo || configManagerConfig?.rifa?.promocionesCombo || { enabled: false, reglas: [] },
+            promocionPorTiempo: configActual?.rifa?.promocionPorTiempo || configManagerConfig?.rifa?.promocionPorTiempo || { enabled: false },
+            descuentoPorcentaje: configActual?.rifa?.descuentoPorcentaje || configManagerConfig?.rifa?.descuentoPorcentaje || { enabled: false },
             oportunidades: {
                 enabled: oportunidadesActuales.enabled === true,
                 multiplicador: Number(oportunidadesActuales.multiplicador) > 0
@@ -1765,6 +1771,110 @@ function obtenerTotalBoletosConfigurado(configBase = null) {
     const config = configBase || obtenerConfigActual();
     const total = Number.parseInt(config?.rifa?.totalBoletos ?? config?.totalBoletos, 10);
     return Number.isInteger(total) && total > 0 ? total : 0;
+}
+
+function normalizarRangoBusquedaRifa(rango) {
+    const inicio = Number.parseInt(rango?.inicio, 10);
+    const fin = Number.parseInt(rango?.fin, 10);
+
+    if (!Number.isInteger(inicio) || !Number.isInteger(fin) || inicio < 0 || fin < inicio) {
+        return null;
+    }
+
+    return { inicio, fin };
+}
+
+function fusionarRangosBusquedaRifa(rangos = []) {
+    const ordenados = (Array.isArray(rangos) ? rangos : [])
+        .map((rango) => normalizarRangoBusquedaRifa(rango))
+        .filter(Boolean)
+        .sort((a, b) => {
+            if (a.inicio !== b.inicio) return a.inicio - b.inicio;
+            return a.fin - b.fin;
+        });
+
+    if (ordenados.length === 0) {
+        return [];
+    }
+
+    const fusionados = [ordenados[0]];
+
+    for (let indice = 1; indice < ordenados.length; indice += 1) {
+        const actual = ordenados[indice];
+        const ultimo = fusionados[fusionados.length - 1];
+
+        if (actual.inicio <= ultimo.fin + 1) {
+            ultimo.fin = Math.max(ultimo.fin, actual.fin);
+        } else {
+            fusionados.push({ ...actual });
+        }
+    }
+
+    return fusionados;
+}
+
+function obtenerRangosBusquedaPermitidos(configBase = null) {
+    const config = configBase || obtenerConfigActual();
+    const rangosConfigurados = fusionarRangosBusquedaRifa(config?.rifa?.rangos || []);
+
+    if (rangosConfigurados.length > 0) {
+        return rangosConfigurados;
+    }
+
+    const oportunidadesConfig = obtenerConfigOportunidadesSistema(config);
+    if (oportunidadesConfig?.enabled && oportunidadesConfig?.rangoVisible) {
+        const rangosOportunidades = fusionarRangosBusquedaRifa([oportunidadesConfig.rangoVisible]);
+        if (rangosOportunidades.length > 0) {
+            return rangosOportunidades;
+        }
+    }
+
+    const totalBoletos = obtenerTotalBoletosConfigurado(config);
+    if (totalBoletos > 0) {
+        return [{ inicio: 0, fin: totalBoletos - 1 }];
+    }
+
+    return [{ inicio: 0, fin: 0 }];
+}
+
+function numeroPerteneceARangosBusqueda(numero, rangos = []) {
+    return Number.isInteger(numero) && (Array.isArray(rangos) ? rangos : []).some((rango) =>
+        numero >= rango.inicio && numero <= rango.fin
+    );
+}
+
+function rangoIntersectaRangosBusqueda(inicio, fin, rangos = []) {
+    if (!Number.isInteger(inicio) || !Number.isInteger(fin) || inicio > fin) {
+        return false;
+    }
+
+    return (Array.isArray(rangos) ? rangos : []).some((rango) =>
+        inicio <= rango.fin && fin >= rango.inicio
+    );
+}
+
+function construirFiltroSqlRangos(columnaSql, rangos = []) {
+    const rangosNormalizados = fusionarRangosBusquedaRifa(rangos);
+
+    if (rangosNormalizados.length === 0) {
+        return {
+            sql: '1 = 0',
+            params: []
+        };
+    }
+
+    const fragmentos = [];
+    const params = [];
+
+    rangosNormalizados.forEach((rango) => {
+        fragmentos.push(`(${columnaSql} BETWEEN ? AND ?)`);
+        params.push(rango.inicio, rango.fin);
+    });
+
+    return {
+        sql: fragmentos.join(' OR '),
+        params
+    };
 }
 
 async function resolverClasificacionNumeroAdmin(numero, configBase = null) {
@@ -2947,7 +3057,7 @@ function escaparHtmlAttr(valor) {
 // Sirve HTML dinámico con meta tags cuando lo solicita WhatsApp, Facebook, etc.
 app.get('/og', (req, res) => {
     try {
-        const config = obtenerConfigActual();
+        const config = obtenerConfigActual(req.rifaContext?.id || null);
         const metadatos = construirMetadatosSeo(config, req, req.query.path, req.query.publicBase);
 
         const metaTags = `
@@ -2998,7 +3108,7 @@ app.get('/og', (req, res) => {
  */
 app.get('/api/public/sorteo-info', (req, res) => {
     try {
-        const configActual = obtenerConfigActual();
+        const configActual = obtenerConfigActual(req.rifaContext?.id || null);
         const clienteNombre = configActual.cliente?.nombre || 'SORTEOS EL TREBOL';
         const rifaTitulo = configActual.rifa?.nombreSorteo || 'Sorteo';
         const rifaDescripcion = configActual.rifa?.descripcion || 'Compra tus boletos en linea';
@@ -4474,7 +4584,7 @@ app.get('/api/public/config', (req, res) => {
             return res.json(serverCache.publicConfigCached);
         }
 
-        const configActual = obtenerConfigActual();
+        const configActual = obtenerConfigActual(req.rifaContext?.id || null);
         const fallbackConfig = obtenerConfigExpiracion();
 
         const config = {
@@ -4590,7 +4700,7 @@ app.get('/api/public/rifas-pasadas/:slug', async (req, res) => {
  */
 app.get('/api/og-metadata', (req, res) => {
     try {
-        const config = obtenerConfigActual();
+        const config = obtenerConfigActual(req.rifaContext?.id || null);
 
         if (!config || Object.keys(config).length === 0) {
             return res.status(404).json({
@@ -4639,7 +4749,7 @@ app.get('/api/admin/config', verificarToken, async (req, res) => {
             return res.status(409).json(contextoAdminError);
         }
 
-        const config = obtenerConfigActual();
+        const config = obtenerConfigActual(req.rifaContext?.id || null);
         console.log(`[GET /api/admin/config] Leyendo desde ${configManagerV2 ? 'ConfigManagerV2 (BD)' : 'config legacy/fallback'}`);
 
         res.json({
@@ -5995,7 +6105,7 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
 /**
  * POST /api/public/order-counter/next
  * Genera el siguiente ID de orden único
- * Patrón: SS-AA001 → SS-AA999 → SS-AB000 → SS-ZZ999
+ * Patrón visible multirifa: S9-AA000 → S9-AA001 → S9-AA999 → S9-AB000
  * Cliente: frontend o backend
  */
 app.post('/api/public/order-counter/next', limiterOrdenes, async (req, res) => {
@@ -6010,9 +6120,14 @@ app.post('/api/public/order-counter/next', limiterOrdenes, async (req, res) => {
             });
         }
 
-        const configActual = rifaContext.configuracion?.rifa || {};
         const rifaIdActual = Number.parseInt(rifaContext.id, 10);
-        const cliente_id = String(rifaContext.organizador_key || 'Sorteos_El_Trebol').trim();
+        const clienteConfigActual = rifaContext.configuracion?.cliente || {};
+        const cliente_id = String(
+            clienteConfigActual.id
+            || rifaContext.organizador_key
+            || rifaContext.organizerKey
+            || ''
+        ).trim();
         
         // Usar transacción con bloqueo explícito para evitar IDs duplicados bajo concurrencia
         const orderId = await db.transaction(async (trx) => {
@@ -6043,34 +6158,52 @@ app.post('/api/public/order-counter/next', limiterOrdenes, async (req, res) => {
  */
 app.get('/api/admin/order-counter/status', verificarToken, async (req, res) => {
     try {
-        const { cliente_id } = req.query;
-        
-        if (!cliente_id) {
+        const rifaIdActual = Number.parseInt(req.query?.rifa_id || req.rifaContext?.id, 10) || null;
+        const clienteIdQuery = String(req.query?.cliente_id || '').trim();
+        const counterKey = construirClaveCounterOrden(rifaIdActual, clienteIdQuery);
+        const prefijoVisible = construirPrefijoVisibleOrden(rifaIdActual, clienteIdQuery);
+
+        if (!rifaIdActual && !clienteIdQuery) {
             return res.status(400).json({
                 success: false,
-                message: 'cliente_id es requerido'
+                message: 'rifa_id o cliente_id es requerido'
             });
         }
 
         const counter = await db('order_id_counter')
-            .where({ cliente_id })
+            .modify((qb) => {
+                qb.where('cliente_id', counterKey);
+                if (rifaIdActual) {
+                    qb.where('rifa_id', rifaIdActual);
+                }
+            })
             .first();
 
         if (!counter) {
-            return res.status(404).json({
-                success: false,
-                message: 'Contador no encontrado'
+            return res.json({
+                success: true,
+                data: {
+                    cliente_id: counterKey,
+                    rifa_id: rifaIdActual,
+                    ultima_secuencia: 'AA',
+                    ultimo_numero: 0,
+                    proximo_numero: 1,
+                    proximo_id: `${prefijoVisible}-AA000`,
+                    contador_total: 0,
+                    activo: true,
+                    fecha_ultimo_reset: null
+                }
             });
         }
 
         const proxNum = String(counter.proximo_numero).padStart(3, '0');
-        const prefijo = obtenerPrefijoOrdenCliente(cliente_id);
-        const proximoId = `${prefijo}-${counter.ultima_secuencia}${proxNum}`;
+        const proximoId = `${prefijoVisible}-${counter.ultima_secuencia}${proxNum}`;
 
         res.json({
             success: true,
             data: {
                 cliente_id: counter.cliente_id,
+                rifa_id: counter.rifa_id || rifaIdActual || null,
                 ultima_secuencia: counter.ultima_secuencia,
                 ultimo_numero: counter.ultimo_numero,
                 proximo_numero: counter.proximo_numero,
@@ -6097,19 +6230,27 @@ app.get('/api/admin/order-counter/status', verificarToken, async (req, res) => {
  */
 app.post('/api/admin/order-counter/reset', verificarToken, async (req, res) => {
     try {
-        const { cliente_id } = req.body;
-        
-        if (!cliente_id) {
+        const clienteIdBody = String(req.body?.cliente_id || '').trim();
+        const rifaIdActual = Number.parseInt(req.body?.rifa_id || req.rifaContext?.id, 10) || null;
+        const counterKey = construirClaveCounterOrden(rifaIdActual, clienteIdBody);
+        const prefijoVisible = construirPrefijoVisibleOrden(rifaIdActual, clienteIdBody);
+
+        if (!rifaIdActual && !clienteIdBody) {
             return res.status(400).json({
                 success: false,
-                message: 'cliente_id es requerido'
+                message: 'rifa_id o cliente_id es requerido'
             });
         }
 
         // Usar transacción
         const result = await db.transaction(async (trx) => {
             const counter = await trx('order_id_counter')
-                .where({ cliente_id })
+                .modify((qb) => {
+                    qb.where('cliente_id', counterKey);
+                    if (rifaIdActual) {
+                        qb.where('rifa_id', rifaIdActual);
+                    }
+                })
                 .first();
 
             if (!counter) {
@@ -6125,7 +6266,7 @@ app.post('/api/admin/order-counter/reset', verificarToken, async (req, res) => {
 
             // Resetear contador
             await trx('order_id_counter')
-                .where({ cliente_id })
+                .where('id', counter.id)
                 .update({
                     ultima_secuencia: 'AA',
                     proximo_numero: 1,
@@ -6138,13 +6279,13 @@ app.post('/api/admin/order-counter/reset', verificarToken, async (req, res) => {
             return estadoAnterior;
         });
 
-        log('info', 'POST /api/admin/order-counter/reset success', { cliente_id, estado_anterior: result });
+        log('info', 'POST /api/admin/order-counter/reset success', { cliente_id: counterKey, rifa_id: rifaIdActual, estado_anterior: result });
 
         res.json({
             success: true,
             message: 'Contador reseteado exitosamente',
             estado_anterior: result,
-            nuevo_inicio: `SY-AA001`
+            nuevo_inicio: `${prefijoVisible}-AA000`
         });
 
     } catch (error) {
@@ -6291,9 +6432,18 @@ function obtenerPrefijoOrdenCliente(clienteId, configActor = null) {
         console.warn('⚠️ Error obteniendoprefijoOrden:', error.message);
     }
 
-    // 2️⃣ Fallback SEGURO: NUNCA generar, siempre retornar valor >= 2 caracteres
-    console.log(`❌ FALLBACK: No encontrado prefijo válido en config, retornando 'SS' por defecto`);
-    return 'SS';  // ✅ IMPORTANTE: SIEMPRE al menos 2 caracteres, nunca solo 'S'
+    const clienteIdLimpio = String(clienteId || '').trim();
+    if (clienteIdLimpio) {
+        const letrasCliente = clienteIdLimpio.replace(/[^a-zA-Z0-9]/g, '').substring(0, 2).toUpperCase();
+        if (letrasCliente.length >= 2) {
+            console.log(`✅ PREFIJO ORDEN: "${letrasCliente}" (generado desde clienteId "${clienteIdLimpio}")`);
+            return letrasCliente;
+        }
+    }
+
+    // 2️⃣ Fallback seguro y genérico
+    console.log('❌ FALLBACK: No se encontró prefijo dinámico válido, retornando "OR" por defecto');
+    return 'OR';
 }
 
 function descomponerOrdenId(ordenId, prefijoEsperado = '') {
@@ -6344,6 +6494,26 @@ function construirOrdenIdDesdeComponente(prefijo, componente) {
     const secuencia = String(componente?.secuencia || 'AA').toUpperCase();
     const numero = String(Number.isFinite(Number(componente?.numero)) ? Number(componente.numero) : 0).padStart(3, '0');
     return `${prefijo}-${secuencia}${numero}`;
+}
+
+function construirClaveCounterOrden(rifaId = null, clienteId = '') {
+    const rifaNormalizada = Number.parseInt(rifaId, 10) || 0;
+    const clienteNormalizado = String(clienteId || '').trim().replace(/[^a-zA-Z0-9_-]/g, '');
+
+    if (rifaNormalizada > 0) {
+        return `rifa_${rifaNormalizada}`;
+    }
+
+    return clienteNormalizado || 'rifa_legacy';
+}
+
+function construirPrefijoVisibleOrden(rifaId = null, clienteId = '', configActor = null) {
+    const rifaNormalizada = Number.parseInt(rifaId, 10) || 0;
+    if (rifaNormalizada > 0) {
+        return `S${rifaNormalizada}`;
+    }
+
+    return obtenerPrefijoOrdenCliente(clienteId, configActor);
 }
 
 async function obtenerMayorOrdenExistentePorPrefijo(trx, prefijo) {
@@ -6531,29 +6701,24 @@ function esMismaOrdenIdempotente(ordenExistente, contexto) {
  * @returns {Promise<string>} ordenId
  */
 async function generarSiguienteOrdenId(cliente_id, trx, rifaId = null) {
-    // 1. Determinar el contexto y el prefijo base
-    const cid = cliente_id || 'Sorteos_El_Trebol';
-    
-    // Obtener config (necesaria para el prefijo base)
-    const configActual = obtenerConfigActual() || {};
-    const prefijoBase = obtenerPrefijoOrdenCliente(cid, configActual);
-    
-    // 🛡️ PREFIJO DINÁMICO: S(id)-PREFIJO (ej: S10-AA)
-    const prefijo = rifaId ? `S${rifaId}-${prefijoBase}` : prefijoBase;
+    // 1. Determinar la clave interna del contador y el prefijo visible
+    const cidOriginal = String(cliente_id || '').trim();
+    const counterKey = construirClaveCounterOrden(rifaId, cidOriginal);
+    const prefijo = construirPrefijoVisibleOrden(rifaId, cidOriginal, obtenerConfigActual(rifaId) || {});
     
     logOrdenesDebug(`📋 Generando siguiente ID con prefijo "${prefijo}" para rifa_id=${rifaId}`);
 
     // 2. Buscar o crear el contador específico para esta rifa/prefijo
     let counter = await trx('order_id_counter')
-        .where({ cliente_id: cid, rifa_id: rifaId })
+        .where({ cliente_id: counterKey, rifa_id: rifaId })
         .forUpdate()
         .first();
 
     if (!counter) {
         // Inicializar nuevo contador para esta rifa
-        logOrdenesDebug(`ℹ️ Inicializando nuevo contador para rifa_id=${rifaId} y cliente=${cid}`);
+        logOrdenesDebug(`ℹ️ Inicializando nuevo contador para rifa_id=${rifaId} y counterKey=${counterKey}`);
         await trx('order_id_counter').insert({
-            cliente_id: cid,
+            cliente_id: counterKey,
             rifa_id: rifaId,
             ultima_secuencia: 'AA',
             ultimo_numero: 0,
@@ -6564,7 +6729,7 @@ async function generarSiguienteOrdenId(cliente_id, trx, rifaId = null) {
         });
         
         counter = await trx('order_id_counter')
-            .where({ cliente_id: cid, rifa_id: rifaId })
+            .where({ cliente_id: counterKey, rifa_id: rifaId })
             .forUpdate()
             .first();
     }
@@ -6670,17 +6835,25 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
             });
         }
 
-        const config = rifaContext.configuracion?.rifa || {};
+        const configCompleta = (rifaContext.configuracion && typeof rifaContext.configuracion === 'object')
+            ? rifaContext.configuracion
+            : { rifa: {} };
+        const configRifa = configCompleta.rifa || {};
         const rifaIdActual = Number.parseInt(rifaContext.id, 10);
-        const totalBoletosRifa = Number(config.totalBoletos) || 100;
+        const totalBoletosRifa = Number(configRifa.totalBoletos) || 100;
 
         // Validar cliente
         if (!orden.cliente || typeof orden.cliente !== 'object') {
             return res.status(400).json({ success: false, message: 'Datos del cliente requeridos' });
         }
 
-        const clienteIdActual = String(rifaContext.organizador_key || 'Sorteos_El_Trebol').trim();
-        const prefijoOrdenActual = obtenerPrefijoOrdenCliente(clienteIdActual);
+        const clienteIdActual = String(
+            rifaContext.configuracion?.cliente?.id
+            || rifaContext.organizador_key
+            || rifaContext.organizerKey
+            || ''
+        ).trim();
+        const prefijoOrdenActual = rifaIdActual ? `S${rifaIdActual}` : obtenerPrefijoOrdenCliente(clienteIdActual, configCompleta);
         const ordenIdRecibido = typeof orden.ordenId === 'string'
             ? sanitizar(orden.ordenId).trim().toUpperCase()
             : '';
@@ -6738,7 +6911,7 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
             totalFinal: parseFloat(orden.totales?.totalFinal) || 0
         };
 
-        const totalesServidor = calcularTotalesServidor(boletosValidos.length, config, new Date());
+        const totalesServidor = calcularTotalesServidor(boletosValidos.length, configCompleta, new Date());
         const precioUnitario = totalesServidor.precioUnitario;
         const subtotal = totalesServidor.subtotal;
         const descuento = totalesServidor.descuento;
@@ -6756,7 +6929,7 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
             boletosValidos.length,
             totalesServidor.precioNormal,
             totalesCliente,
-            config
+            configCompleta
         );
         perfMarks.validacionesMs = Date.now() - startTime;
 
@@ -6769,7 +6942,7 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
         }
 
         // ===== TRANSACCIÓN ATÓMICA =====
-        const oportunidadesConfig = obtenerConfigOportunidadesSistema(config);
+        const oportunidadesConfig = obtenerConfigOportunidadesSistema(configCompleta);
         const oportunidadesHabilitadas = oportunidadesConfig.enabled === true;
 
         const resultado = await db.transaction(async (trx) => {
@@ -7004,7 +7177,7 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
             const ordenExistente = resultado.ordenExistente;
             const totalesExistentes = calcularTotalesServidor(
                 Number(ordenExistente?.cantidad_boletos || 0),
-                config,
+                configCompleta,
                 new Date(ordenExistente?.created_at || Date.now())
             );
 
@@ -9806,7 +9979,7 @@ app.get('/api/public/boletos', async (req, res) => {
 app.get('/api/public/boletos/busqueda', limiterOrdenes, async (req, res) => {
     try {
         const rifaContext = req.rifaContext || {};
-        const configContextual = rifaContext.configuracion || {};
+        const configContextual = rifaContext.configuracion || obtenerConfigActual(Number.parseInt(rifaContext.id, 10) || null) || {};
         const rifaIdActual = Number.parseInt(rifaContext.id, 10) || null;
 
         const modo = String(req.query.modo || req.query.mode || 'exacto').trim().toLowerCase();
@@ -9816,9 +9989,13 @@ app.get('/api/public/boletos/busqueda', limiterOrdenes, async (req, res) => {
         const limite = Number.isInteger(limiteSolicitado) ? Math.max(1, Math.min(limiteSolicitado, 1000)) : 100;
         const offset = Number.isInteger(offsetSolicitado) ? Math.max(0, offsetSolicitado) : 0;
 
-        const totalBoletos = Number(configContextual.rifa?.totalBoletos) || 100;
-        const maxNumero = Math.max(0, totalBoletos - 1);
-        const anchoBoletos = String(maxNumero).length;
+        const totalBoletos = obtenerTotalBoletosConfigurado(configContextual);
+        const rangosPermitidos = obtenerRangosBusquedaPermitidos(configContextual);
+        const rangoMinimo = rangosPermitidos[0] || { inicio: 0, fin: 0 };
+        const rangoMaximo = rangosPermitidos[rangosPermitidos.length - 1] || rangoMinimo;
+        const minNumero = Number.isInteger(rangoMinimo.inicio) ? rangoMinimo.inicio : 0;
+        const maxNumero = Number.isInteger(rangoMaximo.fin) ? rangoMaximo.fin : Math.max(0, totalBoletos - 1);
+        const anchoBoletos = String(Math.max(maxNumero, Math.max(0, totalBoletos - 1))).length;
 
         const formatearRespuesta = (items, criterios = {}) => ({
             success: true,
@@ -9833,25 +10010,33 @@ app.get('/api/public/boletos/busqueda', limiterOrdenes, async (req, res) => {
                 offset,
                 truncado: items.length === limite,
                 totalBoletos,
+                rifaId: rifaIdActual,
+                rifaSlug: String(rifaContext.slug || '').trim() || null,
+                rangoBusqueda: {
+                    inicio: minNumero,
+                    fin: maxNumero,
+                    segmentos: rangosPermitidos
+                },
                 criterios
             }
         });
 
+        const filtroRangos = construirFiltroSqlRangos('gs', rangosPermitidos);
         let filterSql = '';
-        let sqlParams = [maxNumero];
+        let sqlParams = [minNumero, maxNumero, ...filtroRangos.params];
 
         if (modo === 'rango') {
             const inicio = parseInt(req.query.inicio, 10);
             const fin = parseInt(req.query.fin, 10);
-            if (!Number.isInteger(inicio) || !Number.isInteger(fin) || inicio < 0 || fin < inicio || fin > maxNumero) {
-                return res.status(400).json({ success: false, message: `Rango inválido (0-${maxNumero})` });
+            if (!Number.isInteger(inicio) || !Number.isInteger(fin) || inicio < 0 || fin < inicio || !rangoIntersectaRangosBusqueda(inicio, fin, rangosPermitidos)) {
+                return res.status(400).json({ success: false, message: `Rango inválido para esta rifa (${minNumero}-${maxNumero})` });
             }
             filterSql = 'gs BETWEEN ? AND ?';
             sqlParams.push(inicio, fin);
         } else if (modo === 'exacto') {
             const valor = String(req.query.q || req.query.valor || '').trim();
             const numero = parseInt(valor, 10);
-            if (!/^\d+$/.test(valor) || !Number.isInteger(numero) || numero < 0 || numero > maxNumero) {
+            if (!/^\d+$/.test(valor) || !Number.isInteger(numero) || !numeroPerteneceARangosBusqueda(numero, rangosPermitidos)) {
                 return res.status(400).json({ success: false, message: 'Boleto inválido' });
             }
             filterSql = 'gs = ?';
@@ -9873,18 +10058,30 @@ app.get('/api/public/boletos/busqueda', limiterOrdenes, async (req, res) => {
         const finalSql = `
             WITH serie AS (
                 SELECT gs::int AS numero
-                FROM generate_series(0::bigint, ?::bigint) AS gs
-                WHERE ${filterSql}
+                FROM generate_series(?::bigint, ?::bigint) AS gs
+                WHERE (${filtroRangos.sql})
+                  AND (${filterSql})
+            ),
+            estados_actuales AS (
+                SELECT
+                    numero,
+                    CASE
+                        WHEN BOOL_OR(estado = 'vendido') THEN 'vendido'
+                        WHEN BOOL_OR(estado = 'apartado') THEN 'apartado'
+                        ELSE 'disponible'
+                    END AS estado
+                FROM boletos_estado
+                WHERE rifa_id = ?::int
+                  AND estado IN ('vendido', 'apartado')
+                GROUP BY numero
             )
             SELECT
                 s.numero,
-                COALESCE(be.estado, 'disponible') AS estado
+                COALESCE(ea.estado, 'disponible') AS estado
             FROM serie s
-            LEFT JOIN boletos_estado be
-                ON be.numero = s.numero
-               AND be.rifa_id = ?::int
-               AND be.estado IN ('vendido', 'apartado')
-            ${availableOnly ? 'WHERE be.numero IS NULL' : ''}
+            LEFT JOIN estados_actuales ea
+                ON ea.numero = s.numero
+            ${availableOnly ? 'WHERE ea.numero IS NULL' : ''}
             ORDER BY s.numero ASC
             LIMIT ?
             OFFSET ?
@@ -12125,7 +12322,7 @@ app.get('/api/cliente', (req, res) => {
             return res.json(serverCache.clienteConfigCached);
         }
 
-        const config = obtenerConfigActual();
+        const config = obtenerConfigActual(req.rifaContext?.id || null);
         
         // ✅ VALIDACIÓN: Asegurar estructura mínima
         if (!config.cliente) config.cliente = {};

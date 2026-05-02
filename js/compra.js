@@ -74,6 +74,18 @@ function logCompraDebug(...args) {
     }
 }
 
+function obtenerSlugRifaActualCompra() {
+    const slugDesdeConfig = typeof window.rifaplusConfig?.obtenerSlugRifaActual === 'function'
+        ? window.rifaplusConfig.obtenerSlugRifaActual()
+        : '';
+    if (slugDesdeConfig) {
+        return slugDesdeConfig;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    return String(params.get('rifa') || params.get('slug') || window.rifaplusConfig?.rifa?.slug || '').trim();
+}
+
 // Función para obtener precio dinámico desde config (robusta)
 // ✅ ACTUALIZADO: Verifica promoción por tiempo
 function obtenerPrecioDinamico() {
@@ -492,8 +504,7 @@ async function verificarBoletosEnServidor(numeros) {
         const headers = {
             'Content-Type': 'application/json'
         };
-        const currentParams = new URLSearchParams(window.location.search);
-        const activeSlug = currentParams.get('rifa') || currentParams.get('slug') || window.rifaplusConfig?.rifa?.slug;
+        const activeSlug = obtenerSlugRifaActualCompra();
         if (activeSlug) {
             headers['x-rifaplus-rifa-slug'] = activeSlug;
         }
@@ -923,8 +934,7 @@ async function generarNumerosVerificadosEnServidor(cantidad) {
     const headers = {
         'Content-Type': 'application/json'
     };
-    const currentParams = new URLSearchParams(window.location.search);
-    const activeSlug = currentParams.get('rifa') || currentParams.get('slug') || window.rifaplusConfig?.rifa?.slug;
+    const activeSlug = obtenerSlugRifaActualCompra();
     if (activeSlug) {
         headers['x-rifaplus-rifa-slug'] = activeSlug;
     }
@@ -1004,8 +1014,7 @@ async function cargarEstadoRangoVisibleEnBackground(endpoint, inicio, fin, opcio
             fetchUrl.searchParams.set('inicio', rangoInicio);
             fetchUrl.searchParams.set('fin', rangoFin);
             
-            const currentParams = new URLSearchParams(window.location.search);
-            const activeSlug = currentParams.get('rifa') || currentParams.get('slug') || window.rifaplusConfig?.rifa?.slug;
+            const activeSlug = obtenerSlugRifaActualCompra();
             if (activeSlug) {
                 fetchUrl.searchParams.set('rifa', activeSlug);
             }
@@ -1313,8 +1322,7 @@ async function cargarBoletosPublicos() {
         
         try {
             const statsUrl = new URL(`${endpoint}/api/public/boletos/stats`);
-            const currentParams = new URLSearchParams(window.location.search);
-            const activeSlug = currentParams.get('rifa') || currentParams.get('slug') || window.rifaplusConfig?.rifa?.slug;
+            const activeSlug = obtenerSlugRifaActualCompra();
             if (activeSlug) {
                 statsUrl.searchParams.set('rifa', activeSlug);
             }
@@ -1753,7 +1761,7 @@ function obtenerUniversoMaquinaSuerteCompra() {
         
         // ✅ PASO 3: Fallback a caché local de la rifa actual
         const rifaSlug = window.rifaplusConfig?.obtenerSlugRifaActual?.() || 'default';
-        const cacheKey = `rifaplus:${rifaSlug}:totalBoletos`;
+        const cacheKey = 'rifaplus_totalBoletos';
         const cacheLocal = getItemSafeCompra(cacheKey);
         
         if (cacheLocal) {
@@ -2791,7 +2799,7 @@ function actualizarResumenCompra() {
         });
 
         if (resumenPersistidoSnapshot !== resumenSerializado) {
-            localStorage.setItem('rifaplus_total', resumenSerializado);
+            setItemSafeCompra('rifaplus_total', resumenSerializado);
             resumenPersistidoSnapshot = resumenSerializado;
         }
     } catch (e) {
@@ -3356,13 +3364,97 @@ function configurarBuscadorBoletos() {
         return obtenerConfiguracionBusquedaBoletos().modoAvanzado === true;
     }
 
-    function obtenerRangoBusquedaActual() {
+    function normalizarRangoBusquedaConfig(rango) {
+        const inicio = parseInt(rango?.inicio, 10);
+        const fin = parseInt(rango?.fin, 10);
+
+        if (!Number.isInteger(inicio) || !Number.isInteger(fin) || inicio < 0 || fin < inicio) {
+            return null;
+        }
+
+        return { inicio, fin };
+    }
+
+    function fusionarRangosBusqueda(rangos = []) {
+        const ordenados = (Array.isArray(rangos) ? rangos : [])
+            .map((rango) => normalizarRangoBusquedaConfig(rango))
+            .filter(Boolean)
+            .sort((a, b) => {
+                if (a.inicio !== b.inicio) return a.inicio - b.inicio;
+                return a.fin - b.fin;
+            });
+
+        if (ordenados.length === 0) {
+            return [];
+        }
+
+        const fusionados = [{ ...ordenados[0] }];
+
+        for (let indice = 1; indice < ordenados.length; indice += 1) {
+            const actual = ordenados[indice];
+            const ultimo = fusionados[fusionados.length - 1];
+
+            if (actual.inicio <= ultimo.fin + 1) {
+                ultimo.fin = Math.max(ultimo.fin, actual.fin);
+            } else {
+                fusionados.push({ ...actual });
+            }
+        }
+
+        return fusionados;
+    }
+
+    function obtenerRangosBusquedaPermitidos() {
+        const rangosConfigurados = fusionarRangosBusqueda(window.rifaplusConfig?.rifa?.rangos || []);
+        if (rangosConfigurados.length > 0) {
+            return rangosConfigurados;
+        }
+
+        const oportunidadesConfig = window.rifaplusConfig?.rifa?.oportunidades;
+        if (oportunidadesConfig?.enabled && oportunidadesConfig?.rango_visible) {
+            const rangosOportunidades = fusionarRangosBusqueda([oportunidadesConfig.rango_visible]);
+            if (rangosOportunidades.length > 0) {
+                return rangosOportunidades;
+            }
+        }
+
         const totalBoletos = Number(window.rifaplusConfig?.rifa?.totalBoletos) || 0;
         const fin = totalBoletos > 0 ? totalBoletos - 1 : 0;
 
+        return [{ inicio: 0, fin: Number.isFinite(fin) && fin >= 0 ? fin : 0 }];
+    }
+
+    function describirRangosBusqueda(rangos = []) {
+        return (Array.isArray(rangos) ? rangos : [])
+            .map((rango) => `${rango.inicio.toLocaleString()}-${rango.fin.toLocaleString()}`)
+            .join(', ');
+    }
+
+    function numeroPerteneceARangosBusqueda(numero, rangos = []) {
+        return Number.isInteger(numero) && (Array.isArray(rangos) ? rangos : []).some((rango) =>
+            numero >= rango.inicio && numero <= rango.fin
+        );
+    }
+
+    function rangoSeSuperponeConBusqueda(inicio, fin, rangos = []) {
+        if (!Number.isInteger(inicio) || !Number.isInteger(fin) || inicio > fin) {
+            return false;
+        }
+
+        return (Array.isArray(rangos) ? rangos : []).some((rango) =>
+            inicio <= rango.fin && fin >= rango.inicio
+        );
+    }
+
+    function obtenerRangoBusquedaActual() {
+        const segmentos = obtenerRangosBusquedaPermitidos();
+        const primerSegmento = segmentos[0] || { inicio: 0, fin: 0 };
+        const ultimoSegmento = segmentos[segmentos.length - 1] || primerSegmento;
+
         return {
-            inicio: 0,
-            fin: Number.isFinite(fin) && fin >= 0 ? fin : 0
+            inicio: Number.isInteger(primerSegmento.inicio) ? primerSegmento.inicio : 0,
+            fin: Number.isInteger(ultimoSegmento.fin) ? ultimoSegmento.fin : 0,
+            segmentos
         };
     }
 
@@ -3371,6 +3463,14 @@ function configurarBuscadorBoletos() {
 
         if (rangoInicio) rangoInicio.textContent = rango.inicio.toLocaleString();
         if (rangoTotal) rangoTotal.textContent = rango.fin.toLocaleString();
+
+        const rangoLabel = document.querySelector('.busqueda-rango');
+        if (rangoLabel) {
+            const detalleSegmentos = describirRangosBusqueda(rango.segmentos);
+            rangoLabel.title = detalleSegmentos
+                ? `Rangos habilitados para esta rifa: ${detalleSegmentos}`
+                : '';
+        }
 
         if (!busquedaAvanzadaHabilitada()) {
             inputBusqueda.placeholder = modoMeta.exacto.placeholder;
@@ -3560,6 +3660,38 @@ function configurarBuscadorBoletos() {
         return String(numero).padStart(6, '0');
     }
 
+    function obtenerPrioridadEstadoBusqueda(estado) {
+        switch (String(estado || 'disponible').toLowerCase()) {
+        case 'vendido':
+            return 3;
+        case 'apartado':
+            return 2;
+        default:
+            return 1;
+        }
+    }
+
+    function deduplicarResultadosBusqueda(items = []) {
+        const mapa = new Map();
+
+        (Array.isArray(items) ? items : []).forEach((item) => {
+            const numero = Number(item?.numero);
+            if (!Number.isInteger(numero)) {
+                return;
+            }
+
+            const actual = mapa.get(numero);
+            if (!actual || obtenerPrioridadEstadoBusqueda(item?.estado) > obtenerPrioridadEstadoBusqueda(actual?.estado)) {
+                mapa.set(numero, {
+                    numero,
+                    estado: item?.estado || 'disponible'
+                });
+            }
+        });
+
+        return Array.from(mapa.values()).sort((a, b) => a.numero - b.numero);
+    }
+
     function construirTarjetaResultadoBusqueda(item, selectedNumbers) {
         const numero = Number(item?.numero);
         let classes = 'numero-btn';
@@ -3592,7 +3724,7 @@ function configurarBuscadorBoletos() {
     }
 
     async function buscarTodosLosBoletosEnServidor(params, requestId, signal, offsetBase = 0) {
-        const items = [];
+        const itemsMap = new Map();
         let offset = offsetBase;
         let paginas = 0;
         const MAX_PAGINAS_BUSQUEDA = 200;
@@ -3613,11 +3745,18 @@ function configurarBuscadorBoletos() {
                 offset
             }, { signal });
 
-            const batch = Array.isArray(data.items) ? data.items : [];
+            const itemsServidor = Array.isArray(data.items) ? data.items : [];
+            const batch = deduplicarResultadosBusqueda(itemsServidor);
+            const siguienteOffset = offset + itemsServidor.length;
             if (batch.length > 0) {
-                const espacioDisponible = Math.max(0, MAX_RESULTADOS_BUSQUEDA_AMPLIA - items.length);
+                const espacioDisponible = Math.max(0, MAX_RESULTADOS_BUSQUEDA_AMPLIA - itemsMap.size);
                 if (espacioDisponible > 0) {
-                    items.push(...batch.slice(0, espacioDisponible));
+                    batch.forEach((item) => {
+                        if (itemsMap.size >= MAX_RESULTADOS_BUSQUEDA_AMPLIA && !itemsMap.has(item.numero)) {
+                            return;
+                        }
+                        itemsMap.set(item.numero, item);
+                    });
                 }
 
                 if (batch.length > espacioDisponible) {
@@ -3627,26 +3766,28 @@ function configurarBuscadorBoletos() {
                 }
             }
 
-            if (batch.length < LIMITE_RESULTADOS_BUSQUEDA) {
+            if (itemsServidor.length < LIMITE_RESULTADOS_BUSQUEDA) {
+                const items = Array.from(itemsMap.values()).sort((a, b) => a.numero - b.numero);
                 return {
                     ...data,
                     items,
                     truncado,
                     hayMas: false,
-                    siguienteOffset: offsetBase + items.length
+                    siguienteOffset
                 };
             }
 
-            offset += batch.length;
+            offset = siguienteOffset;
             paginas += 1;
         }
 
+        const items = Array.from(itemsMap.values()).sort((a, b) => a.numero - b.numero);
         return {
             items,
             truncado: true,
             motivoTruncado,
             hayMas: true,
-            siguienteOffset: offsetBase + items.length
+            siguienteOffset: offset
         };
     }
 
@@ -3673,6 +3814,20 @@ function configurarBuscadorBoletos() {
                 await new Promise((resolve) => requestAnimationFrame(resolve));
             }
         }
+    }
+
+    function filtrarResultadosYaRenderizadosEnGrid(items = []) {
+        if (!numerosGrid) {
+            return Array.isArray(items) ? items : [];
+        }
+
+        const numerosExistentes = new Set(
+            Array.from(numerosGrid.querySelectorAll('.busqueda-grid-btn[data-numero]'))
+                .map((btn) => Number(btn.getAttribute('data-numero')))
+                .filter((numero) => Number.isInteger(numero))
+        );
+
+        return (Array.isArray(items) ? items : []).filter((item) => !numerosExistentes.has(Number(item?.numero)));
     }
 
     async function renderizarResultadosBusquedaEnGrid(items, metaBusqueda = {}, requestId, opciones = {}) {
@@ -3739,11 +3894,13 @@ function configurarBuscadorBoletos() {
             );
 
             asegurarBusquedaVigente(requestId);
+            const itemsNormalizados = deduplicarResultadosBusqueda(data.items || []);
+            const itemsNuevos = filtrarResultadosYaRenderizadosEnGrid(itemsNormalizados);
             estadoBusquedaGrid.ultimoOffset = data.siguienteOffset || estadoBusquedaGrid.ultimoOffset;
             estadoBusquedaGrid.hayMas = data.hayMas === true;
-            estadoBusquedaGrid.totalMostrados += Array.isArray(data.items) ? data.items.length : 0;
+            estadoBusquedaGrid.totalMostrados += itemsNuevos.length;
 
-            await renderizarResultadosBusqueda(data.items || [], {
+            await renderizarResultadosBusqueda(itemsNuevos, {
                 ...estadoBusquedaGrid.meta,
                 totalMostrados: estadoBusquedaGrid.totalMostrados,
                 requestId
@@ -3754,7 +3911,7 @@ function configurarBuscadorBoletos() {
             asegurarBusquedaVigente(requestId);
 
             if (data.truncado) {
-                mostrarFeedbackBusqueda(`Se agregaron ${Array.isArray(data.items) ? data.items.length.toLocaleString() : '0'} resultados más. Puedes seguir cargando más si lo necesitas.`, 'info');
+                mostrarFeedbackBusqueda(`Se agregaron ${itemsNuevos.length.toLocaleString()} resultados únicos más. Puedes seguir cargando más si lo necesitas.`, 'info');
             } else {
                 limpiarFeedbackBusqueda();
             }
@@ -3824,8 +3981,7 @@ function configurarBuscadorBoletos() {
                 searchParams.set(clave, String(valor));
             }
         });
-        const currentParams = new URLSearchParams(window.location.search);
-        const activeSlug = currentParams.get('rifa') || currentParams.get('slug') || window.rifaplusConfig?.rifa?.slug;
+        const activeSlug = obtenerSlugRifaActualCompra();
 
         if (activeSlug && !searchParams.has('rifa')) {
             searchParams.set('rifa', activeSlug);
@@ -4041,6 +4197,7 @@ function configurarBuscadorBoletos() {
         const valor = this.value.trim();
         const rango = obtenerRangoBusquedaActual();
         const modo = obtenerModoBusquedaActual();
+        const detalleRangos = describirRangosBusqueda(rango.segmentos);
 
         if (!valor) {
             limpiarFeedbackBusqueda();
@@ -4048,8 +4205,8 @@ function configurarBuscadorBoletos() {
         }
 
         const numero = parseInt(valor, 10);
-        if (modo === 'exacto' && !Number.isNaN(numero) && (numero < rango.inicio || numero > rango.fin)) {
-            mostrarFeedbackBusqueda(`Ese boleto no se puede buscar. El rango disponible actualmente va de ${rango.inicio.toLocaleString()} a ${rango.fin.toLocaleString()}.`, 'warning');
+        if (modo === 'exacto' && !Number.isNaN(numero) && !numeroPerteneceARangosBusqueda(numero, rango.segmentos)) {
+            mostrarFeedbackBusqueda(`Ese boleto no pertenece a los rangos habilitados de esta rifa: ${detalleRangos}.`, 'warning');
         } else {
             limpiarFeedbackBusqueda();
         }
@@ -4067,6 +4224,7 @@ function configurarBuscadorBoletos() {
         const soloDisponibles = checkboxFiltroDisponibles?.checked === true;
         const requestId = estadoBusqueda.requestId + 1;
         const esBusquedaSimple = !busquedaAvanzadaHabilitada() || modo === 'exacto';
+        const detalleRangos = describirRangosBusqueda(rango.segmentos);
 
         if (!valor) {
             mostrarFeedbackBusqueda('Ingresa un valor para realizar la búsqueda.', 'info');
@@ -4095,8 +4253,8 @@ function configurarBuscadorBoletos() {
                 return;
             }
 
-            if (!Number.isInteger(inicio) || !Number.isInteger(fin) || inicio < rango.inicio || fin > rango.fin || inicio > fin) {
-                mostrarFeedbackBusqueda(`Ingresa un rango válido entre ${rango.inicio.toLocaleString()} y ${rango.fin.toLocaleString()}.`, 'warning');
+            if (!Number.isInteger(inicio) || !Number.isInteger(fin) || inicio > fin || !rangoSeSuperponeConBusqueda(inicio, fin, rango.segmentos)) {
+                mostrarFeedbackBusqueda(`Ingresa un rango válido dentro de los segmentos habilitados: ${detalleRangos}.`, 'warning');
                 rifaplusUtils.showFeedback('⚠️ Revisa el rango de búsqueda', 'warning');
                 limpiarResultadosBusqueda();
                 restaurarVistaPrincipalBoletos();
@@ -4111,9 +4269,9 @@ function configurarBuscadorBoletos() {
 
             if (modo === 'exacto') {
                 const numero = parseInt(valor, 10);
-                if (!Number.isInteger(numero) || numero < rango.inicio || numero > rango.fin) {
-                    mostrarFeedbackBusqueda(`Ese boleto está fuera del rango disponible. Puedes buscar del ${rango.inicio.toLocaleString()} al ${rango.fin.toLocaleString()}.`, 'warning');
-                    rifaplusUtils.showFeedback(`⚠️ Ingresa un número válido entre ${rango.inicio.toLocaleString()} y ${rango.fin.toLocaleString()}`, 'warning');
+                if (!Number.isInteger(numero) || !numeroPerteneceARangosBusqueda(numero, rango.segmentos)) {
+                    mostrarFeedbackBusqueda(`Ese boleto está fuera de los rangos habilitados para esta rifa: ${detalleRangos}.`, 'warning');
+                    rifaplusUtils.showFeedback('⚠️ Ingresa un número válido para esta rifa', 'warning');
                     limpiarResultadosBusqueda();
                     restaurarVistaPrincipalBoletos();
                     restaurarGridPrincipalSiHaceFalta();
@@ -4134,6 +4292,7 @@ function configurarBuscadorBoletos() {
                 ? await buscarBoletosEnServidor(params, { signal })
                 : await buscarTodosLosBoletosEnServidor(params, requestId, signal);
             asegurarBusquedaVigente(requestId);
+            const itemsNormalizados = deduplicarResultadosBusqueda(data.items || []);
             if (modo !== 'exacto') {
                 estadoBusquedaGrid.activa = true;
                 estadoBusquedaGrid.params = { ...params };
@@ -4143,18 +4302,18 @@ function configurarBuscadorBoletos() {
                     textoBusqueda: modo === 'rango' ? `${params.inicio} - ${params.fin}` : valor,
                     labelModo: modoMeta[modo]?.label || modo
                 };
-                estadoBusquedaGrid.ultimoOffset = data.siguienteOffset || (Array.isArray(data.items) ? data.items.length : 0);
+                estadoBusquedaGrid.ultimoOffset = data.siguienteOffset || itemsNormalizados.length;
                 estadoBusquedaGrid.hayMas = data.hayMas === true;
-                estadoBusquedaGrid.totalMostrados = Array.isArray(data.items) ? data.items.length : 0;
+                estadoBusquedaGrid.totalMostrados = itemsNormalizados.length;
             } else {
                 resetearEstadoBusquedaGrid();
             }
-            await renderizarResultadosBusqueda(data.items || [], {
+            await renderizarResultadosBusqueda(itemsNormalizados, {
                 modo,
                 availableOnly: soloDisponibles,
                 textoBusqueda: modo === 'rango' ? `${params.inicio} - ${params.fin}` : valor,
                 labelModo: modoMeta[modo]?.label || modo,
-                totalMostrados: Array.isArray(data.items) ? data.items.length : 0,
+                totalMostrados: itemsNormalizados.length,
                 requestId
             });
             asegurarBusquedaVigente(requestId);
@@ -4163,7 +4322,7 @@ function configurarBuscadorBoletos() {
                 await enfocarResultadosBusquedaGrid();
             } else {
                 const numeroExacto = parseInt(valor, 10);
-                if (Array.isArray(data.items) && data.items.length > 0 && Number.isInteger(numeroExacto)) {
+                if (itemsNormalizados.length > 0 && Number.isInteger(numeroExacto)) {
                     await enfocarResultadoBusquedaSimple(numeroExacto);
                 } else {
                     scrollCompraSiHaceFalta(resultadosDiv || '.busqueda-boletos-card', -110);
@@ -4172,11 +4331,11 @@ function configurarBuscadorBoletos() {
 
             if (modo !== 'exacto') {
                 if (data.truncado) {
-                    mostrarFeedbackBusqueda(`Mostrando los primeros ${data.items.length.toLocaleString()} resultados. Ajusta el filtro para afinar la búsqueda.`, 'info');
+                    mostrarFeedbackBusqueda(`Mostrando los primeros ${itemsNormalizados.length.toLocaleString()} resultados únicos. Ajusta el filtro para afinar la búsqueda.`, 'info');
                 } else {
                     limpiarFeedbackBusqueda();
                 }
-            } else if (Array.isArray(data.items) && data.items.length > 0) {
+            } else if (itemsNormalizados.length > 0) {
                 if (data.truncado) {
                     mostrarFeedbackBusqueda(`Mostrando los primeros ${LIMITE_RESULTADOS_BUSQUEDA} resultados. Ajusta el filtro si quieres afinar más.`, 'info');
                 } else {
@@ -4311,8 +4470,8 @@ function aplicarFiltroDisponibles(activo, opciones = {}) {
 
     // ⭐ IMPORTANTE: Guardar estado en localStorage para persistencia entre recargas
     if (persistir) {
-        localStorage.setItem('rifaplusFiltroDisponibles', JSON.stringify(activo));
-        localStorage.setItem('rifaplusMostrarTodosBoletos', JSON.stringify(!activo));
+        setItemSafeCompra('rifaplusFiltroDisponibles', JSON.stringify(activo));
+        setItemSafeCompra('rifaplusMostrarTodosBoletos', JSON.stringify(!activo));
     }
 
     // ⭐ IMPORTANTE: Sincronizar checkbox UI con estado (checked = mostrar todos)

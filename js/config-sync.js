@@ -19,9 +19,9 @@ window.rifaplusConfig._sincronizandoBackend = false;
 window.rifaplusConfig._ultimaSincronizacion = 0;
 window.rifaplusConfig._reintentosFallidos = 0;  // Contador para backoff exponencial
 window.rifaplusConfig._maxReintentos = 3;        // Máximo de reintentos
-window.rifaplusConfig._configPublicaCache = null;
-window.rifaplusConfig._configPublicaCacheTime = 0;
-window.rifaplusConfig._configPublicaPromise = null;
+window.rifaplusConfig._configPublicaCache = {};
+window.rifaplusConfig._configPublicaCacheTime = {};
+window.rifaplusConfig._configPublicaPromise = {};
 window.rifaplusConfig._intervaloEstadoId = null;
 window.rifaplusConfig._intervaloConfigId = null;
 window.rifaplusConfig._publicSnapshotLoaded = false;
@@ -366,13 +366,17 @@ window.rifaplusConfig.obtenerConfigPublicaCompartida = async function(opciones =
     const maxAgeMs = Number.isFinite(Number(opciones?.maxAgeMs)) ? Number(opciones.maxAgeMs) : 30000;
     const ahora = Date.now();
     const usarConfigAdmin = syncEsPaginaAdminRifaPlus() && Boolean(syncObtenerAdminTokenRifaPlus());
+    const publicSlug = typeof obtenerSlugRifaDesdeUrlRifaPlus === 'function'
+        ? obtenerSlugRifaDesdeUrlRifaPlus()
+        : '';
+    const cacheKey = publicSlug || '__default__';
 
-    if (!force && this._configPublicaCache && (ahora - this._configPublicaCacheTime) < maxAgeMs) {
-        return this._configPublicaCache;
+    if (!force && this._configPublicaCache[cacheKey] && (ahora - (this._configPublicaCacheTime[cacheKey] || 0)) < maxAgeMs) {
+        return this._configPublicaCache[cacheKey];
     }
 
-    if (!force && this._configPublicaPromise) {
-        return this._configPublicaPromise;
+    if (!force && this._configPublicaPromise[cacheKey]) {
+        return this._configPublicaPromise[cacheKey];
     }
 
     const apiBase = this.backend?.apiBase
@@ -381,7 +385,7 @@ window.rifaplusConfig.obtenerConfigPublicaCompartida = async function(opciones =
 
     const endpoint = syncConstruirUrlPublicaContextualRifaPlus(apiBase, usarConfigAdmin ? '/api/admin/config' : '/api/public/config');
     
-    this._configPublicaPromise = fetch(endpoint, {
+    this._configPublicaPromise[cacheKey] = fetch(endpoint, {
         method: 'GET',
         headers: usarConfigAdmin
             ? syncConstruirHeadersAdminRifaPlus()
@@ -410,8 +414,8 @@ window.rifaplusConfig.obtenerConfigPublicaCompartida = async function(opciones =
                     tiempoApartadoHoras: result.data?.tiempoApartadoHoras
                 }
                 : result.data;
-            this._configPublicaCache = data;
-            this._configPublicaCacheTime = Date.now();
+            this._configPublicaCache[cacheKey] = data;
+            this._configPublicaCacheTime[cacheKey] = Date.now();
 
             if (usarConfigAdmin) {
                 this._adminRifaContext = syncClonarValor(result?.rifaContext || result?.data?.rifaContext || null);
@@ -455,9 +459,9 @@ window.rifaplusConfig.obtenerConfigPublicaCompartida = async function(opciones =
             return data;
         })
         .catch((error) => {
-            if (this._configPublicaCache) {
+            if (this._configPublicaCache[cacheKey]) {
                 console.debug('ℹ️ Usando caché local de configuración pública tras fallo:', error.message);
-                return this._configPublicaCache;
+                return this._configPublicaCache[cacheKey];
             }
 
             const fallbackData = {
@@ -471,16 +475,16 @@ window.rifaplusConfig.obtenerConfigPublicaCompartida = async function(opciones =
                 cuentas: Array.isArray(this.tecnica?.bankAccounts) ? [...this.tecnica.bankAccounts] : []
             };
 
-            this._configPublicaCache = fallbackData;
-            this._configPublicaCacheTime = Date.now();
+            this._configPublicaCache[cacheKey] = fallbackData;
+            this._configPublicaCacheTime[cacheKey] = Date.now();
             console.debug('ℹ️ Usando configuración pública local tras fallo remoto:', error.message);
             return fallbackData;
         })
         .finally(() => {
-            this._configPublicaPromise = null;
+            this._configPublicaPromise[cacheKey] = null;
         });
 
-    return this._configPublicaPromise;
+    return this._configPublicaPromise[cacheKey];
 };
 
 /**

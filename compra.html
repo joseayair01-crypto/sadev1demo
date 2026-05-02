@@ -29,9 +29,50 @@
             const fallbackLogo = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 96'%3E%3Crect width='240' height='96' rx='20' fill='%230b2235'/%3E%3Ctext x='120' y='58' font-size='28' text-anchor='middle' fill='%23ffffff' font-family='Arial,sans-serif'%3ESorteo%3C/text%3E%3C/svg%3E";
             let configLocal = {};
 
+            function obtenerSlugRifaDesdeUrlRifaPlusTemprano() {
+                try {
+                    const params = new URLSearchParams(window.location.search);
+                    const slug = String(params.get('rifa') || params.get('slug') || '').trim();
+                    if (slug) {
+                        try {
+                            sessionStorage.setItem('rifaplus_session_slug_v1', slug);
+                        } catch (error) {}
+                        return slug;
+                    }
+
+                    const pathname = String(window.location.pathname || '').toLowerCase();
+                    const filename = pathname.split('/').pop() || '';
+                    const esHome = pathname === '/' || filename === 'index.html' || filename === '';
+                    if (esHome) {
+                        try { sessionStorage.removeItem('rifaplus_session_slug_v1'); } catch (error) {}
+                        return '';
+                    }
+
+                    return String(sessionStorage.getItem('rifaplus_session_slug_v1') || '').trim();
+                } catch (error) {
+                    return '';
+                }
+            }
+
+            const currentSlug = obtenerSlugRifaDesdeUrlRifaPlusTemprano();
+
+            function construirClaveLocalCompra(baseKey) {
+                return currentSlug ? `rifaplus:${currentSlug}:${baseKey}` : baseKey;
+            }
+
+            function construirCachePrecioCompra() {
+                return currentSlug ? `rifaplus_compra_precio_cache_v1__${currentSlug}` : 'rifaplus_compra_precio_cache_v1';
+            }
+
             function resolverVisibilidadLogoVerificado() {
-                const clavesSnapshot = ['rifaplus_public_snapshot_v1'];
-                const clavesConfig = ['rifaplus_config_actual_v2'];
+                const slugSnapshotKey = construirClaveLocalCompra('rifaplus_public_snapshot_v1');
+                const clavesSnapshot = currentSlug
+                    ? [slugSnapshotKey]
+                    : [slugSnapshotKey, 'rifaplus_public_snapshot_v1'];
+                const slugConfigKey = construirClaveLocalCompra('config_actual_v2');
+                const clavesConfig = currentSlug
+                    ? [slugConfigKey]
+                    : [slugConfigKey, 'rifaplus_config_actual_v2'];
 
                 for (const clave of clavesSnapshot) {
                     try {
@@ -68,12 +109,18 @@
             }
 
             try {
-                configLocal = JSON.parse(localStorage.getItem('rifaplus_config_actual_v2') || '{}');
+                const slugConfigKey = construirClaveLocalCompra('config_actual_v2');
+                const rawConfig = localStorage.getItem(slugConfigKey)
+                    || (!currentSlug ? localStorage.getItem('rifaplus_config_actual_v2') : null)
+                    || '{}';
+                configLocal = JSON.parse(rawConfig);
             } catch (error) {
                 configLocal = {};
             }
 
-            const rawLogo = localStorage.getItem('rifaplus_cached_logo')
+            const slugCachedLogoKey = construirClaveLocalCompra('cached_logo');
+            const rawLogo = localStorage.getItem(slugCachedLogoKey)
+                || (!currentSlug ? localStorage.getItem('rifaplus_cached_logo') : null)
                 || configLocal?.cliente?.logo
                 || configLocal?.cliente?.logotipo
                 || fallbackLogo;
@@ -184,7 +231,11 @@
 
             function leerPrecioCacheadoCompra() {
                 try {
-                    const payload = JSON.parse(localStorage.getItem('rifaplus_compra_precio_cache_v1') || 'null');
+                    const cacheKey = construirCachePrecioCompra();
+                    const rawCache = localStorage.getItem(cacheKey)
+                        || (!currentSlug ? localStorage.getItem('rifaplus_compra_precio_cache_v1') : null)
+                        || 'null';
+                    const payload = JSON.parse(rawCache);
                     const precio = Number(payload?.precio);
                     return Number.isFinite(precio) && precio > 0 ? precio : null;
                 } catch (error) {
@@ -204,13 +255,19 @@
 
             window.__RIFAPLUS_COMPRA_HERO__ = (function() {
                 const subtitulo = 'Elige tus boletos y participa ahora';
+                const heroSorteoKey = construirClaveLocalCompra('compra_hero_sorteo');
                 const nombreSorteo = heroUtils.resolverNombreSorteo(
                     window.rifaplusConfig?.rifa?.nombreSorteo,
                     configLocal?.rifa?.nombreSorteo,
-                    localStorage.getItem('rifaplus_compra_hero_sorteo')
+                    localStorage.getItem(heroSorteoKey) || (!currentSlug ? localStorage.getItem('rifaplus_compra_hero_sorteo') : null)
                 );
 
-                return heroUtils.construirEstadoHero(nombreSorteo, subtitulo);
+                return {
+                    nombreSorteo,
+                    titulo: heroUtils.construirTitulo(nombreSorteo),
+                    subtitulo,
+                    tieneNombreSorteo: Boolean(nombreSorteo)
+                };
             })();
 
             // ⭐ Preload de imágenes - debe estar aquí dentro del scope para acceder a cachedLogo

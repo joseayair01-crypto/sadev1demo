@@ -3,14 +3,20 @@
     const HERO_TITULO_DEFAULT = 'Estás a un paso de ser el próximo ganador';
     const FOOTER_ESLOGAN_DEFAULT = 'Rifas 100% Transparentes y Seguras';
     const REMOTE_PRICE_TTL_MS = 15000;
-    const LOCAL_PRICE_CACHE_KEY = 'rifaplus_compra_precio_cache_v1';
+
+    function obtenerPrecioCacheLocalKey() {
+        const slug = typeof window.rifaplusConfig?.obtenerSlugRifaActual === 'function'
+            ? window.rifaplusConfig.obtenerSlugRifaActual()
+            : (typeof obtenerSlugRifaDesdeUrlRifaPlus === 'function' ? obtenerSlugRifaDesdeUrlRifaPlus() : '');
+        return slug ? `rifaplus_compra_precio_cache_v1__${slug}` : 'rifaplus_compra_precio_cache_v1';
+    }
 
     let promocionesSnapshot = '';
     let bonosSnapshot = '';
     let footerSnapshot = '';
-    let remotePriceValue = null;
-    let remotePriceFetchedAt = 0;
-    let remotePricePromise = null;
+    let remotePriceCache = {};
+    let remotePriceFetchedAt = {};
+    let remotePricePromise = {};
     let renderPublicoPendiente = false;
     let renderFooterPendiente = false;
     let pageReadyCompraEmitida = false;
@@ -150,7 +156,8 @@
 
     function leerPrecioCompraCacheLocal() {
         try {
-            const payload = JSON.parse(localStorage.getItem(LOCAL_PRICE_CACHE_KEY) || 'null');
+            const clave = obtenerPrecioCacheLocalKey();
+            const payload = JSON.parse(localStorage.getItem(clave) || 'null');
             const precio = Number(payload?.precio);
             if (!Number.isFinite(precio) || precio <= 0) {
                 return null;
@@ -172,7 +179,8 @@
         }
 
         try {
-            localStorage.setItem(LOCAL_PRICE_CACHE_KEY, JSON.stringify({
+            const clave = obtenerPrecioCacheLocalKey();
+            localStorage.setItem(clave, JSON.stringify({
                 precio: numero,
                 timestamp: Date.now()
             }));
@@ -273,31 +281,36 @@
 
     async function obtenerPrecioBoletoRemoto() {
         const config = obtenerConfigCompra();
+        const slug = typeof window.rifaplusConfig?.obtenerSlugRifaActual === 'function'
+            ? window.rifaplusConfig.obtenerSlugRifaActual()
+            : '';
+        const cacheKey = slug || '__default__';
         const precioLocal = Number(config?.rifa?.precioBoleto);
         const precioCacheado = leerPrecioCompraCacheLocal()?.precio;
 
-        if (Date.now() - remotePriceFetchedAt < REMOTE_PRICE_TTL_MS && Number.isFinite(remotePriceValue)) {
-            return remotePriceValue;
+        if (Date.now() - (remotePriceFetchedAt[cacheKey] || 0) < REMOTE_PRICE_TTL_MS
+            && Number.isFinite(remotePriceCache[cacheKey])) {
+            return remotePriceCache[cacheKey];
         }
 
         if (typeof config?.obtenerConfigPublicaCompartida !== 'function') {
             return Number.isFinite(precioLocal) ? precioLocal : (Number.isFinite(precioCacheado) ? precioCacheado : null);
         }
 
-        if (remotePricePromise) {
-            return remotePricePromise;
+        if (remotePricePromise[cacheKey]) {
+            return remotePricePromise[cacheKey];
         }
 
-        remotePricePromise = config.obtenerConfigPublicaCompartida()
+        remotePricePromise[cacheKey] = config.obtenerConfigPublicaCompartida()
             .then((configPublica) => {
                 const precioRemoto = Number(configPublica?.rifa?.precioBoleto ?? configPublica?.precioBoleto);
-                remotePriceFetchedAt = Date.now();
+                remotePriceFetchedAt[cacheKey] = Date.now();
 
                 if (!Number.isFinite(precioRemoto) || precioRemoto <= 0) {
                     return Number.isFinite(precioLocal) ? precioLocal : (Number.isFinite(precioCacheado) ? precioCacheado : null);
                 }
 
-                remotePriceValue = precioRemoto;
+                remotePriceCache[cacheKey] = precioRemoto;
                 guardarPrecioCompraCacheLocal(precioRemoto);
                 if (config.rifa) {
                     config.rifa.precioBoleto = precioRemoto;
@@ -306,10 +319,10 @@
             })
             .catch(() => (Number.isFinite(precioLocal) ? precioLocal : (Number.isFinite(precioCacheado) ? precioCacheado : null)))
             .finally(() => {
-                remotePricePromise = null;
+                remotePricePromise[cacheKey] = null;
             });
 
-        return remotePricePromise;
+        return remotePricePromise[cacheKey];
     }
 
     function formatearMoneda(valor) {
