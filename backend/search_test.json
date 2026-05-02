@@ -1,0 +1,1 @@
+{"success":true,"data":{"items":[{"numero":10,"estado":"vendido"},{"numero":10,"estado":"vendido"},{"numero":10,"estado":"vendido"},{"numero":10,"estado":"vendido"},{"numero":10,"estado":"vendido"}],"modo":"empieza","availableOnly":false,"limite":5,"offset":0,"truncado":true,"totalBoletos":100,"criterios":{"q":"1","inicio":10,"fin":19}}}

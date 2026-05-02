@@ -644,18 +644,12 @@ class PushCampaignQueueService {
 
         try {
             const pushOptions = construirOpcionesPushCampana(job, subscription.endpoint);
-            console.log(`[PushCampaignQueue] 🚀 Envíando a ${subscriptionRow.endpoint.substring(0, 50)}... (Key: ${job.organizer_key})`);
-            
             await enviarNotificacionPushConRetry(subscription, payload, pushOptions);
-            
-            console.log(`[PushCampaignQueue] ✅ Entregado a ${subscriptionRow.endpoint.substring(0, 50)}...`);
             await this.marcarSuscripcionCampanaEntregada(job, subscriptionRow);
             return 'delivered';
         } catch (error) {
             const statusCode = Number(error?.statusCode || error?.status || 0);
             const message = String(error?.body || error?.message || 'Push delivery failed').slice(0, 2000);
-            
-            console.log(`[PushCampaignQueue] ❌ Fallo (${statusCode}): ${message.substring(0, 100)}`);
             if (statusCode === 404 || statusCode === 410) {
                 await this.marcarSuscripcionCampanaInvalida(job, subscriptionRow, message);
                 return 'expired';

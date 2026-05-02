@@ -523,7 +523,7 @@
         "marketingRecencyDays": 120
       },
       "nuevaRifa": {
-        "body": "No pierdas esta nueva oportunidad de ganar",
+        "body": "{organizerName} ya abrió {rifaNombre}. Entra ahora y aparta tus boletos.",
         "title": "Nuevo sorteo disponible",
         "enabled": true,
         "customUrl": "",

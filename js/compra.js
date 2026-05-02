@@ -12,6 +12,57 @@
 /* SECCIÓN 1: CONFIGURACIÓN GLOBAL Y VARIABLES DE ESTADO         */
 /* ============================================================ */
 
+function getItemSafeCompra(key) {
+    try {
+        const scopedKey = typeof window.rifaplusConfig?.construirClaveLocal === 'function'
+            ? window.rifaplusConfig.construirClaveLocal(key)
+            : key;
+
+        if (typeof window.safeTryGetItem === 'function') {
+            return window.safeTryGetItem(scopedKey);
+        } else {
+            return localStorage.getItem(scopedKey);
+        }
+    } catch (error) {
+        console.warn(`⚠️ [COMPRA] Error leyendo '${key}':`, error.message);
+        return null;
+    }
+}
+
+function setItemSafeCompra(key, value) {
+    try {
+        const scopedKey = typeof window.rifaplusConfig?.construirClaveLocal === 'function'
+            ? window.rifaplusConfig.construirClaveLocal(key)
+            : key;
+
+        if (typeof window.safeTrySetItem === 'function') {
+            return window.safeTrySetItem(scopedKey, value);
+        } else {
+            localStorage.setItem(scopedKey, value);
+            return true;
+        }
+    } catch (error) {
+        console.warn(`⚠️ [COMPRA] Error guardando '${key}':`, error.message);
+        return false;
+    }
+}
+
+function removeItemSafeCompra(key) {
+    try {
+        const scopedKey = typeof window.rifaplusConfig?.construirClaveLocal === 'function'
+            ? window.rifaplusConfig.construirClaveLocal(key)
+            : key;
+
+        if (typeof window.safeTryRemoveItem === 'function') {
+            window.safeTryRemoveItem(scopedKey);
+        } else {
+            localStorage.removeItem(scopedKey);
+        }
+    } catch (error) {
+        console.warn(`⚠️ [COMPRA] Error eliminando '${key}':`, error.message);
+    }
+}
+
 function debugCompraHabilitado() {
     const debugGlobal = window.RIFAPLUS_DEBUG || window.rifaplusDebug;
     return debugGlobal === true || Boolean(debugGlobal?.compra);
@@ -495,11 +546,7 @@ async function verificarEstadoBoletoEnServidor(numero) {
 function sincronizarSeleccionCompraEnStorage() {
     try {
         const numeros = Array.from(selectedNumbersGlobal || []).map((n) => parseInt(n, 10));
-        if (typeof window.safeTrySetItem === 'function') {
-            window.safeTrySetItem('rifaplusSelectedNumbers', JSON.stringify(numeros));
-        } else {
-            localStorage.setItem('rifaplusSelectedNumbers', JSON.stringify(numeros));
-        }
+        setItemSafeCompra('rifaplusSelectedNumbers', JSON.stringify(numeros));
     } catch (error) {
         console.warn('No se pudo sincronizar la seleccion local:', error?.message || error);
     }
@@ -1120,7 +1167,7 @@ async function inicializarSistemaCompra() {
     }
     
     // Sincronizar selectedNumbersGlobal con localStorage al cargar la página
-    const guardado = localStorage.getItem('rifaplusSelectedNumbers');
+    const guardado = getItemSafeCompra('rifaplusSelectedNumbers');
     if (guardado) {
         try {
             const arrayGuardado = JSON.parse(guardado);
@@ -1142,8 +1189,8 @@ async function inicializarSistemaCompra() {
     // Nuevo comportamiento:
     // - Por defecto: solo disponibles (filtro activo)
     // - Toggle activo: mostrar todos (filtro inactivo)
-    const mostrarTodosGuardado = localStorage.getItem('rifaplusMostrarTodosBoletos');
-    const filtroGuardadoLegacy = localStorage.getItem('rifaplusFiltroDisponibles');
+    const mostrarTodosGuardado = getItemSafeCompra('rifaplusMostrarTodosBoletos');
+    const filtroGuardadoLegacy = getItemSafeCompra('rifaplusFiltroDisponibles');
     if (mostrarTodosGuardado !== null || filtroGuardadoLegacy !== null) {
         try {
             if (mostrarTodosGuardado !== null) {
@@ -1707,7 +1754,7 @@ function obtenerUniversoMaquinaSuerteCompra() {
         // ✅ PASO 3: Fallback a caché local de la rifa actual
         const rifaSlug = window.rifaplusConfig?.obtenerSlugRifaActual?.() || 'default';
         const cacheKey = `rifaplus:${rifaSlug}:totalBoletos`;
-        const cacheLocal = localStorage.getItem(cacheKey);
+        const cacheLocal = getItemSafeCompra(cacheKey);
         
         if (cacheLocal) {
             try {
@@ -1930,7 +1977,7 @@ function obtenerDisponiblesGlobalesMaquina() {
         }
         
         // ✅ PASO 3: Fallback extremo - intentar desde localStorage
-        const cacheLocal = localStorage.getItem('rifaplusBoletosCache');
+        const cacheLocal = getItemSafeCompra('rifaplusBoletosCache');
         if (cacheLocal) {
             try {
                 const cached = JSON.parse(cacheLocal);
@@ -2265,7 +2312,7 @@ function agregarNumerosSuerteAlCarrito() {
     // OPTIMIZACIÓN: Agregar todos los boletos al estado interno sin actualizar UI cada vez
     const { sold, reserved } = obtenerEstadoLocalBoletos();
     const selectedNumbers = obtenerBoletosSelecionados();
-    let stored = JSON.parse(localStorage.getItem('rifaplusSelectedNumbers') || '[]');
+    let stored = JSON.parse(getItemSafeCompra('rifaplusSelectedNumbers') || '[]');
     
     const boletos_para_agregar = [];
     
@@ -2289,7 +2336,7 @@ function agregarNumerosSuerteAlCarrito() {
     
     // Guardar localStorage UNA SOLA VEZ
     if (agregados > 0) {
-        localStorage.setItem('rifaplusSelectedNumbers', JSON.stringify(stored));
+        setItemSafeCompra('rifaplusSelectedNumbers', JSON.stringify(stored));
     }
     
     // Marcar botones en la grilla
@@ -2623,7 +2670,7 @@ function limpiarSeleccion() {
         
         // Limpiar datos
         selectedNumbersGlobal.clear();
-        localStorage.removeItem('rifaplusSelectedNumbers');
+        removeItemSafeCompra('rifaplusSelectedNumbers');
         validacionesSeleccionPendientes.clear();
         actualizarEstadoBtnComprar();
         

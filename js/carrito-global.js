@@ -14,43 +14,52 @@
  */
 function getItemSafeCarrito(key) {
     try {
+        const scopedKey = typeof window.rifaplusConfig?.construirClaveLocal === 'function'
+            ? window.rifaplusConfig.construirClaveLocal(key)
+            : key;
+
         if (typeof window.safeTryGetItem === 'function') {
-            return window.safeTryGetItem(key);
+            return window.safeTryGetItem(scopedKey);
         } else {
-            // Fallback: localStorage directo
-            return localStorage.getItem(key);
+            return localStorage.getItem(scopedKey);
         }
     } catch (error) {
-        console.warn(`⚠️  [CARRITO] Error leyendo '${key}':`, error.message);
-        // Última opción: ver si está en memoria
-        if (window.StorageMemoryFallback && window.StorageMemoryFallback[key]) {
-            return window.StorageMemoryFallback[key];
-        }
+        console.warn(`⚠️ [CARRITO] Error leyendo '${key}':`, error.message);
         return null;
     }
 }
 
-/**
- * 🛡️ FUNCIÓN DEFENSIVA: Guardar en storage de forma segura
- * Intenta usar window.safeTrySetItem si está disponible
- * Si no, usa localStorage directo como fallback
- * NUNCA falla - siempre tiene un plan B
- */
 function setItemSafeCarrito(key, value) {
     try {
+        const scopedKey = typeof window.rifaplusConfig?.construirClaveLocal === 'function'
+            ? window.rifaplusConfig.construirClaveLocal(key)
+            : key;
+
         if (typeof window.safeTrySetItem === 'function') {
-            return window.safeTrySetItem(key, value);
+            return window.safeTrySetItem(scopedKey, value);
         } else {
-            // Fallback: localStorage directo
-            localStorage.setItem(key, value);
+            localStorage.setItem(scopedKey, value);
             return true;
         }
     } catch (error) {
-        console.warn(`⚠️  [CARRITO] Error guardando '${key}':`, error.message);
-        // Última opción: intentar en memoria
-        if (!window.StorageMemoryFallback) window.StorageMemoryFallback = {};
-        window.StorageMemoryFallback[key] = value;
+        console.warn(`⚠️ [CARRITO] Error guardando '${key}':`, error.message);
         return false;
+    }
+}
+
+function removeItemSafeCarrito(key) {
+    try {
+        const scopedKey = typeof window.rifaplusConfig?.construirClaveLocal === 'function'
+            ? window.rifaplusConfig.construirClaveLocal(key)
+            : key;
+
+        if (typeof window.safeTryRemoveItem === 'function') {
+            window.safeTryRemoveItem(scopedKey);
+        } else {
+            localStorage.removeItem(scopedKey);
+        }
+    } catch (error) {
+        console.warn(`⚠️ [CARRITO] Error eliminando '${key}':`, error.message);
     }
 }
 
@@ -362,8 +371,8 @@ function inicializarCarritoGlobal() {
     
     // 🔥 VERIFICAR SI HAY ORDEN ENVIADA Y LIMPIAR CARRITO
     if (getItemSafeCarrito('rifaplusOrdenEnviada') === 'true') {
-        localStorage.removeItem('rifaplusSelectedNumbers');
-        localStorage.removeItem('rifaplusOrdenEnviada');
+        removeItemSafeCarrito('rifaplusSelectedNumbers');
+        removeItemSafeCarrito('rifaplusOrdenEnviada');
         if (typeof selectedNumbersGlobal !== 'undefined' && selectedNumbersGlobal.clear) {
             selectedNumbersGlobal.clear();
         }
@@ -709,7 +718,7 @@ function handleLimpiarCarrito() {
             : [];
         
         // Limpiar datos
-        localStorage.removeItem('rifaplusSelectedNumbers');
+        removeItemSafeCarrito('rifaplusSelectedNumbers');
         if (typeof selectedNumbersGlobal !== 'undefined' && selectedNumbersGlobal) {
             selectedNumbersGlobal.clear();
         }
@@ -795,7 +804,7 @@ function removerBoletoSeleccionado(numero) {
     // 7. ⭐ RECALCULAR OPORTUNIDADES EN ORDEN (si existe)
     // Si hay una orden en proceso, actualizar sus oportunidades
     try {
-        const ordenActualStr = localStorage.getItem('rifaplus_orden_actual');
+        const ordenActualStr = getItemSafeCarrito('rifaplus_orden_actual');
         if (ordenActualStr) {
             const ordenTemp = JSON.parse(ordenActualStr);
             if (Array.isArray(ordenTemp.boletos)) {

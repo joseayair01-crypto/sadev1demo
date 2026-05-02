@@ -1555,8 +1555,8 @@ async function actualizarBarraProgreso() {
         const soldGlobalCount = Number(estadoGlobal.boletosVendidos);
         const reservedGlobalCount = Number(estadoGlobal.boletosApartados);
 
-        // Si tenemos el estado global (totales), usarlo directamente
-        if (Number.isFinite(soldGlobalCount) && soldGlobalCount >= 0) {
+        // Si tenemos el estado global (totales), usarlo directamente (si es mayor a 0 para evitar estado inicial)
+        if (Number.isFinite(soldGlobalCount) && soldGlobalCount > 0) {
             console.debug('[main] Usando totales globales desde config.estado');
             actualizarInterfazProgreso(
                 { length: soldGlobalCount }, 
@@ -1769,7 +1769,7 @@ if (document.readyState === 'loading') {
             
             // OPTIMIZACIÓN: Solo actualizar barra de progreso si no se actualizó hace poco
             const ahora = Date.now();
-            if (ahora - ultimaActualizacionProgreso > 60000) { // Mínimo 60 segundos entre actualizaciones
+            if (ahora - ultimaActualizacionProgreso > 10000) { // Mínimo 10 segundos entre actualizaciones
                 actualizarBarraProgreso();
                 ultimaActualizacionProgreso = ahora;
             }

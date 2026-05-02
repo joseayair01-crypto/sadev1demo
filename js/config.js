@@ -345,6 +345,8 @@ function esFechaPromocionActivaRifaPlus(fechaInicio, fechaFin, ahora = new Date(
 
 window.rifaplusConfig.parseFechaPromocion = parseFechaPromocionRifaPlus;
 window.rifaplusConfig.esFechaPromocionActiva = esFechaPromocionActivaRifaPlus;
+window.rifaplusConfig.construirClaveLocal = construirClaveLocalRifaPlus;
+window.rifaplusConfig.obtenerSlugRifaActual = obtenerSlugRifaDesdeUrlRifaPlus;
 
 function resolverApiBaseRifaPlus() {
     const globalDeploy = window.__RIFAPLUS_DEPLOY__ || {};

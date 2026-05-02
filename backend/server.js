@@ -2041,14 +2041,18 @@ function construirSerieSuffixQuery(valor, maxNumero) {
         .as('s');
 }
 
-function construirQueryBusquedaSobreSerie(serieQuery, { availableOnly = false, limite = 100, offset = 0 } = {}) {
-    const rifaIdActual = obtenerRifaIdActual();
+function construirQueryBusquedaSobreSerie(serieQuery, { availableOnly = false, limite = 100, offset = 0, rifaId = null } = {}) {
+    const rifaIdResuelto = rifaId || obtenerRifaIdActual();
+    
+    // Usamos una consulta base clara para evitar ambigüedades de parámetros
     const query = db
         .from(serieQuery)
         .leftJoin('boletos_estado as be', function() {
-            this.on('be.numero', '=', 's.numero')
-                .andOn(db.raw('?::int IS NULL OR be.rifa_id = ?::int', [rifaIdActual, rifaIdActual]))
-                .andOn(db.raw("be.estado IN ('vendido', 'apartado')"));
+            this.on('be.numero', '=', 's.numero');
+            if (rifaIdResuelto) {
+                this.andOn('be.rifa_id', '=', db.raw('?::int', [rifaIdResuelto]));
+            }
+            this.andOnIn('be.estado', ['vendido', 'apartado']);
         })
         .select(
             's.numero',
@@ -3785,7 +3789,6 @@ app.post('/api/admin/push-campaigns/sync-audience', verificarToken, async (req, 
 
 app.post('/api/admin/push-campaigns/send', verificarToken, async (req, res) => {
     try {
-        console.log('[API] 📦 Solicitud envio campaña recibida:', req.body);
         if (req.usuario?.rol !== 'administrador') {
             return res.status(403).json({
                 success: false,
@@ -3794,14 +3797,11 @@ app.post('/api/admin/push-campaigns/send', verificarToken, async (req, res) => {
         }
 
         const requestedRifaId = Number.parseInt(req.body?.rifaId || req.rifaContext?.id, 10) || null;
-        console.log('[API] 🎯 Rifa ID solicitado:', requestedRifaId);
         
         const contexto = requestedRifaId && rifaService?.enabled
             ? await rifaService.resolverContexto({ rifaId: requestedRifaId, fallbackActive: false })
             : (req.rifaContext || construirContextoRifaFallback());
 
-        console.log('[API] 📄 Contexto resuelto:', contexto ? `Rifa: ${contexto.nombre} (ID: ${contexto.id})` : 'Nulo');
-        
         if (!contexto) {
             return res.status(404).json({
                 success: false,
@@ -9268,7 +9268,7 @@ app.get('/api/public/ordenes-stats', async (req, res) => {
                 data: {
                     total_ordenes: cached.payload.total_ordenes,
                     total_boletos_vendidos: cached.payload.total_boletos_vendidos,
-                    porcentaje_vendido: 0,
+                    porcentaje_vendido: cached.payload.porcentaje_vendido || 0,
                     queryTime: cached.ageMs,
                     cached: true
                 }
@@ -9276,10 +9276,12 @@ app.get('/api/public/ordenes-stats', async (req, res) => {
         }
 
         const totalBoletosRifa = Number(req.rifaContext?.configuracion?.rifa?.totalBoletos) || 1000;
+        const currentRifaId = req.rifaContext?.id;
+
         const stats = await resolverSingleFlightPublico(`public:ordenes-stats:${cacheSuffix}`, async () => {
             const result = await db('ordenes')
                 .modify((qb) => {
-                    if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+                    if (currentRifaId) qb.where('rifa_id', currentRifaId);
                 })
                 .whereIn('estado', ['confirmada', 'completada'])
                 .select(
@@ -9736,31 +9738,20 @@ app.get('/api/public/boletos', async (req, res) => {
 
 app.get('/api/public/boletos/busqueda', limiterOrdenes, async (req, res) => {
     try {
-        const rifaIdActual = Number.parseInt(req.rifaContext?.id, 10) || null;
+        const rifaContext = req.rifaContext || {};
+        const configContextual = rifaContext.configuracion || {};
+        const rifaIdActual = Number.parseInt(rifaContext.id, 10) || null;
+
         const modo = String(req.query.modo || req.query.mode || 'exacto').trim().toLowerCase();
         const availableOnly = ['1', 'true', 'si', 'sí', 'on'].includes(String(req.query.availableOnly || '').trim().toLowerCase());
         const limiteSolicitado = parseInt(req.query.limite || req.query.limit, 10);
         const offsetSolicitado = parseInt(req.query.offset, 10);
-        const limite = Number.isInteger(limiteSolicitado)
-            ? Math.max(1, Math.min(limiteSolicitado, 1000))
-            : 100;
-        const offset = Number.isInteger(offsetSolicitado)
-            ? Math.max(0, offsetSolicitado)
-            : 0;
+        const limite = Number.isInteger(limiteSolicitado) ? Math.max(1, Math.min(limiteSolicitado, 1000)) : 100;
+        const offset = Number.isInteger(offsetSolicitado) ? Math.max(0, offsetSolicitado) : 0;
 
-        const configActual = obtenerConfigActual();
-        const fallbackConfig = obtenerConfigExpiracion();
-        const totalBoletos = Number(configActual?.rifa?.totalBoletos) || Number(fallbackConfig?.totalBoletos) || 1000000;
+        const totalBoletos = Number(configContextual.rifa?.totalBoletos) || 100;
         const maxNumero = Math.max(0, totalBoletos - 1);
         const anchoBoletos = String(maxNumero).length;
-
-        const modosPermitidos = new Set(['exacto', 'empieza', 'termina', 'contiene', 'rango']);
-        if (!modosPermitidos.has(modo)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Modo de búsqueda inválido'
-            });
-        }
 
         const formatearRespuesta = (items, criterios = {}) => ({
             success: true,
@@ -9779,127 +9770,44 @@ app.get('/api/public/boletos/busqueda', limiterOrdenes, async (req, res) => {
             }
         });
 
-        if (modo === 'exacto') {
-            const valor = String(req.query.q || req.query.valor || '').trim();
-            const numero = parseInt(valor, 10);
-
-            if (!/^\d+$/.test(valor) || !Number.isInteger(numero)) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Ingresa un número de boleto válido'
-                });
-            }
-
-            if (numero < 0 || numero > maxNumero) {
-                return res.status(400).json({
-                    success: false,
-                    message: `El boleto debe estar entre 0 y ${maxNumero}`
-                });
-            }
-
-            const estadoRegistro = await db('boletos_estado')
-                .modify((qb) => {
-                    if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
-                })
-                .where({ numero })
-                .whereIn('estado', ['vendido', 'apartado'])
-                .timeout(10000)
-                .first('estado');
-
-            const estado = estadoRegistro?.estado || 'disponible';
-            const items = availableOnly && estado !== 'disponible'
-                ? []
-                : [{ numero, estado }];
-
-            return res.json(formatearRespuesta(items, { q: valor }));
-        }
+        let filterSql = '';
+        let sqlParams = [maxNumero];
 
         if (modo === 'rango') {
             const inicio = parseInt(req.query.inicio, 10);
             const fin = parseInt(req.query.fin, 10);
-
             if (!Number.isInteger(inicio) || !Number.isInteger(fin) || inicio < 0 || fin < inicio || fin > maxNumero) {
-                return res.status(400).json({
-                    success: false,
-                    message: `El rango debe ser válido y estar entre 0 y ${maxNumero}`
-                });
+                return res.status(400).json({ success: false, message: `Rango inválido (0-${maxNumero})` });
             }
-
-            const serieQuery = db
-                .select(db.raw('gs::int AS numero'))
-                .from(db.raw('generate_series(?::bigint, ?::bigint) AS gs', [inicio, fin]))
-                .as('s');
-
-            const query = construirQueryBusquedaSobreSerie(serieQuery, {
-                availableOnly,
-                limite,
-                offset
-            });
-            const items = await query;
-            return res.json(formatearRespuesta(items || [], { inicio, fin }));
-        }
-
-        const valor = String(req.query.q || req.query.valor || '').trim();
-        if (!/^\d+$/.test(valor)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Usa solo números en este tipo de búsqueda'
-            });
-        }
-
-        if (valor.length > anchoBoletos) {
-            return res.json(formatearRespuesta([], { q: valor }));
-        }
-
-        if (modo === 'empieza') {
-            const rangoPrefijo = construirRangoPorPrefijo(valor, anchoBoletos, maxNumero);
-            if (!rangoPrefijo) {
-                return res.json(formatearRespuesta([], { q: valor }));
+            filterSql = 'gs BETWEEN ? AND ?';
+            sqlParams.push(inicio, fin);
+        } else if (modo === 'exacto') {
+            const valor = String(req.query.q || req.query.valor || '').trim();
+            const numero = parseInt(valor, 10);
+            if (!/^\d+$/.test(valor) || !Number.isInteger(numero) || numero < 0 || numero > maxNumero) {
+                return res.status(400).json({ success: false, message: 'Boleto inválido' });
             }
-
-            const seriePrefijo = db
-                .select(db.raw('gs::int AS numero'))
-                .from(db.raw('generate_series(?::bigint, ?::bigint) AS gs', [rangoPrefijo.inicio, rangoPrefijo.fin]))
-                .as('s');
-
-            const items = await construirQueryBusquedaSobreSerie(seriePrefijo, {
-                availableOnly,
-                limite,
-                offset
-            });
-
-            return res.json(formatearRespuesta(items || [], {
-                q: valor,
-                inicio: rangoPrefijo.inicio,
-                fin: rangoPrefijo.fin
-            }));
-        }
-
-        if (modo === 'termina') {
-            const serieSuffix = construirSerieSuffixQuery(valor, maxNumero);
-            if (!serieSuffix) {
-                return res.json(formatearRespuesta([], { q: valor }));
+            filterSql = 'gs = ?';
+            sqlParams.push(numero);
+        } else {
+            const valor = String(req.query.q || req.query.valor || '').trim();
+            if (!/^\d+$/.test(valor)) {
+                return res.status(400).json({ success: false, message: 'Usa solo números' });
             }
+            
+            let patron = `${valor}%`;
+            if (modo === 'termina') patron = `%${valor}`;
+            else if (modo === 'contiene') patron = `%${valor}%`;
 
-            const items = await construirQueryBusquedaSobreSerie(serieSuffix, {
-                availableOnly,
-                limite,
-                offset
-            });
-
-            return res.json(formatearRespuesta(items || [], { q: valor }));
+            filterSql = '(CAST(gs AS text) LIKE ?) OR (LPAD(CAST(gs AS text), ?, \'0\') LIKE ?)';
+            sqlParams.push(patron, anchoBoletos, patron);
         }
 
-        let patron = `${valor}%`;
-        if (modo === 'contiene') {
-            patron = `%${valor}%`;
-        }
-
-        const sql = `
+        const finalSql = `
             WITH serie AS (
                 SELECT gs::int AS numero
                 FROM generate_series(0::bigint, ?::bigint) AS gs
-                WHERE LPAD(CAST(gs AS text), ?, '0') LIKE ?
+                WHERE ${filterSql}
             )
             SELECT
                 s.numero,
@@ -9907,49 +9815,21 @@ app.get('/api/public/boletos/busqueda', limiterOrdenes, async (req, res) => {
             FROM serie s
             LEFT JOIN boletos_estado be
                 ON be.numero = s.numero
+               AND be.rifa_id = ?::int
                AND be.estado IN ('vendido', 'apartado')
             ${availableOnly ? 'WHERE be.numero IS NULL' : ''}
-            ORDER BY s.numero
+            ORDER BY s.numero ASC
             LIMIT ?
             OFFSET ?
         `;
 
-        if (rifaIdActual) {
-            const scopedSql = `
-                WITH serie AS (
-                    SELECT gs::int AS numero
-                    FROM generate_series(0::bigint, ?::bigint) AS gs
-                    WHERE LPAD(CAST(gs AS text), ?, '0') LIKE ?
-                )
-                SELECT
-                    s.numero,
-                    COALESCE(be.estado, 'disponible') AS estado
-                FROM serie s
-                LEFT JOIN boletos_estado be
-                    ON be.numero = s.numero
-                   AND be.rifa_id = ?::int
-                   AND be.estado IN ('vendido', 'apartado')
-                ${availableOnly ? 'WHERE be.numero IS NULL' : ''}
-                ORDER BY s.numero
-                LIMIT ?
-                OFFSET ?
-            `;
-            const scopedResult = await db.raw(scopedSql, [maxNumero, anchoBoletos, patron, rifaIdActual, limite, offset]).timeout(15000);
-            return res.json(formatearRespuesta(scopedResult.rows || [], { q: valor }));
-        }
+        sqlParams.push(rifaIdActual, limite, offset);
 
-        const resultado = await db.raw(sql, [maxNumero, anchoBoletos, patron, limite, offset]).timeout(15000);
-        return res.json(formatearRespuesta(resultado.rows || [], { q: valor }));
+        const result = await db.raw(finalSql, sqlParams).timeout(15000);
+        return res.json(formatearRespuesta(result.rows || [], { q: req.query.q || req.query.valor }));
     } catch (error) {
-        console.error('GET /api/public/boletos/busqueda error:', {
-            message: error.message,
-            stack: error.stack,
-            query: req.query
-        });
-        return res.status(500).json({
-            success: false,
-            message: 'Error al buscar boletos'
-        });
+        console.error('GET /api/public/boletos/busqueda error:', error);
+        return res.status(500).json({ success: false, message: 'Error al buscar boletos' });
     }
 });
 

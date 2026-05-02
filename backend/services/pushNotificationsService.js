@@ -245,6 +245,7 @@ function esErrorPushReintentable(error) {
 }
 
 async function enviarNotificacionPushConRetry(subscription, payload, pushOptions, options = {}) {
+    asegurarConfiguracionWebPush();
     const sendNotification = typeof options.sendNotification === 'function'
         ? options.sendNotification
         : webPush.sendNotification.bind(webPush);
