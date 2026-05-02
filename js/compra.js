@@ -4483,12 +4483,12 @@ function aplicarFiltroDisponibles(activo, opciones = {}) {
     const labelFiltro = document.getElementById('filtroDisponiblesLabel');
     const helpFiltro = document.getElementById('filtroDisponiblesHelp');
     if (labelFiltro) {
-        labelFiltro.textContent = activo ? 'Solo disponibles' : 'Mostrar todos';
+        labelFiltro.textContent = activo ? 'Mostrando disponibles' : 'Mostrando todo';
     }
     if (helpFiltro) {
         helpFiltro.textContent = activo
-            ? 'Recomendado: muestra solo boletos que puedes elegir ahora.'
-            : 'Incluye también boletos apartados y vendidos para ver el panorama completo.';
+            ? 'Mostrando solo boletos disponibles para seleccionar ahora.'
+            : 'Mostrando todos los boletos (incluye apartados y vendidos).';
     }
 
     if (refrescarGridPrincipal && !estaVistaBusquedaActiva()) {

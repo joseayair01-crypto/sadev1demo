@@ -130,6 +130,42 @@ const ADMIN_LAYOUT = {
         this.cargarSelectorRifas().catch((error) => {
             debugAdminLayout('No se pudo cargar selector de rifas', error?.message || error);
         });
+        // Escuchar cambios en localStorage desde otras pestañas y propagar el evento de cambio de rifa activa
+        if (!this._storageListenerInstalled) {
+            this._storageListenerInstalled = true;
+            window.addEventListener('storage', (event) => {
+                try {
+                    if (!event || !event.key) return;
+                    const key = String(event.key);
+                    if (key === this.activeRifaKey || key === 'rifaplus_rifa_activa') {
+                        // Normalizar valor a integer|null
+                        const raw = event.newValue;
+                        const parsed = Number.parseInt(raw, 10);
+                        const newId = Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+                        debugAdminLayout('storage event: rifa activa cambió en otra pestaña ->', newId);
+                        window.dispatchEvent(new CustomEvent('rifaplus:admin-rifa-activa-cambiada', { detail: { rifaId: newId } }));
+                    }
+                } catch (e) {
+                    debugAdminLayout('Error manejando storage event:', e?.message || e);
+                }
+            });
+        }
+            // Crear contenedor de toasts si no existe
+            if (!this._toastContainerCreated) {
+                this._toastContainerCreated = true;
+                try {
+                    const container = document.createElement('div');
+                    container.id = 'adminToastContainer';
+                    container.style.position = 'fixed';
+                    container.style.right = '1rem';
+                    container.style.top = '1rem';
+                    container.style.zIndex = '99999';
+                    container.style.display = 'flex';
+                    container.style.flexDirection = 'column';
+                    container.style.gap = '0.5rem';
+                    document.body.appendChild(container);
+                } catch (e) {}
+            }
     },
 
     configurarViewportHeightSync() {
@@ -293,11 +329,30 @@ const ADMIN_LAYOUT = {
             debugAdminLayout('No se pudo persistir la rifa activa', error?.message || error);
         }
 
+        // Mantener compatibilidad con claves legacy usadas en varios módulos
+        try {
+            if (activeRifaId) {
+                localStorage.setItem('rifaplus_rifa_activa', String(activeRifaId));
+            } else {
+                localStorage.removeItem('rifaplus_rifa_activa');
+            }
+        } catch (error) {
+            // No fatal — sólo loguear para debugging
+            debugAdminLayout('No se pudo sincronizar la clave legacy rifaplus_rifa_activa', error?.message || error);
+        }
+
+        // Notificar a listeners que la rifa activa cambió
         window.dispatchEvent(new CustomEvent('rifaplus:admin-rifa-activa-cambiada', {
             detail: {
                 rifaId: activeRifaId
             }
         }));
+        try {
+            const nombre = activeRifaId ? (this.getRifaById(activeRifaId)?.nombre || `Rifa ${activeRifaId}`) : 'Sin rifa activa';
+            if (typeof this.showAdminToast === 'function') {
+                this.showAdminToast(`Rifa activa: ${nombre}`, 2500);
+            }
+        } catch (e) {}
     },
 
     getRifaById(rifaId) {

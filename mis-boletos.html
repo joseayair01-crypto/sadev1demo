@@ -6101,7 +6101,7 @@
                             <div class="mdc-card-label">Concepto / Referencia</div>
                             <div class="mdc-card-value mdc-card-value--referencia">
                                 ${referenciaFormateada}
-                                <button type="button" class="mdc-copiar-btn" onclick="copiarTextoPago(this, '${referencia}')" aria-label="Copiar referencia">
+                                <button type="button" class="mdc-copiar-btn" onclick="copiarTextoPago(this, '${referenciaFormateada.replace(/'/g, "&#39;")}')" aria-label="Copiar referencia">
                                     <i class="fas fa-copy"></i>
                                 </button>
                             </div>

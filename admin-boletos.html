@@ -1460,7 +1460,7 @@
         <div class="admin-header-content">
             <div class="admin-header-left">
                 <div class="admin-logo-container">
-                    <img src="images/placeholder-logo.svg" alt="Logo del organizador" class="admin-logo-img">
+                    <img src="images/logo.png" alt="Logo del organizador" class="admin-logo-img" onerror="this.onerror=null;this.src='images/placeholder-logo.svg'">
                 </div>
                 <div class="admin-header-title">
                     <div class="admin-header-title-main">Panel Administrativo</div>
@@ -1519,8 +1519,18 @@
     <!-- MAIN CONTENT -->
     <div class="admin-main" id="adminMain">
         <div class="container">
-        <!-- STATS SECTION -->
-        <div class="stats-section" id="statsSection">
+        <!-- STATS SECTION (hidden until correct rifa data is loaded to avoid flashes) -->
+        <style>
+            /* Skeleton styles for admin stats */
+            .stats-section[aria-busy="true"] .stat-number {
+                background: linear-gradient(90deg,#eef2f7 0%,#f5f7fb 50%,#eef2f7 100%);
+                color: transparent;
+                border-radius: 6px;
+                min-height: 1.2rem;
+            }
+            .stats-section[aria-busy="true"] .stat-label { color: #98a0b0; }
+        </style>
+        <div class="stats-section" id="statsSection" style="display: none; opacity: 0;" aria-busy="true">
             <div class="stat-card sorteo-name">
                 <div class="stat-label">Sorteo</div>
                 <div class="stat-number" id="statSorteoNombre">-</div>
@@ -2138,29 +2148,50 @@
             // ✅ VALIDAR que obtenemos stats de la rifa correcta
             const rifaIdActual = obtenerRifaIdSeleccionada();
             console.log(`📊 AdminBoletos: Actualizando stats para rifa ID=${rifaIdActual}`);
-            
-            // Card 1: Nombre del sorteo desde config
+            // Card 1: Nombre del sorteo — preferir metadata desde ADMIN_LAYOUT o contexto backend
             const statSorteoNombre = document.getElementById('statSorteoNombre');
-            const nombreSorteo = window.rifaplusConfig?.obtenerNombreSorteo?.() || window.rifaplusConfig?.rifa?.nombreSorteo;
-            if (statSorteoNombre && nombreSorteo) {
-                statSorteoNombre.textContent = nombreSorteo;
+            let nombreSorteo = '';
+
+            try {
+                if (window.ADMIN_LAYOUT && typeof window.ADMIN_LAYOUT.getRifaById === 'function') {
+                    const rifaMeta = window.ADMIN_LAYOUT.getRifaById(rifaIdActual);
+                    if (rifaMeta && (rifaMeta.nombre || rifaMeta.name)) {
+                        nombreSorteo = String(rifaMeta.nombre || rifaMeta.name).trim();
+                    }
+                }
+            } catch (e) {
+                console.warn('⚠️ AdminBoletos: Error obteniendo rifa desde ADMIN_LAYOUT:', e?.message || e);
+            }
+
+            if (!nombreSorteo) {
+                nombreSorteo = window.rifaplusConfig?._adminRifaContext?.nombre || window.rifaplusConfig?.obtenerNombreSorteo?.() || window.rifaplusConfig?.rifa?.nombreSorteo || '';
+            }
+
+            if (statSorteoNombre) {
+                statSorteoNombre.textContent = nombreSorteo || '-';
                 console.log(`✅ AdminBoletos: Nombre sorteo = ${nombreSorteo}`);
             }
 
-            // Card 2: Total de boletos desde config (VALIDAR que sea de la rifa correcta)
-            if (window.rifaplusConfig?.rifa?.totalBoletos) {
+            // Card 2: Total de boletos — preferir el valor del endpoint de stats (más confiable)
+            const statTotalEl = document.getElementById('statTotalBoletos');
+            const totalFromStats = Number(statsBoletos?.total) || 0;
+            if (totalFromStats && Number.isFinite(totalFromStats) && totalFromStats > 0) {
+                if (statTotalEl) statTotalEl.textContent = totalFromStats;
+                console.log(`✅ AdminBoletos: Total boletos (desde stats) = ${totalFromStats}`);
+            } else if (window.rifaplusConfig?.rifa?.totalBoletos) {
                 const totalBoletos = Number(window.rifaplusConfig.rifa.totalBoletos);
                 if (Number.isFinite(totalBoletos) && totalBoletos > 0) {
-                    document.getElementById('statTotalBoletos').textContent = totalBoletos;
-                    console.log(`✅ AdminBoletos: Total boletos = ${totalBoletos}`);
+                    if (statTotalEl) statTotalEl.textContent = totalBoletos;
+                    console.log(`✅ AdminBoletos: Total boletos (desde config) = ${totalBoletos}`);
                 } else {
                     console.warn(`⚠️ AdminBoletos: totalBoletos inválido: ${totalBoletos}`);
                 }
             }
 
-            // Card 3: Boletos vendidos (confirmados) - contar desde las órdenes confirmadas
+            // Card 3: Boletos vendidos (confirmados) - contar desde las estadísticas backend
             const boletosSold = Number(statsBoletos?.vendidos) || 0;
-            document.getElementById('statBoletosSold').textContent = boletosSold;
+            const statSoldEl = document.getElementById('statBoletosSold');
+            if (statSoldEl) statSoldEl.textContent = boletosSold;
         }
 
         function sincronizarNombreSorteoConReintento(intentosRestantes = 12) {
@@ -3039,30 +3070,53 @@
                 pageEl.style.display = 'block';
             }
 
-            // Lanzar tareas en paralelo
+            // Lanzar tareas en paralelo (config inicial sin forzar sincronizar nombre aún)
             const configPromise = (async () => {
                 try {
                     initializeConfig();
-                    sincronizarNombreSorteoConReintento();
+                    // NO sincronizar nombre aquí; esperar a que carguen las estadísticas
                 } catch (e) {}
             })();
             
-            // 1. Iniciar carga del selector (sin bloquear aún)
+            // 1. Iniciar carga del selector (no bloquear, pero esperaremos antes de pedir stats)
             const selectorPromise = (typeof ADMIN_LAYOUT?.cargarSelectorRifas === 'function') 
-                ? ADMIN_LAYOUT.cargarSelectorRifas().catch(e => console.warn('Error selector:', e))
+                ? ADMIN_LAYOUT.cargarSelectorRifas().catch(e => {
+                    console.warn('Error selector:', e);
+                    return null;
+                })
                 : Promise.resolve();
 
             // Verificar autenticación real
             const authOk = verificarAutenticacion(); // Sincrónico inicialmente para rapidez
             
             if (authOk) {
-                // Cargar datos en paralelo con la config
+                // Esperar a que el selector esté listo para que obtenerRifaIdSeleccionada devuelva el id correcto
+                await selectorPromise;
+
+                // Cargar datos (ahora que el selector/ADMIN_LAYOUT está presente)
                 const dataPromise = cargarBoletos();
                 configurarToggleBoletosSoldVisibility();
-                
+
                 await configPromise;
                 await dataPromise;
-                
+
+                // Mostrar statsSection sólo cuando los datos hayan sido cargados correctamente
+                try {
+                    const statsEl = document.getElementById('statsSection');
+                    if (statsEl) {
+                        statsEl.style.display = 'grid';
+                        // pequeña transición para evitar flash
+                        requestAnimationFrame(() => {
+                            statsEl.style.transition = 'opacity 220ms ease';
+                            statsEl.style.opacity = '1';
+                            statsEl.removeAttribute('aria-busy');
+                        });
+                    }
+                } catch (e) {}
+
+                // Sincronizar nombre del sorteo de forma segura ahora que config y stats están listos
+                sincronizarNombreSorteoConReintento();
+
                 inicializarSearchContainer();
                 const searchInput = document.getElementById('searchBoleto');
                 if (searchInput) searchInput.focus();
@@ -3111,6 +3165,46 @@
                         console.log(`✅ AdminBoletos: Rifa ${nuevaRifaId} cargada correctamente`);
                     } else {
                         console.warn(`⚠️ AdminBoletos: RifaId inválida en onChange: ${nuevaRifaId}`);
+                    }
+                });
+
+                // Reactividad global: reaccionar a cambios de rifa activa desde admin-layout
+                window.addEventListener('rifaplus:admin-rifa-activa-cambiada', async (event) => {
+                    try {
+                        const nuevaRifa = event?.detail?.rifaId || localStorage.getItem('rifaplus_rifa_activa');
+                        console.log(`🔔 AdminBoletos: rifaplus:admin-rifa-activa-cambiada -> ${nuevaRifa}`);
+
+                        const statsEl = document.getElementById('statsSection');
+                        if (statsEl) {
+                            statsEl.style.transition = 'opacity 220ms ease';
+                            statsEl.style.opacity = '0.45';
+                            statsEl.style.pointerEvents = 'none';
+                        }
+
+                        if (!nuevaRifa) {
+                            if (statsEl) statsEl.style.display = 'none';
+                            return;
+                        }
+
+                        // Mantener select sincronizado
+                        const sel = document.getElementById('adminRifaSelect');
+                        if (sel && String(sel.value) !== String(nuevaRifa)) {
+                            try { sel.value = String(nuevaRifa); } catch (e) {}
+                        }
+
+                        // Recargar boletos y estadísticas suavemente
+                        await cargarBoletos();
+                        try { actualizarEstadisticas(); } catch (e) { console.warn('Error actualizando estadísticas:', e); }
+
+                        if (statsEl) {
+                            statsEl.style.opacity = '1';
+                            statsEl.style.pointerEvents = '';
+                            statsEl.style.display = 'grid';
+                        }
+
+                        console.log('🔔 AdminBoletos: UI actualizada tras cambio de rifa activa');
+                    } catch (e) {
+                        console.warn('⚠️ AdminBoletos: Error manejando cambio de rifa activa:', e?.message || e);
                     }
                 });
             } else {

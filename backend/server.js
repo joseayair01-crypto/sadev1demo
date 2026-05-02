@@ -9616,7 +9616,16 @@ app.get('/api/public/boletos/stats', async (req, res) => {
         const rifaIdActual = Number.parseInt(rifaContext.id, 10);
         const cacheSuffix = String(rifaContext.slug || rifaIdActual);
         const totalBoletos = Number(config.totalBoletos) || 100;
-        const cacheTtl = obtenerTtlCachePublico({ productionMs: 30000, developmentMs: 5000 });
+        // Por defecto cache largo para público; para peticiones admin/autenticadas usar TTL mucho menor
+        let cacheTtl = obtenerTtlCachePublico({ productionMs: 30000, developmentMs: 5000 });
+        try {
+            const isAdminRequest = Boolean(req.headers && (req.headers.authorization || req.headers['authorization']));
+            if (isAdminRequest) {
+                cacheTtl = obtenerTtlCachePublico({ productionMs: 5000, developmentMs: 500 });
+            }
+        } catch (e) {
+            // ignorar y usar valor por defecto
+        }
         const cached = obtenerCacheMemoriaVigente(
             serverCache.boletosStatsCached?.[cacheSuffix],
             serverCache.boletosStatsCachedTime?.[cacheSuffix],
