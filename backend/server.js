@@ -24,7 +24,24 @@ const socketIO = require('socket.io');  // 🔌 WebSocket para actualizaciones e
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const app = express();
-app.set('trust proxy', true);
+// Configurar `trust proxy` de forma segura para ambientes PaaS
+// - Evitar `true` porque es demasiado permisivo y causa error en express-rate-limit
+// - Permitir override con la variable `TRUST_PROXY` (ej: '1')
+const rawTrustProxy = process.env.TRUST_PROXY;
+if (rawTrustProxy !== undefined) {
+    let value = rawTrustProxy;
+    if (rawTrustProxy === 'true') value = true;
+    else if (rawTrustProxy === 'false') value = false;
+    else if (!Number.isNaN(Number(rawTrustProxy))) value = Number(rawTrustProxy);
+    app.set('trust proxy', value);
+    console.log('⚙️ [server] trust proxy set from TRUST_PROXY env:', value);
+} else {
+    // Default safe behaviour: confiar en 1 proxy en producción, true en desarrollo
+    const isProd = process.env.NODE_ENV === 'production';
+    const defaultValue = isProd ? 1 : true;
+    app.set('trust proxy', defaultValue);
+    console.log('⚙️ [server] trust proxy defaulted to:', defaultValue);
+}
 const db = require('./db'); // Instancia Knex (Postgres)
 const cloudinary = require('./cloudinary-config'); // ✅ Cloudinary para almacenar comprobantes
 const ordenExpirationService = require('./services/ordenExpirationService'); // Servicio de expiración
