@@ -12,23 +12,33 @@
 /* ============================================================ */
 
 /**
+ * 🛡️ FUNCIÓN DEFENSIVA: Obtener clave con scope de rifa
+ */
+function obtenerClaveScopedFlujo(key) {
+    if (typeof window.rifaplusConfig?.construirClaveLocal === 'function') {
+        return window.rifaplusConfig.construirClaveLocal(key);
+    }
+    // Fallback manual si no está el cargador
+    const slug = window.rifaplusConfig?.obtenerSlugRifaActual?.() || 'global';
+    return `rifaplus:${slug}:${key}`;
+}
+
+/**
  * 🛡️ FUNCIÓN DEFENSIVA: Guardar en storage de forma segura
- * Intenta usar window.safeTrySetItem si está disponible
- * Si no, usa localStorage directo como fallback
- * NUNCA falla - siempre tiene un plan B
  */
 function setItemSafeFlujo(key, value) {
+    const scopedKey = obtenerClaveScopedFlujo(key);
     try {
         if (typeof window.safeTrySetItem === 'function') {
-            return window.safeTrySetItem(key, value);
+            return window.safeTrySetItem(scopedKey, value);
         } else {
-            localStorage.setItem(key, value);
+            localStorage.setItem(scopedKey, value);
             return true;
         }
     } catch (error) {
-        console.warn(`⚠️  [FLUJO] Error guardando '${key}':`, error.message);
+        console.warn(`⚠️  [FLUJO] Error guardando '${scopedKey}':`, error.message);
         if (!window.StorageMemoryFallback) window.StorageMemoryFallback = {};
-        window.StorageMemoryFallback[key] = value;
+        window.StorageMemoryFallback[scopedKey] = value;
         return false;
     }
 }
@@ -37,18 +47,38 @@ function setItemSafeFlujo(key, value) {
  * 🛡️ FUNCIÓN DEFENSIVA: Leer desde storage de forma segura
  */
 function getItemSafeFlujo(key) {
+    const scopedKey = obtenerClaveScopedFlujo(key);
     try {
         if (typeof window.safeTryGetItem === 'function') {
-            return window.safeTryGetItem(key);
+            return window.safeTryGetItem(scopedKey);
         } else {
-            return localStorage.getItem(key);
+            return localStorage.getItem(scopedKey);
         }
     } catch (error) {
-        console.warn(`⚠️  [FLUJO] Error leyendo '${key}':`, error.message);
-        if (window.StorageMemoryFallback && window.StorageMemoryFallback[key]) {
-            return window.StorageMemoryFallback[key];
+        console.warn(`⚠️  [FLUJO] Error leyendo '${scopedKey}':`, error.message);
+        if (window.StorageMemoryFallback && window.StorageMemoryFallback[scopedKey]) {
+            return window.StorageMemoryFallback[scopedKey];
         }
         return null;
+    }
+}
+
+/**
+ * 🛡️ FUNCIÓN DEFENSIVA: Remover del storage
+ */
+function removeItemSafeFlujo(key) {
+    const scopedKey = obtenerClaveScopedFlujo(key);
+    try {
+        if (typeof window.safeTryRemoveItem === 'function') {
+            return window.safeTryRemoveItem(scopedKey);
+        } else {
+            localStorage.removeItem(scopedKey);
+            return true;
+        }
+    } catch (error) {
+        console.warn(`⚠️  [FLUJO] Error removiendo '${scopedKey}':`, error.message);
+        if (window.StorageMemoryFallback) delete window.StorageMemoryFallback[scopedKey];
+        return false;
     }
 }
 
@@ -263,8 +293,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Verificar si debe iniciar el flujo de pago (redirigido desde otra página)
     setTimeout(function() {
-        if (localStorage.getItem('rifaplusIniciarFlujoPago') === 'true') {
-            localStorage.removeItem('rifaplusIniciarFlujoPago');
+        if (getItemSafeFlujo('rifaplusIniciarFlujoPago') === 'true') {
+            removeItemSafeFlujo('rifaplusIniciarFlujoPago');
             iniciarFlujoPago();
         }
     }, 100);

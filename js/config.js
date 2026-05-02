@@ -510,6 +510,17 @@ if (!window.__RIFAPLUS_PUBLIC_RIFA_FETCH_PATCHED__) {
     window.fetch = function(resource, options = {}) {
         const scopedResource = resolveRifaScopedResource(resource);
         const finalOptions = { ...(options || {}) };
+        
+        // 🛡️ INYECCIÓN AUTOMÁTICA DE CABECERAS DE RIFA
+        const slug = obtenerSlugRifaDesdeUrlRifaPlus();
+        if (slug) {
+            finalOptions.headers = {
+                ...(finalOptions.headers || {}),
+                'x-rifaplus-rifa-slug': slug,
+                'x-rifa-id': window.rifaplusConfig?.rifa?.id || '' // Intentar enviar ID si está cargado
+            };
+        }
+        
         return originalFetchRifaPlus(scopedResource, finalOptions);
     };
     window.__RIFAPLUS_PUBLIC_RIFA_FETCH_PATCHED__ = true;

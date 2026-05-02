@@ -58,8 +58,12 @@ const GanadoresManager = {
      * 🔑 Obtener la clave de storage específica para la rifa actual
      */
     obtenerStorageKey() {
-        const rifaId = this.obtenerRifaIdSeleccionada();
-        return `${this.STORAGE_KEY_BASE}:rifa:${rifaId}`;
+        if (typeof window.rifaplusConfig?.construirClaveLocal === 'function') {
+            return window.rifaplusConfig.construirClaveLocal(this.STORAGE_KEY_BASE);
+        }
+        // Fallback robusto por slug
+        const slug = window.rifaplusConfig?.obtenerSlugRifaActual?.() || 'global';
+        return `rifaplus:${slug}:${this.STORAGE_KEY_BASE}`;
     },
 
     getApiBase() {

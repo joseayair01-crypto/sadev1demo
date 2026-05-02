@@ -4498,7 +4498,11 @@ app.get('/api/public/config', (req, res) => {
                 tiempoApartadoHoras: config.tiempoApartadoHoras,
                 intervaloLimpiezaMinutos: config.intervaloLimpiezaMinutos,
                 sistemaPremios: sistemaPremios,
-                rifa: config.rifa,
+                rifa: {
+                    ...(config.rifa || {}),
+                    id: req.rifaContext?.id || config.rifa?.id || null,
+                    slug: req.rifaContext?.slug || config.rifa?.slug || null
+                },
                 marketing: configActual.marketing || {},
                 // 🏦 Agregar cuentas bancarias a la respuesta pública
                 cuentas: cuentasBancarias
@@ -5996,41 +6000,23 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
  */
 app.post('/api/public/order-counter/next', limiterOrdenes, async (req, res) => {
     try {
-        const clienteIdBody = String(req.body?.cliente_id || '').trim();
-        
-        // Cargar config y obtener prefijo ANTES de transacción
-        const configActual = cargarConfigSorteo();
-        const clienteIdConfig = String(configActual?.cliente?.id || '').trim();
-        const cliente_id = clienteIdBody || clienteIdConfig || 'Sorteos_El_Trebol';
-        
-        // IMPORTANTE: Pasar configActual a obtenerPrefijoOrdenCliente para ASEGURAR que usa el correcto
-        const prefijo = obtenerPrefijoOrdenCliente(cliente_id, configActual);
-        logOrdenesDebug(`📋 Generando orden para cliente_id="${cliente_id}", prefijo="${prefijo}", config.cliente.prefijoOrden="${configActual?.cliente?.prefijoOrden}"`);
+        // ===== OBTENER CONTEXTO MULTI-RIFA =====
+        const rifaContext = req.rifaContext;
+        if (!rifaContext || !rifaContext.id) {
+            console.error('❌ [POST /api/public/order-counter/next] Error: No se pudo determinar el contexto de la rifa');
+            return res.status(400).json({ 
+                success: false, 
+                message: 'No se pudo identificar la rifa actual. Recarga la página.' 
+            });
+        }
 
+        const configActual = rifaContext.configuracion?.rifa || {};
+        const rifaIdActual = Number.parseInt(rifaContext.id, 10);
+        const cliente_id = String(rifaContext.organizador_key || 'Sorteos_El_Trebol').trim();
+        
         // Usar transacción con bloqueo explícito para evitar IDs duplicados bajo concurrencia
         const orderId = await db.transaction(async (trx) => {
-            const { counter, componente } = await obtenerSiguienteComponenteOrdenRobusto(trx, cliente_id, prefijo);
-            const fullOrderId = construirOrdenIdDesdeComponente(prefijo, componente);
-            
-            logOrdenesDebug(`✅ Generado orden_id: ${fullOrderId} (num=${String(componente.numero).padStart(3, '0')}, seq=${componente.secuencia})`);
-
-            // 2. Calcular siguiente número y secuencia
-            const siguiente = avanzarComponenteOrden(componente);
-
-            // 3. Actualizar contador con nuevos valores
-            const updateData = {
-                ultimo_numero: componente.numero,
-                ultima_secuencia: siguiente.secuencia,
-                proximo_numero: siguiente.numero,
-                contador_total: counter.contador_total + 1,
-                updated_at: new Date()
-            };
-            
-            await trx('order_id_counter')
-                .where('cliente_id', cliente_id)
-                .update(updateData);
-
-            return fullOrderId;
+            return await generarSiguienteOrdenId(cliente_id, trx, rifaIdActual);
         });
 
         log('info', 'POST /api/public/order-counter/next success', { cliente_id, orden_id: orderId });
@@ -6208,9 +6194,16 @@ function logOrdenesPerf(label, data = {}) {
     }
 }
 
-async function obtenerOCrearCounterOrden(trx, clienteId) {
+async function obtenerOCrearCounterOrden(trx, clienteId, rifaId = null) {
     let counter = await trx('order_id_counter')
-        .where('cliente_id', clienteId)
+        .modify((qb) => {
+            qb.where('cliente_id', clienteId);
+            if (rifaId) {
+                qb.where('rifa_id', rifaId);
+            } else {
+                qb.whereNull('rifa_id');
+            }
+        })
         .forUpdate()
         .first();
 
@@ -6220,6 +6213,7 @@ async function obtenerOCrearCounterOrden(trx, clienteId) {
 
     const newCounter = {
         cliente_id: clienteId,
+        rifa_id: rifaId,
         ultima_secuencia: 'AA',
         ultimo_numero: 0,
         proximo_numero: 1,
@@ -6233,18 +6227,25 @@ async function obtenerOCrearCounterOrden(trx, clienteId) {
     try {
         await trx('order_id_counter').insert(newCounter);
     } catch (error) {
-        if (error?.code !== '23505') {
+        if (error?.code !== '23505' && !error.message.includes('unique')) {
             throw error;
         }
     }
 
     counter = await trx('order_id_counter')
-        .where('cliente_id', clienteId)
+        .modify((qb) => {
+            qb.where('cliente_id', clienteId);
+            if (rifaId) {
+                qb.where('rifa_id', rifaId);
+            } else {
+                qb.whereNull('rifa_id');
+            }
+        })
         .forUpdate()
         .first();
 
     if (!counter) {
-        throw new Error(`No se pudo obtener el contador de orden para cliente_id=${clienteId}`);
+        throw new Error(`No se pudo obtener el contador de orden para contexto rifa=${rifaId}`);
     }
 
     return counter;
@@ -6363,8 +6364,8 @@ async function obtenerMayorOrdenExistentePorPrefijo(trx, prefijo) {
     return descomponerOrdenId(ultimaOrden.numero_orden, prefijoLimpio);
 }
 
-async function obtenerSiguienteComponenteOrdenRobusto(trx, clienteId, prefijo) {
-    const counter = await obtenerOCrearCounterOrden(trx, clienteId);
+async function obtenerSiguienteComponenteOrdenRobusto(trx, clienteId, prefijo, rifaId = null) {
+    const counter = await obtenerOCrearCounterOrden(trx, clienteId, rifaId);
     const candidatoCounter = {
         secuencia: String(counter?.ultima_secuencia || 'AA').toUpperCase(),
         numero: Number.isFinite(Number(counter?.proximo_numero)) ? Number(counter.proximo_numero) : 1
@@ -6376,6 +6377,7 @@ async function obtenerSiguienteComponenteOrdenRobusto(trx, clienteId, prefijo) {
         logOrdenesDebug('♻️ Counter reconciliado con última orden persistida', {
             clienteId,
             prefijo,
+            rifaId,
             counter: candidatoCounter,
             mayorPersistido,
             reconciliado
@@ -6528,17 +6530,67 @@ function esMismaOrdenIdempotente(ordenExistente, contexto) {
  * @param {object} trx - instancia de transacción Knex
  * @returns {Promise<string>} ordenId
  */
-async function generarSiguienteOrdenId(cliente_id, trx) {
-    // Validación mínima
+async function generarSiguienteOrdenId(cliente_id, trx, rifaId = null) {
+    // 1. Determinar el contexto y el prefijo base
     const cid = cliente_id || 'Sorteos_El_Trebol';
-    const prefijo = obtenerPrefijoOrdenCliente(cid);
-    const { counter, componente } = await obtenerSiguienteComponenteOrdenRobusto(trx, cid, prefijo);
+    
+    // Obtener config (necesaria para el prefijo base)
+    const configActual = obtenerConfigActual() || {};
+    const prefijoBase = obtenerPrefijoOrdenCliente(cid, configActual);
+    
+    // 🛡️ PREFIJO DINÁMICO: S(id)-PREFIJO (ej: S10-AA)
+    const prefijo = rifaId ? `S${rifaId}-${prefijoBase}` : prefijoBase;
+    
+    logOrdenesDebug(`📋 Generando siguiente ID con prefijo "${prefijo}" para rifa_id=${rifaId}`);
+
+    // 2. Buscar o crear el contador específico para esta rifa/prefijo
+    let counter = await trx('order_id_counter')
+        .where({ cliente_id: cid, rifa_id: rifaId })
+        .forUpdate()
+        .first();
+
+    if (!counter) {
+        // Inicializar nuevo contador para esta rifa
+        logOrdenesDebug(`ℹ️ Inicializando nuevo contador para rifa_id=${rifaId} y cliente=${cid}`);
+        await trx('order_id_counter').insert({
+            cliente_id: cid,
+            rifa_id: rifaId,
+            ultima_secuencia: 'AA',
+            ultimo_numero: 0,
+            proximo_numero: 1,
+            contador_total: 0,
+            created_at: new Date(),
+            updated_at: new Date()
+        });
+        
+        counter = await trx('order_id_counter')
+            .where({ cliente_id: cid, rifa_id: rifaId })
+            .forUpdate()
+            .first();
+    }
+
+    // 3. Obtener el componente actual y RECONCILIAR si es necesario
+    const candidato = {
+        secuencia: counter.ultima_secuencia || 'AA',
+        numero: counter.ultimo_numero || 0
+    };
+
+    // 🛡️ RECONCILIACIÓN DE SEGURIDAD: Verificar si ya existen órdenes mayores en la BD
+    // Esto previene duplicados si el contador se reseteó accidentalmente
+    const mayorPersistido = await obtenerMayorOrdenExistentePorPrefijo(trx, prefijo);
+    let componente = candidato;
+
+    if (compararComponentesOrden(mayorPersistido, candidato) >= 0) {
+        componente = avanzarComponenteOrden(mayorPersistido);
+        logOrdenesDebug(`♻️ Folio reconciliado: El contador estaba en ${candidato.secuencia}${candidato.numero} pero se encontró orden ${mayorPersistido.secuencia}${mayorPersistido.numero}. Saltando a ${componente.secuencia}${componente.numero}`);
+    }
+
+    // 4. Construir el ID completo (ej: S10-AA001)
     const fullOrderId = construirOrdenIdDesdeComponente(prefijo, componente);
 
-    // Calcular siguiente número y secuencia
+    // 5. Calcular y avanzar para el siguiente
     const siguiente = avanzarComponenteOrden(componente);
 
-    // Actualizar contador
     const updateData = {
         ultimo_numero: componente.numero,
         ultima_secuencia: siguiente.secuencia,
@@ -6547,8 +6599,9 @@ async function generarSiguienteOrdenId(cliente_id, trx) {
         updated_at: new Date()
     };
 
-    await trx('order_id_counter').where('cliente_id', cid).update(updateData);
+    await trx('order_id_counter').where('id', counter.id).update(updateData);
 
+    logOrdenesDebug(`✅ Folio generado: ${fullOrderId}`);
     return fullOrderId;
 }
 
@@ -6607,16 +6660,26 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
         logOrdenesDebug('\n📨 [POST /api/ordenes] REQUEST RECIBIDO');
         const orden = req.body;
         
-        // ===== VALIDACIONES BÁSICAS =====
-        
+        // ===== OBTENER CONTEXTO MULTI-RIFA =====
+        const rifaContext = req.rifaContext;
+        if (!rifaContext || !rifaContext.id) {
+            console.error('❌ [POST /api/ordenes] Error: No se pudo determinar el contexto de la rifa');
+            return res.status(400).json({ 
+                success: false, 
+                message: 'No se pudo identificar a qué rifa pertenece esta orden. Recarga la página.' 
+            });
+        }
+
+        const config = rifaContext.configuracion?.rifa || {};
+        const rifaIdActual = Number.parseInt(rifaContext.id, 10);
+        const totalBoletosRifa = Number(config.totalBoletos) || 100;
+
         // Validar cliente
         if (!orden.cliente || typeof orden.cliente !== 'object') {
             return res.status(400).json({ success: false, message: 'Datos del cliente requeridos' });
         }
 
-        const config = cargarConfigSorteo();
-        const rifaIdActual = Number.parseInt(req.rifaContext?.id, 10) || null;
-        const clienteIdActual = String(config?.cliente?.id || '').trim() || 'Sorteos_El_Trebol';
+        const clienteIdActual = String(rifaContext.organizador_key || 'Sorteos_El_Trebol').trim();
         const prefijoOrdenActual = obtenerPrefijoOrdenCliente(clienteIdActual);
         const ordenIdRecibido = typeof orden.ordenId === 'string'
             ? sanitizar(orden.ordenId).trim().toUpperCase()
@@ -6651,13 +6714,13 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
         }
 
         const boletosValidos = orden.boletos.map(n => Number(n)).filter(n => 
-            !isNaN(n) && n >= 0 && n < config.totalBoletos && Number.isInteger(n)
+            !isNaN(n) && n >= 0 && n < totalBoletosRifa && Number.isInteger(n)
         );
 
         if (boletosValidos.length !== orden.boletos.length) {
             return res.status(400).json({ 
                 success: false, 
-                message: `Rango de boletos: 0 a ${config.totalBoletos - 1}`
+                message: `Rango de boletos inválido para esta rifa (0 a ${totalBoletosRifa - 1})`
             });
         }
 
@@ -6743,7 +6806,7 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
             for (let intentoOrdenId = 0; intentoOrdenId < 5; intentoOrdenId++) {
                 if (!ordenId) {
                     const counterStart = Date.now();
-                    ordenId = await generarSiguienteOrdenId(clienteIdActual, trx);
+                    ordenId = await generarSiguienteOrdenId(clienteIdActual, trx, rifaIdActual);
                     perfMarks.counterMs = (perfMarks.counterMs || 0) + (Date.now() - counterStart);
                 }
 
@@ -6790,7 +6853,7 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
 
             // PASO 2: INSERT orden
             const ordenData = {
-                ...(rifaIdActual ? { rifa_id: rifaIdActual } : {}),
+                rifa_id: rifaIdActual,
                 numero_orden: ordenId,
                 cantidad_boletos: boletosValidos.length,
                 precio_unitario: Math.round(precioUnitario * 100) / 100,
@@ -9372,10 +9435,14 @@ app.get('/api/admin/clear-cache', verificarToken, (req, res) => {
 app.get('/api/public/boletos/stats', async (req, res) => {
     try {
         const startTime = Date.now();
-        const config = cargarConfigSorteo();
-        const rifaIdActual = Number.parseInt(req.rifaContext?.id, 10) || null;
-        const cacheSuffix = String(req.rifaContext?.slug || rifaIdActual || 'default');
-        const totalBoletos = config.totalBoletos;
+        const rifaContext = req.rifaContext;
+        if (!rifaContext || !rifaContext.id) {
+            return res.status(400).json({ success: false, message: 'Rifa no identificada' });
+        }
+        const config = rifaContext.configuracion?.rifa || {};
+        const rifaIdActual = Number.parseInt(rifaContext.id, 10);
+        const cacheSuffix = String(rifaContext.slug || rifaIdActual);
+        const totalBoletos = Number(config.totalBoletos) || 100;
         const cacheTtl = obtenerTtlCachePublico({ productionMs: 30000, developmentMs: 5000 });
         const cached = obtenerCacheMemoriaVigente(
             serverCache.boletosStatsCached?.[cacheSuffix],
@@ -11466,22 +11533,14 @@ app.delete('/api/admin/ganadores/:numero', verificarToken, async (req, res) => {
 app.get('/api/ganadores', async (req, res) => {
     try {
         const limit = Math.min(parseInt(req.query.limit || '100'), 1000);
-        const rifaIdActual = req.rifaContext?.id || null;
-        
-        let query = db('ganadores');
-        
-        if (rifaIdActual) {
-            // ✅ FILTRO: Ganadores de esta rifa O con rifa_id NULL (para compatibilidad legacy)
-            query = query.where((qb) => {
-                qb.where('rifa_id', rifaIdActual).orWhereNull('rifa_id');
-            });
-            console.log(`[GET /api/ganadores] 🎯 Filtrando por rifa_id=${rifaIdActual} OR rifa_id IS NULL`);
-        } else {
-            // ✅ SIN FILTRO: Retorna TODOS los ganadores (incluyendo rifa_id NULL)
-            console.log('[GET /api/ganadores] ⚠️ Sin rifaIdActual - retornando TODOS los ganadores (incluyendo rifa_id NULL)');
+        const rifaContext = req.rifaContext;
+        if (!rifaContext || !rifaContext.id) {
+            return res.status(400).json({ success: false, message: 'Rifa no identificada' });
         }
+        const rifaIdActual = rifaContext.id;
         
-        const rows = await query
+        const rows = await db('ganadores')
+            .where('rifa_id', rifaIdActual)
             .select('*')
             .orderBy('fecha_sorteo', 'desc')
             .limit(limit);
@@ -13120,6 +13179,51 @@ async function asegurarTablaOportunidades() {
 }
 
 /**
+ * 🛡️ FUNCIÓN DE AUDITORÍA: Asegurar índices de rendimiento para Multi-Rifa
+ * Optimiza las consultas por rifa_id para evitar lentitud en producción
+ */
+async function asegurarIndicesMultiRifa() {
+    const tablas = ['ordenes', 'boletos_estado', 'ganadores', 'order_id_counter'];
+    
+    for (const nombreTabla of tablas) {
+        try {
+            const existeTabla = await db.schema.hasTable(nombreTabla);
+            if (!existeTabla) continue;
+
+            const tieneColumna = await db.schema.hasColumn(nombreTabla, 'rifa_id');
+            if (!tieneColumna) {
+                console.log(`ℹ️ Añadiendo columna rifa_id a tabla ${nombreTabla}...`);
+                await db.schema.table(nombreTabla, (table) => {
+                    table.integer('rifa_id').nullable();
+                });
+            }
+
+            // Intentar añadir el índice de forma segura
+            try {
+                await db.schema.table(nombreTabla, (table) => {
+                    table.index(['rifa_id'], `idx_${nombreTabla}_rifa_id`);
+                    
+                    // 🛡️ UNICIDAD CRÍTICA para el contador
+                    if (nombreTabla === 'order_id_counter') {
+                        table.unique(['cliente_id', 'rifa_id'], `uniq_${nombreTabla}_ctx`);
+                    }
+                });
+                console.log(`✅ Índice idx_${nombreTabla}_rifa_id creado exitosamente`);
+            } catch (indexError) {
+                // Probablemente el índice ya existe
+                if (indexError.message.includes('already exists') || indexError.message.includes('existe')) {
+                    // console.debug(`ℹ️ El índice en ${nombreTabla} ya existe.`);
+                } else {
+                    console.warn(`⚠️ No se pudo crear el índice en ${nombreTabla}:`, indexError.message);
+                }
+            }
+        } catch (error) {
+            console.error(`❌ Error asegurando índices en ${nombreTabla}:`, error.message);
+        }
+    }
+}
+
+/**
  * ✅ Se guridad Crítica: Crear índice único parcial para oportunidades activas
  * Garantiza que el mismo número de oportunidad NO puede estar en estado 'activo' 
  * en más de una orden al mismo tiempo
@@ -13331,6 +13435,8 @@ setImmediate(async () => {
     try {
         // Asegurar que exista tabla de oportunidades y constraints
         await asegurarTablaOportunidades();
+        // 🛡️ Asegurar índices de rendimiento para Multi-Rifa
+        await asegurarIndicesMultiRifa();
         
         // Iniciar servicio de expiración de órdenes
         const configActual = rifaService?.enabled

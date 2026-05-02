@@ -12,47 +12,52 @@
 /* ============================================================ */
 
 /**
+ * 🛡️ FUNCIÓN DEFENSIVA: Obtener clave con scope de rifa
+ */
+function obtenerClaveScopedModal(key) {
+    if (typeof window.rifaplusConfig?.construirClaveLocal === 'function') {
+        return window.rifaplusConfig.construirClaveLocal(key);
+    }
+    // Fallback manual si no está el cargador
+    const slug = window.rifaplusConfig?.obtenerSlugRifaActual?.() || 'global';
+    return `rifaplus:${slug}:${key}`;
+}
+
+/**
  * 🛡️ FUNCIÓN DEFENSIVA: Guardar en storage de forma segura
- * Intenta usar window.safeTrySetItem si está disponible
- * Si no, usa localStorage directo como fallback
- * NUNCA falla - siempre tiene un plan B
  */
 function setItemSafeModal(key, value) {
+    const scopedKey = obtenerClaveScopedModal(key);
     try {
         if (typeof window.safeTrySetItem === 'function') {
-            return window.safeTrySetItem(key, value);
+            return window.safeTrySetItem(scopedKey, value);
         } else {
-            // Fallback: localStorage directo
-            localStorage.setItem(key, value);
+            localStorage.setItem(scopedKey, value);
             return true;
         }
     } catch (error) {
-        console.warn(`⚠️  [MODAL] Error guardando '${key}':`, error.message);
-        // Última opción: intentar en memoria
+        console.warn(`⚠️  [MODAL] Error guardando '${scopedKey}':`, error.message);
         if (!window.StorageMemoryFallback) window.StorageMemoryFallback = {};
-        window.StorageMemoryFallback[key] = value;
+        window.StorageMemoryFallback[scopedKey] = value;
         return false;
     }
 }
 
 /**
  * 🛡️ FUNCIÓN DEFENSIVA: Leer desde storage de forma segura
- * Intenta usar window.safeTryGetItem si está disponible
- * Si no, usa localStorage directo como fallback
  */
 function getItemSafeModal(key) {
+    const scopedKey = obtenerClaveScopedModal(key);
     try {
         if (typeof window.safeTryGetItem === 'function') {
-            return window.safeTryGetItem(key);
+            return window.safeTryGetItem(scopedKey);
         } else {
-            // Fallback: localStorage directo
-            return localStorage.getItem(key);
+            return localStorage.getItem(scopedKey);
         }
     } catch (error) {
-        console.warn(`⚠️  [MODAL] Error leyendo '${key}':`, error.message);
-        // Última opción: ver si está en memoria
-        if (window.StorageMemoryFallback && window.StorageMemoryFallback[key]) {
-            return window.StorageMemoryFallback[key];
+        console.warn(`⚠️  [MODAL] Error leyendo '${scopedKey}':`, error.message);
+        if (window.StorageMemoryFallback && window.StorageMemoryFallback[scopedKey]) {
+            return window.StorageMemoryFallback[scopedKey];
         }
         return null;
     }
@@ -62,16 +67,17 @@ function getItemSafeModal(key) {
  * 🛡️ FUNCIÓN DEFENSIVA: Remover del storage
  */
 function removeItemSafeModal(key) {
+    const scopedKey = obtenerClaveScopedModal(key);
     try {
         if (typeof window.safeTryRemoveItem === 'function') {
-            return window.safeTryRemoveItem(key);
+            return window.safeTryRemoveItem(scopedKey);
         } else {
-            localStorage.removeItem(key);
+            localStorage.removeItem(scopedKey);
             return true;
         }
     } catch (error) {
-        console.warn(`⚠️  [MODAL] Error removiendo '${key}':`, error.message);
-        if (window.StorageMemoryFallback) delete window.StorageMemoryFallback[key];
+        console.warn(`⚠️  [MODAL] Error removiendo '${scopedKey}':`, error.message);
+        if (window.StorageMemoryFallback) delete window.StorageMemoryFallback[scopedKey];
         return false;
     }
 }
@@ -495,7 +501,7 @@ function guardarIdEnLocalStorage(orderId) {
     let used = [];
     
     try {
-        used = JSON.parse(localStorage.getItem(usedKey) || '[]');
+        used = JSON.parse(getItemSafeModal(usedKey) || '[]');
         if (!Array.isArray(used)) used = [];
     } catch (e) {
         used = [];
