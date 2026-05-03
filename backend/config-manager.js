@@ -28,6 +28,32 @@ class ConfigManager {
   }
 
   /**
+   * Reemplazar o fusionar rate_limits en memoria y persistir en disk
+   * payload: objeto parcial con la estructura rate_limits
+   */
+  setRateLimits(payload = {}) {
+    try {
+      if (!payload || typeof payload !== 'object') return false;
+      this.config = this.config || this.getDefaultConfig();
+      this.config.rate_limits = Object.assign({}, this.config.rate_limits || {}, payload);
+
+      // Persistir config en disco para sobrevivir reinicios
+      try {
+        fs.writeFileSync(this.configPath, JSON.stringify(this.config, null, 2), { encoding: 'utf8' });
+        this.cacheVersion++;
+        console.log('📝 ConfigManager: rate_limits actualizados y persistidos en config.json');
+      } catch (err) {
+        console.error('❌ No se pudo persistir config.json:', err.message);
+      }
+
+      return true;
+    } catch (error) {
+      console.error('setRateLimits error:', error.message);
+      return false;
+    }
+  }
+
+  /**
    * Cargar configuration.json desde disco
    */
   load() {

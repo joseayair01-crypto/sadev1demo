@@ -1069,6 +1069,30 @@ const limiterRecuperacionOrdenes = rateLimit({
 app.use(limiterGeneral);
 app.use(limiterLecturasPublicas);
 
+// Endpoint administrativo seguro para sobreescribir rate limits en caliente
+app.post('/api/admin/rate-limits', async (req, res) => {
+    try {
+        const adminToken = process.env.ADMIN_TOKEN || '';
+        const provided = String(req.headers['x-admin-token'] || '').trim();
+        if (!adminToken || !provided || provided !== adminToken) {
+            return res.status(401).json({ success: false, message: 'Unauthorized' });
+        }
+
+        const payload = req.body;
+        if (!payload || typeof payload !== 'object') {
+            return res.status(400).json({ success: false, message: 'Payload inválido' });
+        }
+
+        const ok = configManager.setRateLimits(payload);
+        if (!ok) return res.status(500).json({ success: false, message: 'No se pudo actualizar configuración' });
+
+        return res.json({ success: true, message: 'Rate limits actualizados en memoria y persistidos' });
+    } catch (error) {
+        console.error('POST /api/admin/rate-limits error:', error.message);
+        return res.status(500).json({ success: false, message: 'Error interno' });
+    }
+});
+
 // ===== FASE 1: HTTP CACHING HEADERS UTILITY (PROFESIONAL & SIMPLE) =====
 // ⭐ Función utility para agregar headers de caching HTTP en respuestas
 // Se llama directamente antes de res.json() en endpoints
