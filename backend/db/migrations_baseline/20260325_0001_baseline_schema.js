@@ -150,10 +150,7 @@ exports.up = async function up(knex) {
     ON DELETE CASCADE
   `);
 
-  await knex.raw(`
-    CREATE INDEX IF NOT EXISTS idx_ordenes_numero_orden
-    ON ordenes(numero_orden)
-  `);
+  // Eliminado idx_ordenes_numero_orden (redundante con unique constraint)
   await knex.raw(`
     CREATE INDEX IF NOT EXISTS idx_ordenes_estado_created
     ON ordenes(estado, created_at DESC)
@@ -182,10 +179,7 @@ exports.up = async function up(knex) {
     CREATE INDEX IF NOT EXISTS idx_boletos_estado_updated
     ON boletos_estado(estado, updated_at DESC)
   `);
-  await knex.raw(`
-    CREATE INDEX IF NOT EXISTS idx_boletos_numero_orden
-    ON boletos_estado(numero_orden)
-  `);
+  // Eliminado idx_boletos_numero_orden (cubierto por idx_boletos_numero_orden_estado)
   await knex.raw(`
     CREATE INDEX IF NOT EXISTS idx_boletos_numero_orden_estado
     ON boletos_estado(numero_orden, estado)
@@ -195,11 +189,7 @@ exports.up = async function up(knex) {
     ON boletos_estado(numero)
     WHERE estado = 'disponible' AND numero_orden IS NULL
   `);
-  await knex.raw(`
-    CREATE INDEX IF NOT EXISTS idx_boletos_vendidos_fecha
-    ON boletos_estado(estado, updated_at DESC)
-    WHERE estado = 'vendido'
-  `);
+  // Eliminado idx_boletos_vendidos_fecha (cubierto por idx_boletos_estado_updated)
   await knex.raw(`
     CREATE INDEX IF NOT EXISTS idx_opp_numero_boleto_oportunidad
     ON orden_oportunidades(numero_boleto, numero_oportunidad)

@@ -2919,18 +2919,14 @@
             });
         }
 
-        function renderizarOrdenesPendientesDashboard(ordenes = [], totalOverride = null) {
+        function renderizarOrdenesPendientesDashboard(ordenes = []) {
             const contenedor = document.getElementById('ordersContainer');
             if (!contenedor) return;
 
             if (!Array.isArray(ordenes) || ordenes.length === 0) {
                 contenedor.innerHTML = '<div class="orders-empty">✅ No hay órdenes pendientes</div>';
-                actualizarResumenPendientesDashboard(0);
                 return;
             }
-
-            const totalAMostrar = (totalOverride !== null && totalOverride !== undefined) ? totalOverride : ordenes.length;
-            actualizarResumenPendientesDashboard(totalAMostrar);
 
             let html = '<table class="orders-table"><thead><tr>';
             html += '<th>Orden ID</th>';
@@ -4816,11 +4812,7 @@
                         .filter((orden) => esOrdenPendienteDashboard(orden))
                 );
 
-                const totalPendientesResumen = (datos.summary) 
-                    ? (Number(datos.summary.pendiente || 0) + Number(datos.summary.comprobante_recibido || 0))
-                    : pendingOrdersCache.length;
-
-                renderizarOrdenesPendientesDashboard(pendingOrdersCache, totalPendientesResumen);
+                renderizarOrdenesPendientesDashboard(pendingOrdersCache);
             } catch (error) {
                 if (error?.name === 'AbortError') {
                     debugAdminDashboard('cargarOrdenesPendientes abortada por nueva solicitud');
