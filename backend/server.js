@@ -7001,8 +7001,8 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
 
         const resultado = await db.transaction(async (trx) => {
             const trxStart = Date.now();
-            await trx.raw("SET LOCAL lock_timeout = '5s'");
-            await trx.raw("SET LOCAL statement_timeout = '15s'");
+            await trx.raw("SET LOCAL lock_timeout = '10s'");
+            await trx.raw("SET LOCAL statement_timeout = '30s'");
             perfMarks.trxSetupMs = Date.now() - trxStart;
 
             if (ordenIdSolicitado) {
@@ -7030,7 +7030,7 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
                 }
             }
 
-            for (let intentoOrdenId = 0; intentoOrdenId < 5; intentoOrdenId++) {
+            for (let intentoOrdenId = 0; intentoOrdenId < 12; intentoOrdenId++) {
                 if (!ordenId) {
                     const counterStart = Date.now();
                     ordenId = await generarSiguienteOrdenId(clienteIdActual, trx, rifaIdActual);
@@ -7072,6 +7072,8 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
                     telefonoActual: whatsapp
                 });
                 ordenId = '';
+                // Pequeño backoff aleatorio antes de reintentar para reducir contención
+                await new Promise((resolve) => setTimeout(resolve, 30 + Math.floor(Math.random() * 120)));
             }
 
             if (!ordenId) {
@@ -10532,8 +10534,8 @@ app.post('/api/public/maquina/generar', async (req, res) => {
         // ✅ TRANSACCIÓN: Reservar boletos temporalmente por 5 minutos
         const resultado = await db.transaction(async (trx) => {
             // Configurar timeouts
-            await trx.raw("SET LOCAL lock_timeout = '3s'");
-            await trx.raw("SET LOCAL statement_timeout = '10s'");
+            await trx.raw("SET LOCAL lock_timeout = '5s'");
+            await trx.raw("SET LOCAL statement_timeout = '20s'");
             
             // Seleccionar boletos disponibles ALEATORIOS con FOR UPDATE SKIP LOCKED
             // Esto garantiza que múltiples usuarios NO reciban los mismos boletos
