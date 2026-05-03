@@ -172,13 +172,13 @@ function obtenerPrecioDinamico() {
     try {
         const config = obtenerConfigActual();
         const ahora = new Date();
-        
+
         // Verificar si hay promoción por tiempo activa
         const promo = config.rifa?.promocionPorTiempo;
         if (promo && promo.enabled && promo.precioProvisional !== null && promo.precioProvisional !== undefined) {
             const inicio = promo.fechaInicio ? new Date(/(?:Z|[+-]\d{2}:\d{2})$/i.test(String(promo.fechaInicio)) ? promo.fechaInicio : `${promo.fechaInicio}-06:00`) : null;
             const fin = promo.fechaFin ? new Date(/(?:Z|[+-]\d{2}:\d{2})$/i.test(String(promo.fechaFin)) ? promo.fechaFin : `${promo.fechaFin}-06:00`) : null;
-            
+
             // Si estamos dentro del rango de promoción, usar precio provisional
             if (inicio && fin && ahora >= inicio && ahora <= fin) {
                 const precioProvisional = Number(promo.precioProvisional);
@@ -188,7 +188,7 @@ function obtenerPrecioDinamico() {
                 }
             }
         }
-        
+
         // Si no hay promoción activa, usar precio normal
         if (config?.rifa?.precioBoleto !== undefined && Number(config.rifa.precioBoleto) >= 0) {
             return Number(config.rifa.precioBoleto);
@@ -392,7 +392,7 @@ const DEFAULT_CORS_ALLOWED_HEADERS = [
 
 // Configurar CORS con whitelist
 app.use(cors({
-    origin: function(origin, callback) {
+    origin: function (origin, callback) {
         // No hay origen en solicitudes como GET desde servidor
         if (!origin) {
             return callback(null, true);
@@ -421,23 +421,23 @@ app.use(cors({
 
 app.use((req, res, next) => {
     const requestHeaders = String(req.headers['access-control-request-headers'] || '').trim();
-    
+
     // ✅ CRÍTICO: Siempre incluir headers custom en la respuesta CORS
     const customHeaders = 'x-rifaplus-rifa-id, x-rifa-id, x-rifaplus-rifa-slug, x-rifa-slug';
-    const allHeaders = requestHeaders 
+    const allHeaders = requestHeaders
         ? `${requestHeaders}, ${customHeaders}`
         : `${DEFAULT_CORS_ALLOWED_HEADERS.join(', ')}, ${customHeaders}`;
-    
+
     res.setHeader('Access-Control-Allow-Headers', allHeaders);
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Max-Age', '86400');
-    
+
     // Manejar preflight OPTIONS
     if (req.method === 'OPTIONS') {
         return res.sendStatus(204);
     }
-    
+
     next();
 });
 
@@ -446,22 +446,22 @@ app.use((req, res, next) => {
 app.use((req, res, next) => {
     // Prevenir ataques de timing
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    
+
     // Prevenir clickjacking (aunque helmet ya lo hace)
     res.setHeader('X-Frame-Options', 'DENY');
-    
+
     // Prevenir browser sniffing
     res.setHeader('X-UA-Compatible', 'IE=edge');
-    
+
     // Referrer policy: no enviar referrer a otros dominios
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-    
+
     // Permissions policy (anteriormente Feature-Policy)
     res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
-    
+
     // Prevenir MIME sniffing
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    
+
     next();
 });
 
@@ -485,7 +485,7 @@ app.use(async (req, res, next) => {
         }
 
         const { rifaId, slug } = obtenerHeadersRifaRequest(req);
-        
+
         // 🔄 Reintentar resolución de contexto si la BD está ocupada
         let contexto = null;
         let lastError = null;
@@ -507,7 +507,7 @@ app.use(async (req, res, next) => {
                 throw err;
             }
         }
-        
+
         contexto = contexto || construirContextoRifaFallback();
 
         req.rifaContext = contexto;
@@ -515,7 +515,7 @@ app.use(async (req, res, next) => {
         if (contexto?.id) {
             res.setHeader('X-RifaPlus-Rifa-Id', String(contexto.id));
         }
-        
+
         return requestRifaStorage.run(contexto, next);
     } catch (error) {
         console.warn('[rifa-context] No se pudo resolver el contexto de rifa:', error.message);
@@ -710,7 +710,7 @@ function horaEstaEnVentanaPico(hour, startHour, endHour) {
 function obtenerConfiguracionRateLimitOrdenes() {
     const isProduction = process.env.NODE_ENV === 'production';
     const isTest = process.env.NODE_ENV === 'test' || process.env.LOAD_TEST === 'true';
-    
+
     const defaults = {
         enabled: isProduction && !isTest,  // ⬆️ Deshabilitar en test
         windowMs: 60 * 1000,
@@ -1119,10 +1119,10 @@ app.post('/api/admin/rate-limits', async (req, res) => {
 // Se llama directamente antes de res.json() en endpoints
 // Ventajas: Simple, no interfiere con otros middlewares, reversible
 function setHttpCacheHeaders(res, maxAgeSeconds = 60, isPublic = true) {
-    const cacheControl = isPublic 
-        ? `public, max-age=${maxAgeSeconds}` 
+    const cacheControl = isPublic
+        ? `public, max-age=${maxAgeSeconds}`
         : `private, max-age=${maxAgeSeconds}`;
-    
+
     res.setHeader('Cache-Control', cacheControl);
     res.setHeader('Vary', 'Accept-Encoding');
     // ETag será calculado por el cliente si lo necesita
@@ -1478,9 +1478,9 @@ function iniciarRecordatoriosEventoProgramados() {
         clearInterval(recordatoriosEventoInterval);
     }
 
-    ejecutarRecordatoriosEventoProgramados().catch(() => {});
+    ejecutarRecordatoriosEventoProgramados().catch(() => { });
     recordatoriosEventoInterval = setInterval(() => {
-        ejecutarRecordatoriosEventoProgramados().catch(() => {});
+        ejecutarRecordatoriosEventoProgramados().catch(() => { });
     }, 60 * 1000);
 }
 
@@ -2215,11 +2215,11 @@ function construirSerieSuffixQuery(valor, maxNumero) {
 
 function construirQueryBusquedaSobreSerie(serieQuery, { availableOnly = false, limite = 100, offset = 0, rifaId = null } = {}) {
     const rifaIdResuelto = rifaId || obtenerRifaIdActual();
-    
+
     // Usamos una consulta base clara para evitar ambigüedades de parámetros
     const query = db
         .from(serieQuery)
-        .leftJoin('boletos_estado as be', function() {
+        .leftJoin('boletos_estado as be', function () {
             this.on('be.numero', '=', 's.numero');
             if (rifaIdResuelto) {
                 this.andOn('be.rifa_id', '=', db.raw('?::int', [rifaIdResuelto]));
@@ -2372,7 +2372,7 @@ function sanitizarErrorMessage(errorMessage, isDevelopment = false) {
         // En PRODUCCIÓN: Retornar mensaje genérico
         // Mostrar SOLO el mensaje amigo del usuario
         const mensajeOriginal = String(errorMessage || 'Error desconocido');
-        
+
         // Mapping de errores conocidos a mensajes seguros
         const errorMappings = {
             'Archivo': 'El archivo no es válido',
@@ -2386,18 +2386,18 @@ function sanitizarErrorMessage(errorMessage, isDevelopment = false) {
             'BOLETOS_CONFLICTO': 'algunos boletos ya no están disponibles',
             'EOF': 'Error de conexión. Intenta nuevamente'
         };
-        
+
         // Buscar un mapping para el error
         for (const [clave, mensaje] of Object.entries(errorMappings)) {
             if (mensajeOriginal.includes(clave)) {
                 return mensaje;
             }
         }
-        
+
         // Si no hay mapping, retornar mensaje genérico
         return 'Error al procesar tu solicitud. Por favor intenta nuevamente';
     }
-    
+
     // En DESARROLLO: Mostrar detalles (para debugging)
     return String(errorMessage || 'Error desconocido');
 }
@@ -2409,7 +2409,7 @@ function sanitizarErrorMessage(errorMessage, isDevelopment = false) {
  */
 function sanitizar(str) {
     if (typeof str !== 'string') return '';
-    return sanitizeHtml(str, { 
+    return sanitizeHtml(str, {
         allowedTags: [],
         allowedAttributes: {}
     }).trim();
@@ -2423,20 +2423,20 @@ function sanitizar(str) {
  */
 function validarCampoPremio(campo, valor) {
     if (typeof valor !== 'string') return '';
-    
+
     // Sanitizar
     let limpio = sanitizar(valor);
-    
+
     // Validar longitud (max 200 caracteres)
     if (limpio.length > 200) {
         limpio = limpio.substring(0, 200);
     }
-    
+
     // No permitir vacío
     if (limpio.length === 0) {
         throw new Error(`${campo} no puede estar vacío`);
     }
-    
+
     return limpio;
 }
 
@@ -2447,16 +2447,16 @@ function validarCampoPremio(campo, valor) {
 async function crearBackupConfig(configPath, configSnapshot = null) {
     try {
         const backupDir = path.join(path.dirname(configPath), 'backups');
-        
+
         // Crear directorio backups si no existe
         if (!fs.existsSync(backupDir)) {
             fs.mkdirSync(backupDir, { recursive: true });
         }
-        
+
         // Nombre del backup con timestamp
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         const backupPath = path.join(backupDir, `config.${timestamp}.json`);
-        
+
         const contenido = configSnapshot
             ? JSON.stringify(configSnapshot, null, 2)
             : (fs.existsSync(configPath) ? fs.readFileSync(configPath, 'utf8') : null);
@@ -2464,7 +2464,7 @@ async function crearBackupConfig(configPath, configSnapshot = null) {
         // Copiar snapshot actual al backup
         if (contenido) {
             fs.writeFileSync(backupPath, contenido, 'utf8');
-            
+
             // Limpiar backups viejos (mantener últimos 10)
             limpiarBackupsAntiguos(backupDir);
         }
@@ -2521,7 +2521,7 @@ function log(level = 'info', mensaje = '', datos = {}) {
         debug: '🔍'
     };
     const prefijo = prefijos[level] || '•';
-    
+
     if (typeof datos === 'object' && Object.keys(datos).length > 0) {
         console.log(`${prefijo} [${level.toUpperCase()}] ${mensaje}`, datos);
     } else {
@@ -3176,7 +3176,7 @@ app.get('/api/public/sorteo-info', (req, res) => {
         const rifaDescripcion = configActual.rifa?.descripcion || 'Compra tus boletos en linea';
         const totalBoletos = Number(configActual.rifa?.totalBoletos) || 1000000;
         const precioBoleta = Number(configActual.rifa?.precioBoleto);
-        
+
         res.json({
             cliente: clienteNombre,
             titulo: rifaTitulo,
@@ -3186,7 +3186,7 @@ app.get('/api/public/sorteo-info', (req, res) => {
             totalBoletos: totalBoletos,
             precioBoleta: Number.isFinite(precioBoleta) ? precioBoleta : 15
         });
-        
+
         console.log(`✅ /api/public/sorteo-info: ${clienteNombre} - ${totalBoletos} boletos @ $${Number.isFinite(precioBoleta) ? precioBoleta : 15}`);
     } catch (error) {
         console.error('❌ Error en /api/public/sorteo-info:', error.message);
@@ -3202,7 +3202,7 @@ app.get('/api/public/sorteo-info', (req, res) => {
 
 // Rutas
 app.get('/', (req, res) => {
-    res.json({ 
+    res.json({
         mensaje: 'API RifaPlus - Servidor en funcionamiento',
         version: '2.2',
         auth: 'JWT habilitado',
@@ -3292,11 +3292,11 @@ app.post('/api/admin/login', limiterLogin, async (req, res) => {
         // ✅ Validar que el rol sea válido, sino usar 'gestor_ordenes' como default
         const rolesValidos = ['administrador', 'gestor_ordenes'];
         const rolJWT = rolesValidos.includes(usuario.rol) ? usuario.rol : 'gestor_ordenes';
-        
+
         const token = jwt.sign(
-            { 
-                id: usuario.id, 
-                username: usuario.username, 
+            {
+                id: usuario.id,
+                username: usuario.username,
                 email: usuario.email,
                 rol: rolJWT  // ✅ Incluir rol validado en JWT
             },
@@ -3473,7 +3473,7 @@ app.post('/api/admin/users', verificarToken, async (req, res) => {
         });
     } catch (error) {
         log('error', 'POST /api/admin/users error', { error: error.message });
-        
+
         // Manejar errores de constraint violation de la base de datos
         if (error.message && error.message.includes('unique constraint')) {
             if (error.message.includes('username')) {
@@ -3489,7 +3489,7 @@ app.post('/api/admin/users', verificarToken, async (req, res) => {
                 });
             }
         }
-        
+
         res.status(500).json({
             success: false,
             message: 'Error al crear usuario',
@@ -3527,7 +3527,7 @@ app.put('/api/admin/users/:id', verificarToken, async (req, res) => {
 
         const usernameSanitizado = sanitizar(username);
         const emailSanitizado = sanitizar(email);
-        
+
         // ✅ Si es el usuario actual, NO permitir cambiar el rol
         // Si no es el usuario actual, el rol es requerido
         let rolValido = null;
@@ -3608,8 +3608,8 @@ app.put('/api/admin/users/:id', verificarToken, async (req, res) => {
         // Actualizar usuario en BD
         await db('admin_users').where('id', usuarioId).update(actualizacion);
 
-        log('info', 'PUT /api/admin/users/:id - Usuario actualizado', { 
-            usuario_id: usuarioId, 
+        log('info', 'PUT /api/admin/users/:id - Usuario actualizado', {
+            usuario_id: usuarioId,
             actualizado_por: req.usuario.username,
             cambios: Object.keys(actualizacion).filter(k => k !== 'updated_at').join(', ')
         });
@@ -3626,7 +3626,7 @@ app.put('/api/admin/users/:id', verificarToken, async (req, res) => {
         });
     } catch (error) {
         log('error', 'PUT /api/admin/users/:id error', { error: error.message });
-        
+
         res.status(500).json({
             success: false,
             message: 'Error al actualizar usuario',
@@ -3686,7 +3686,7 @@ app.post('/api/admin/change-password', verificarToken, async (req, res) => {
 
         // Determinar cuál usuario está siendo actualizado
         let idUsuarioAActualizar = usuarioAutenticado;
-        
+
         if (user_id) {
             // Si se especifica user_id, solo admins pueden cambiar contraseña de otros
             if (!esAdmin) {
@@ -3734,9 +3734,9 @@ app.post('/api/admin/change-password', verificarToken, async (req, res) => {
             updated_at: new Date()
         });
 
-        log('info', 'POST /api/admin/change-password - Password cambiado', { 
+        log('info', 'POST /api/admin/change-password - Password cambiado', {
             usuario_id: idUsuarioAActualizar,
-            cambiad_por: usuarioAutenticado 
+            cambiad_por: usuarioAutenticado
         });
 
         res.json({
@@ -3817,7 +3817,7 @@ app.get('/api/admin/rifas', verificarToken, async (req, res) => {
         // ✅ INCLUIR DEPURADAS para el historial
         const incluirDepuradas = req.query.incluirDepuradas === 'true';
         const rifas = await rifaService.listarRifas({ incluirDepuradas });
-        
+
         return res.json({
             success: true,
             data: rifas,
@@ -3969,7 +3969,7 @@ app.post('/api/admin/push-campaigns/send', verificarToken, async (req, res) => {
         }
 
         const requestedRifaId = Number.parseInt(req.body?.rifaId || req.rifaContext?.id, 10) || null;
-        
+
         const contexto = requestedRifaId && rifaService?.enabled
             ? await rifaService.resolverContexto({ rifaId: requestedRifaId, fallbackActive: false })
             : (req.rifaContext || construirContextoRifaFallback());
@@ -4001,9 +4001,9 @@ app.post('/api/admin/push-campaigns/send', verificarToken, async (req, res) => {
                     warningMinutes: Math.max(1, Number.parseInt(req.body?.warningMinutes, 10) || 30)
                 })
                 : construirCampanaNuevaRifaDesdeContexto(contexto, {
-                rifaId: contexto.id,
-                rifaSlug: contexto.slug,
-                rifaNombre: contexto.nombre
+                    rifaId: contexto.id,
+                    rifaSlug: contexto.slug,
+                    rifaNombre: contexto.nombre
                 });
 
         if (!campaign.enabled) {
@@ -4428,12 +4428,12 @@ app.post('/api/admin/rifas/:id/archivar', verificarToken, async (req, res) => {
     const startTime = Date.now();
     const rifaId = Number.parseInt(req.params.id, 10);
     const adminUser = req.usuario?.username || 'UNKNOWN';
-    
+
     try {
         // ============================================
         // 1. VALIDACIONES DE SEGURIDAD
         // ============================================
-        
+
         // Solo administradores
         if (req.usuario?.rol !== 'administrador') {
             console.warn(`⚠️ [Archivar Rifa] Intento no autorizado - Usuario: ${adminUser}, Rol: ${req.usuario?.rol}`);
@@ -4465,9 +4465,9 @@ app.post('/api/admin/rifas/:id/archivar', verificarToken, async (req, res) => {
         // ============================================
         // 2. OBTENER Y VALIDAR ESTADO DE LA RIFA
         // ============================================
-        
+
         const contexto = await rifaService.resolverContexto({ rifaId, fallbackActive: false });
-        
+
         if (!contexto) {
             return res.status(404).json({
                 success: false,
@@ -4497,9 +4497,9 @@ app.post('/api/admin/rifas/:id/archivar', verificarToken, async (req, res) => {
         // ============================================
         // 3. VALIDAR QUE SOLO RIFAS FINALIZADAS
         // ============================================
-        
+
         const estadoRifa = String(contexto.estado || contexto.configuracion?.rifa?.estado || '').trim().toLowerCase();
-        
+
         if (estadoRifa !== 'finalizado') {
             console.warn(`⚠️ [Archivar Rifa] Intento de archivar rifa NO finalizada - ID: ${rifaId}, Estado: ${estadoRifa}, Usuario: ${adminUser}`);
             return res.status(409).json({
@@ -4513,18 +4513,18 @@ app.post('/api/admin/rifas/:id/archivar', verificarToken, async (req, res) => {
         // ============================================
         // 4. VALIDAR QUE NO SEA LA ÚLTIMA RIFA OPERABLE
         // ============================================
-        
+
         // Contar rifas operables (activo + borrador + finalizado)
         const rifasOperables = await db('rifas')
             .whereNull('depurada_at')
             .whereIn('estado', ['activo', 'borrador', 'finalizado'])
             .count('* as total')
             .first();
-        
+
         const totalOperables = Number(rifasOperables?.total || 0);
-        
+
         console.log(`📊 [Archivar Rifa] Rifas operables actuales: ${totalOperables}`);
-        
+
         if (totalOperables <= 1) {
             console.warn(`⚠️ [Archivar Rifa] Bloqueado - Solo hay ${totalOperables} rifa(s) operable(s)`);
             return res.status(409).json({
@@ -4541,30 +4541,30 @@ app.post('/api/admin/rifas/:id/archivar', verificarToken, async (req, res) => {
         console.log(`📝 [Archivar Rifa] Rifa Nombre: ${contexto.nombre}`);
         console.log(`📝 [Archivar Rifa] Usuario: ${adminUser}`);
         console.log(`📝 [Archivar Rifa] Estado ANTES: ${estadoRifa}`);
-        
+
         // ============================================
         // 4. ACTUALIZAR ESTADO EN BD
         // ============================================
-        
+
         const beforeRifa = await db('rifas').where('id', rifaId).first();
-        
+
         const updateResult = await db('rifas')
             .where('id', rifaId)
             .update({
                 estado: 'archivada',
                 updated_at: new Date()
             });
-        
+
         console.log(`📊 [Archivar Rifa] Rows affected: ${updateResult}`);
-        
+
         if (updateResult === 0) {
             throw new Error('El update no afectó ninguna fila. La rifa podría no existir.');
         }
-        
+
         // ============================================
         // 5. ACTUALIZAR CONFIGURACIÓN JSON
         // ============================================
-        
+
         const configRifa = beforeRifa?.configuracion || {};
         if (configRifa?.rifa) {
             configRifa.rifa.estado = 'archivada';
@@ -4573,13 +4573,13 @@ app.post('/api/admin/rifas/:id/archivar', verificarToken, async (req, res) => {
                 .update({ configuracion: configRifa });
             console.log(`📊 [Archivar Rifa] Configuración JSON actualizada`);
         }
-        
+
         // ============================================
         // 6. VERIFICAR ACTUALIZACIÓN
         // ============================================
-        
+
         await new Promise(resolve => setTimeout(resolve, 100)); // Asegurar commit
-        
+
         const afterRifa = await db('rifas').where('id', rifaId).first();
         console.log(`🔍 [Archivar Rifa] Estado DESPUÉS: ${afterRifa?.estado}`);
         console.log(`🔍 [Archivar Rifa] Configuración estado: ${afterRifa?.configuracion?.rifa?.estado}`);
@@ -4592,14 +4592,14 @@ app.post('/api/admin/rifas/:id/archivar', verificarToken, async (req, res) => {
         // ============================================
         // 7. LIMPIEZA DE CACHÉS
         // ============================================
-        
+
         limpiarCacheConfiguracionPublica();
         limpiarCacheBoletosPublicos();
 
         // ============================================
         // 8. LOG DE AUDITORÍA
         // ============================================
-        
+
         const duration = Date.now() - startTime;
         console.log(`✅ [Archivar Rifa] COMPLETADO - ID=${rifaId}, Nombre=${contexto.nombre}, Usuario=${adminUser}, Duración=${duration}ms`);
 
@@ -4615,15 +4615,15 @@ app.post('/api/admin/rifas/:id/archivar', verificarToken, async (req, res) => {
                 timestamp: new Date().toISOString()
             }
         });
-        
+
     } catch (error) {
         const duration = Date.now() - startTime;
         console.error(`❌ [Archivar Rifa] FALLÓ - ID=${rifaId}, Usuario=${adminUser}, Duración=${duration}ms`);
         console.error(`❌ [Archivar Rifa] Error:`, error);
-        
+
         // No exponer detalles internos en producción
         const isDev = process.env.NODE_ENV === 'development';
-        
+
         return res.status(500).json({
             success: false,
             message: 'No se pudo archivar la rifa',
@@ -4783,7 +4783,7 @@ app.get('/api/og-metadata', (req, res) => {
 
         // Responder con metadatos
         res.json(metadatos);
-        
+
         // Log para debugging
         console.log('✅ [OG-Metadata] Generados metadatos dinámicos:', {
             titulo: String(metadatosConstruidos.title || '').substring(0, 50) + '...',
@@ -5128,7 +5128,7 @@ function obtenerAdvertenciasCompatibilidadPromociones(rifa = {}) {
 app.patch('/api/admin/config', verificarToken, async (req, res) => {
     const configPath = path.join(__dirname, 'config.json');
     let release = null;
-    
+
     try {
         const contextoAdminError = resolverErrorContextoAdminRifa(req);
         if (contextoAdminError) {
@@ -5147,7 +5147,7 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
             tienePromocionPorTiempo: !!req.body.rifa?.promocionPorTiempo,
             promocionPorTiempoFull: req.body.rifa?.promocionPorTiempo
         });
-        
+
         // ✅ VALIDACIÓN: Solo administradores pueden actualizar config
         if (req.usuario.rol !== 'administrador') {
             return res.status(403).json({
@@ -5161,7 +5161,7 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
         // - Si NO viene pero vienen cuentas/otros datos, solo procesa esos
         let sistemaPremios = req.body.sistemaPremios;
         const requiereSystemaPremios = !!sistemaPremios;
-        
+
         // Si viene en la estructura rifa.modalidadGanadores, transformar
         if (!sistemaPremios && req.body.rifa?.modalidadGanadores) {
             const modalidad = req.body.rifa.modalidadGanadores;
@@ -5175,7 +5175,7 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
                 ruletazos: Array.isArray(modalidad.premiosRuletazo) ? modalidad.premiosRuletazo : []
             };
         }
-        
+
         // ⚠️ VALIDACIÓN: Debe venir sistemaPremios O tecnica.bankAccounts u otros campos
         if (!sistemaPremios && !req.body.tecnica?.bankAccounts && !req.body.cliente && !req.body.rifa && !req.body.redesSociales && !req.body.marketing && !req.body.tema && !req.body.seo) {
             return res.status(400).json({
@@ -5268,7 +5268,7 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
                     message: 'sistemaPremios.ruletazos debe ser un array'
                 });
             }
-            
+
             // Asegurar que sean arrays (vacíos si no existen)
             if (!Array.isArray(sistemaPremios.sorteo)) sistemaPremios.sorteo = [];
             if (!Array.isArray(sistemaPremios.presorteo)) sistemaPremios.presorteo = [];
@@ -5324,7 +5324,7 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
                 console.log('ℹ️ Presorteo desactivado desde sistemaPremios: fecha/hora limpiadas');
             }
         }
-        
+
         // 🏦 PASO 6B: Procesar cuentas bancarias si vienen en la solicitud
         let bankAccountsActualizadas = null;
         if (req.body.tecnica && Array.isArray(req.body.tecnica.bankAccounts)) {
@@ -5334,7 +5334,7 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
                     if (!cuenta.nombreBanco || !cuenta.accountNumber) {
                         throw new Error(`Cuenta ${idx + 1}: El banco y número de cuenta son obligatorios`);
                     }
-                    
+
                     return {
                         id: cuenta.id || (idx + 1),
                         nombreBanco: cuenta.nombreBanco.substring(0, 100),
@@ -5346,7 +5346,7 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
                         phone: cuenta.phone ? cuenta.phone.substring(0, 20) : ''
                     };
                 });
-                
+
                 // Actualizar la configuración tecnica
                 if (!config.tecnica) {
                     config.tecnica = {};
@@ -5366,7 +5366,7 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
         // 📝 PASO 6C: Procesar datos del cliente si vienen
         if (req.body.cliente) {
             if (!config.cliente) config.cliente = {};
-            
+
             // DEBUG: Ver exactamente qué viene en cliente
             console.log('[PATCH /api/admin/config] 🔍 DEBUG - req.body.cliente recibido:', {
                 tienePropiedad: !!req.body.cliente,
@@ -5376,13 +5376,13 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
                 logoValue: req.body.cliente.logo,
                 logotipoValue: req.body.cliente.logotipo
             });
-            
+
             const nombreAnterior = config.cliente.nombre;
             config.cliente.nombre = req.body.cliente.nombre || config.cliente.nombre;
             config.cliente.eslogan = req.body.cliente.eslogan || config.cliente.eslogan;
             config.cliente.telefono = req.body.cliente.telefono || config.cliente.telefono;
             config.cliente.email = req.body.cliente.email || config.cliente.email;
-            
+
             // 🖼️ AGREGAR: Actualizar imagenPrincipal si viene en cliente
             if (req.body.cliente.imagenPrincipal) {
                 const imagenAnterior = config.cliente.imagenPrincipal;
@@ -5408,7 +5408,7 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
             } else {
                 console.log('[PATCH /api/admin/config] ℹ️ No se recibió logo/logotipo en req.body.cliente');
             }
-            
+
             // ✅ AGREGAR: Actualizar redesSociales si viene en cliente
             if (req.body.cliente.redesSociales) {
                 config.cliente.redesSociales = req.body.cliente.redesSociales;
@@ -5417,7 +5417,7 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
             if (req.body.cliente.mensajesWhatsapp) {
                 config.cliente.mensajesWhatsapp = req.body.cliente.mensajesWhatsapp;
             }
-            
+
             console.log('[PATCH /api/admin/config] ✅ Datos del cliente actualizados', {
                 nombreAnterior,
                 nombreNuevo: config.cliente.nombre,
@@ -5437,7 +5437,7 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
                 tiempoApartadoHorasRecibido: req.body.rifa.tiempoApartadoHoras,
                 fechaSorteoRecibido: req.body.rifa.fechaSorteo
             });
-            
+
             if (!config.rifa) config.rifa = {};
             if (req.body.rifa.nombreSorteo) config.rifa.nombreSorteo = req.body.rifa.nombreSorteo;
             if (req.body.rifa.edicionNombre) config.rifa.edicionNombre = req.body.rifa.edicionNombre;
@@ -5596,16 +5596,16 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
                     config.rifa.rangos = rangosNormalizados;
                 }
             }
-        if (req.body.rifa.ayuda !== undefined) {
-            const preguntasFrecuentes = Array.isArray(req.body.rifa.ayuda?.preguntasFrecuentes)
-                ? req.body.rifa.ayuda.preguntasFrecuentes
-                : [];
-            const faqKeys = new Set();
+            if (req.body.rifa.ayuda !== undefined) {
+                const preguntasFrecuentes = Array.isArray(req.body.rifa.ayuda?.preguntasFrecuentes)
+                    ? req.body.rifa.ayuda.preguntasFrecuentes
+                    : [];
+                const faqKeys = new Set();
 
-            config.rifa.ayuda = {
-                ...(config.rifa.ayuda || {}),
-                ...(req.body.rifa.ayuda || {}),
-                preguntasFrecuentes: preguntasFrecuentes
+                config.rifa.ayuda = {
+                    ...(config.rifa.ayuda || {}),
+                    ...(req.body.rifa.ayuda || {}),
+                    preguntasFrecuentes: preguntasFrecuentes
                         .map((item) => ({
                             pregunta: sanitizar(item?.pregunta || '').trim(),
                             respuesta: sanitizar(item?.respuesta || '').trim()
@@ -5619,7 +5619,7 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
                         })
                 };
             }
-            
+
             // ✅ Procesar fechaSorteo y generar horaSorteo y fechaSorteoFormato automáticamente
             if (req.body.rifa.fechaSorteo) {
                 config.rifa.fechaSorteo = req.body.rifa.fechaSorteo;
@@ -5640,7 +5640,7 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
                     console.error('⚠️ Error procesando fechaSorteo:', e.message);
                 }
             }
-            
+
             // ✅ Procesar fechaPresorteo y generar horaPresorteo y fechaPresorteoFormato automáticamente
             if (Object.prototype.hasOwnProperty.call(req.body.rifa, 'fechaPresorteo') && !req.body.rifa.fechaPresorteo) {
                 config.rifa.fechaPresorteo = null;
@@ -5665,12 +5665,12 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
                     console.error('⚠️ Error procesando fechaPresorteo:', e.message);
                 }
             }
-            
+
             // 🖼️ AGREGAR SOPORTE PARA GALERÍA (IMÁGENES)
             if (req.body.rifa.galeria) {
                 config.rifa.galeria = req.body.rifa.galeria;
             }
-            
+
             // 📋 AGREGAR SOPORTE PARA INFORMACIÓN DEL SORTEO
             if (req.body.rifa.informacionSorteoIntro !== undefined) {
                 config.rifa.informacionSorteoIntro = String(req.body.rifa.informacionSorteoIntro || '').trim();
@@ -5761,7 +5761,7 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
                     fin: config.rifa.promocionPorTiempo.fechaFin
                 });
             }
-            
+
             if (req.body.rifa.descuentoPorcentaje !== undefined) {
                 config.rifa.descuentoPorcentaje = req.body.rifa.descuentoPorcentaje;
                 console.log('[PATCH /api/admin/config] 📊 Descuento por porcentaje actualizado:', {
@@ -5901,7 +5901,7 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
                     tipoDelValor: typeof config.rifa.tiempoApartadoHoras,
                     requestValue: req.body.rifa.tiempoApartadoHoras
                 });
-                
+
                 // 🔄 RECONFIGURER EL SERVICIO DE EXPIRACIÓN
                 if (ordenExpirationService) {
                     console.log('[PATCH /api/admin/config] 🔄 Reconfigurando ordenExpirationService con nuevo tiempoApartadoHoras:', config.rifa.tiempoApartadoHoras);
@@ -5925,7 +5925,7 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
                     );
                 }
             }
-            
+
             console.log('[PATCH /api/admin/config] ✅ Datos de la rifa actualizados:', {
                 nombreSorteo: config.rifa.nombreSorteo,
                 edicionNombre: config.rifa.edicionNombre,
@@ -6027,7 +6027,7 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
         } catch (e) {
             console.error('[DEBUG] Error writing debug file:', e);
         }
-        
+
         console.log('[PATCH /api/admin/config] 📝 A ESCRIBIR:', {
             cliente: {
                 nombre: config.cliente?.nombre,
@@ -6043,7 +6043,7 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
                 nombre: req.rifaContext?.nombre || ''
             }
         });
-        
+
         try {
             const contextoRifaActual = obtenerContextoRifaActual();
             const rifaIdActual = Number.parseInt(contextoRifaActual?.id, 10);
@@ -6099,12 +6099,12 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
         if (req.body.cliente) camposActualizados.push('cliente');
         if (req.body.rifa) camposActualizados.push('rifa');
         if (req.body.redesSociales) camposActualizados.push('redesSociales');
-        
+
         const logData = {
             usuario: req.usuario.username,
             campos_actualizados: camposActualizados.join(', ')
         };
-        
+
         if (requiereSystemaPremios) {
             logData.premios_count = {
                 sorteo: sistemaPremios.sorteo?.length || 0,
@@ -6112,11 +6112,11 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
                 ruletazos: sistemaPremios.ruletazos?.length || 0
             };
         }
-        
+
         if (bankAccountsActualizadas) {
             logData.cuentas_bancarias = bankAccountsActualizadas.length;
         }
-        
+
         log('info', '✅ PATCH /api/admin/config - Config actualizada (PRODUCTION-READY)', logData);
 
         res.json({
@@ -6125,8 +6125,8 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
             warnings: advertenciasPromociones,
             data: {
                 ...(requiereSystemaPremios && { sistemaPremios: config.rifa.sistemaPremios }),
-                ...(bankAccountsActualizadas && { 
-                    cuentas: bankAccountsActualizadas 
+                ...(bankAccountsActualizadas && {
+                    cuentas: bankAccountsActualizadas
                 }),
                 ...(req.body.cliente && { cliente: config.cliente }),
                 ...(req.body.rifa && {
@@ -6138,10 +6138,10 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
         });
 
     } catch (error) {
-        log('error', '❌ PATCH /api/admin/config error', { 
+        log('error', '❌ PATCH /api/admin/config error', {
             error: error.message,
             stack: error.stack,
-            usuario: req.usuario?.username 
+            usuario: req.usuario?.username
         });
         res.status(500).json({
             success: false,
@@ -6176,9 +6176,9 @@ app.post('/api/public/order-counter/next', limiterOrdenes, async (req, res) => {
         const rifaContext = req.rifaContext;
         if (!rifaContext || !rifaContext.id) {
             console.error('❌ [POST /api/public/order-counter/next] Error: No se pudo determinar el contexto de la rifa');
-            return res.status(400).json({ 
-                success: false, 
-                message: 'No se pudo identificar la rifa actual. Recarga la página.' 
+            return res.status(400).json({
+                success: false,
+                message: 'No se pudo identificar la rifa actual. Recarga la página.'
             });
         }
 
@@ -6190,7 +6190,7 @@ app.post('/api/public/order-counter/next', limiterOrdenes, async (req, res) => {
             || rifaContext.organizerKey
             || ''
         ).trim();
-        
+
         // Generador maneja su propia transacción y bloqueo; no envolver aquí
         const orderId = await generarSiguienteOrdenId(cliente_id, null, rifaIdActual);
 
@@ -6476,7 +6476,7 @@ function obtenerPrefijoOrdenCliente(clienteId, configActor = null) {
         }
 
         console.warn(`⚠️ prefijoConfig vacío o inválido: "${prefijoConfig}"`);
-        
+
         // ✅ CRÍTICO: Si no hay prefijo configurado, generar desde el slug de la rifa actual
         // Ejemplo: slug "s9" → prefijo "S9", slug "navidad2026" → prefijo "NA"
         const rifaSlug = String(configParaUsar?.rifa?.slug || '').trim();
@@ -6488,7 +6488,7 @@ function obtenerPrefijoOrdenCliente(clienteId, configActor = null) {
                 return prefijoDesdeSlug;
             }
         }
-        
+
         // Fallback: intentar desde el nombre del sorteo
         const nombreSorteo = String(configParaUsar?.rifa?.nombreSorteo || '').trim();
         if (nombreSorteo) {
@@ -6850,7 +6850,7 @@ async function generarSiguienteOrdenId(cliente_id, trx, rifaId = null) {
         // La próxima lectura debe devolver la secuencia/número correcto
         let proximoNumeroAGuardar = siguiente.numero;
         let proximaSecuenciaAGuardar = siguiente.secuencia;
-        
+
         if (proximoNumeroAGuardar >= 1000) {
             proximoNumeroAGuardar = 0;
             proximaSecuenciaAGuardar = incrementarSecuenciaSQL(siguiente.secuencia);
@@ -6944,18 +6944,18 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
     const perfMarks = {
         requestStart: startTime
     };
-    
+
     try {
         logOrdenesDebug('\n📨 [POST /api/ordenes] REQUEST RECIBIDO');
         const orden = req.body;
-        
+
         // ===== OBTENER CONTEXTO MULTI-RIFA =====
         const rifaContext = req.rifaContext;
         if (!rifaContext || !rifaContext.id) {
             console.error('❌ [POST /api/ordenes] Error: No se pudo determinar el contexto de la rifa');
-            return res.status(400).json({ 
-                success: false, 
-                message: 'No se pudo identificar a qué rifa pertenece esta orden. Recarga la página.' 
+            return res.status(400).json({
+                success: false,
+                message: 'No se pudo identificar a qué rifa pertenece esta orden. Recarga la página.'
             });
         }
 
@@ -7010,13 +7010,13 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
             return res.status(400).json({ success: false, message: 'Se requiere al menos 1 boleto' });
         }
 
-        const boletosValidos = orden.boletos.map(n => Number(n)).filter(n => 
+        const boletosValidos = orden.boletos.map(n => Number(n)).filter(n =>
             !isNaN(n) && n >= 0 && n < totalBoletosRifa && Number.isInteger(n)
         );
 
         if (boletosValidos.length !== orden.boletos.length) {
-            return res.status(400).json({ 
-                success: false, 
+            return res.status(400).json({
+                success: false,
                 message: `Rango de boletos inválido para esta rifa (0 a ${totalBoletosRifa - 1})`
             });
         }
@@ -7303,9 +7303,9 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
 
                     // ⭐ NEW: Capturar BOLETOS_CONFLICTO y reintentar con backoff (no fallar inmediatamente)
                     if (insErr && insErr.code === 'BOLETOS_CONFLICTO' && intentoOrdenId < 12) {
-                        console.warn(`⚠️ [POST /api/ordenes] conflicto de boletos en intento ${intentoOrdenId + 1}. Reintentando con backoff exponencial...`, { 
-                            intentoOrdenId, 
-                            conflictosDetectados: insErr.boletosConflicto?.length || 0 
+                        console.warn(`⚠️ [POST /api/ordenes] conflicto de boletos en intento ${intentoOrdenId + 1}. Reintentando con backoff exponencial...`, {
+                            intentoOrdenId,
+                            conflictosDetectados: insErr.boletosConflicto?.length || 0
                         });
                         // Exponential backoff: 50ms, 100ms, 200ms, 400ms, ...
                         const backoffMs = Math.min(50 * Math.pow(2, Math.floor(intentoOrdenId / 3)), 2000) + Math.floor(Math.random() * 500);
@@ -7322,7 +7322,7 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
             if (!createdResult) {
                 throw new Error('NO_SE_PUDO_GENERAR_ORDEN_ID_UNICO');
             }
-            
+
             // Ya generamos y reservamos los recursos dentro del bucle anterior.
             // Aquí sólo devolvemos el resultado exitoso obtenido allí.
             return createdResult;
@@ -7466,7 +7466,7 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
 
     } catch (error) {
         const errorId = `ERR-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        
+
         // Errores específicos
         if (error.code === 'BOLETOS_CONFLICTO') {
             perfMarks.totalMs = Date.now() - startTime;
@@ -7610,7 +7610,7 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
             errorId,
             statusCode: 500
         }, { slowMs: 1200, warnMs: 2500 });
-        
+
         if (!res.headersSent) {
             return res.status(500).json({
                 success: false,
@@ -7630,13 +7630,13 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
 app.get('/api/boletos/liberar-apartados', async (req, res) => {
     try {
         console.log('\n=== LIBERANDO BOLETOS APARTADOS ===\n');
-        
+
         // Contar boletos apartados ANTES
         const apartadosAntes = await db('boletos_estado')
             .where('estado', 'apartado')
             .count('* as cnt');
         const totalAntes = apartadosAntes[0].cnt;
-        
+
         console.log(`📊 Boletos apartados ANTES: ${totalAntes}`);
 
         // PASO 1: Liberar boletos apartados sin numero_orden (huérfanos)
@@ -7648,7 +7648,7 @@ app.get('/api/boletos/liberar-apartados', async (req, res) => {
                 updated_at = NOW()
             WHERE estado = 'apartado' AND numero_orden IS NULL
         `);
-        
+
         const liberados1 = resultado1.rowCount;
         console.log(`   ✅ Liberados: ${liberados1} boletos`);
 
@@ -7668,7 +7668,7 @@ app.get('/api/boletos/liberar-apartados', async (req, res) => {
                 AND o.estado IN ('pendiente', 'confirmada')
             )
         `);
-        
+
         const liberados2 = resultado2.rowCount;
         console.log(`   ✅ Liberados: ${liberados2} boletos`);
 
@@ -7679,7 +7679,7 @@ app.get('/api/boletos/liberar-apartados', async (req, res) => {
             .where('estado', 'apartado')
             .count('* as cnt');
         const totalDespues = apartadosDespues[0].cnt;
-        
+
         console.log(`\n📊 Boletos apartados DESPUÉS: ${totalDespues}`);
         console.log(`✅ TOTAL LIBERADOS: ${totalLiberados}\n`);
 
@@ -7720,7 +7720,7 @@ app.get('/api/boletos/sync-full', async (req, res) => {
 
         // PASO 1: Limpiar boletos reservados huérfanos
         console.log('1️⃣  Limpiando boletos reservados sin orden válida...');
-        
+
         const liberarHuerfanos = await db.raw(`
             UPDATE boletos_estado
             SET estado = 'disponible',
@@ -7741,7 +7741,7 @@ app.get('/api/boletos/sync-full', async (req, res) => {
 
         // PASO 2: Marcar como vendido boletos de órdenes confirmadas
         console.log('2️⃣  Sincronizando órdenes confirmadas...');
-        
+
         const ordenesConfirmadas = await db('ordenes')
             .where('estado', 'confirmada')
             .select('numero_orden', 'boletos');
@@ -7780,7 +7780,7 @@ app.get('/api/boletos/sync-full', async (req, res) => {
 
         // PASO 3: Limpiar boletos vendidos sin orden confirmada
         console.log('3️⃣  Limpiando boletos vendidos sin orden confirmada...');
-        
+
         const liberarVendidosHuerfanos = await db.raw(`
             UPDATE boletos_estado
             SET estado = 'disponible',
@@ -7801,7 +7801,7 @@ app.get('/api/boletos/sync-full', async (req, res) => {
 
         // PASO 4: Estadísticas finales
         console.log('4️⃣  Estado final:\n');
-        
+
         const stats = await db.raw(`
             SELECT estado, COUNT(*) as count 
             FROM boletos_estado 
@@ -7896,9 +7896,9 @@ app.get('/api/ordenes/:id', async (req, res) => {
                 rifaId: rifaIdActual
             });
             oportunidadesData = resultado;
-            console.log(`📊 Oportunidades obtenidas para ${ordenRow.numero_orden}:`, { 
+            console.log(`📊 Oportunidades obtenidas para ${ordenRow.numero_orden}:`, {
                 cantidad: resultado.data?.length || 0,
-                error: resultado.error 
+                error: resultado.error
             });
         } catch (e) {
             console.warn(`Advertencia obteniendo oportunidades para ${ordenRow.numero_orden}:`, e);
@@ -8220,12 +8220,12 @@ app.get('/api/public/ordenes-cliente', async (req, res) => {
 
         // Validar formato: solo dígitos, 10-12 caracteres
         const whatsappSanitizado = String(whatsapp).replace(/[^0-9]/g, '');
-        
+
         if (whatsappSanitizado.length < 10 || whatsappSanitizado.length > 12) {
-            log('warn', 'GET /api/public/ordenes-cliente: WhatsApp inválido', { 
+            log('warn', 'GET /api/public/ordenes-cliente: WhatsApp inválido', {
                 whatsapp_input: whatsapp,
                 whatsapp_sanitizado: whatsappSanitizado,
-                ip: req.ip 
+                ip: req.ip
             });
             return res.status(400).json({
                 success: false,
@@ -8306,9 +8306,9 @@ app.get('/api/public/ordenes-cliente', async (req, res) => {
         return res.json(ordenesFormateadas);
 
     } catch (error) {
-        log('error', 'GET /api/public/ordenes-cliente error', { 
+        log('error', 'GET /api/public/ordenes-cliente error', {
             error: error.message,
-            ip: req.ip 
+            ip: req.ip
         });
         return res.status(500).json({
             success: false,
@@ -8435,26 +8435,32 @@ app.post('/api/public/push/subscribe', limiterPushPublico, async (req, res) => {
                 .first();
 
             if (!orden) {
-                return { httpStatus: 404, body: {
-                    success: false,
-                    message: 'Orden no encontrada'
-                } };
+                return {
+                    httpStatus: 404, body: {
+                        success: false,
+                        message: 'Orden no encontrada'
+                    }
+                };
             }
 
             const verificacion = verificarTokenOrdenPush(token, orden);
             if (!verificacion.valido) {
-                return { httpStatus: 403, body: {
-                    success: false,
-                    message: 'Token de suscripción inválido'
-                } };
+                return {
+                    httpStatus: 403, body: {
+                        success: false,
+                        message: 'Token de suscripción inválido'
+                    }
+                };
             }
 
             const pushMeta = construirMetadatosOrdenPushPublica(orden);
             if (!pushMeta.canSubscribe) {
-                return { httpStatus: 409, body: {
-                    success: false,
-                    message: 'Esta orden ya no permite activar notificaciones push.'
-                } };
+                return {
+                    httpStatus: 409, body: {
+                        success: false,
+                        message: 'Esta orden ya no permite activar notificaciones push.'
+                    }
+                };
             }
 
             const suscripcion = await upsertSuscripcionPush(trx, {
@@ -8534,18 +8540,22 @@ app.post('/api/public/push/unsubscribe', limiterPushPublico, async (req, res) =>
                 .first();
 
             if (!orden) {
-                return { httpStatus: 404, body: {
-                    success: false,
-                    message: 'Orden no encontrada'
-                } };
+                return {
+                    httpStatus: 404, body: {
+                        success: false,
+                        message: 'Orden no encontrada'
+                    }
+                };
             }
 
             const verificacion = verificarTokenOrdenPush(token, orden);
             if (!verificacion.valido) {
-                return { httpStatus: 403, body: {
-                    success: false,
-                    message: 'Token de suscripción inválido'
-                } };
+                return {
+                    httpStatus: 403, body: {
+                        success: false,
+                        message: 'Token de suscripción inválido'
+                    }
+                };
             }
 
             const suscripcion = await desactivarSuscripcionPush(trx, {
@@ -8607,7 +8617,7 @@ app.post('/api/public/push/unsubscribe', limiterPushPublico, async (req, res) =>
 app.post('/api/public/ordenes-cliente/:numero_orden/comprobante', async (req, res) => {
     const debugId = `[COMPR-${Date.now()}]`;
     const startTime = Date.now();
-    
+
     try {
         const { numero_orden } = req.params;
         const whatsapp = req.body?.whatsapp;
@@ -8738,7 +8748,7 @@ app.get('/api/ordenes/por-cliente/:email', limiterRecuperacionOrdenes, async (re
     try {
         const { nombre, whatsapp } = req.query;
         const rifaIdActual = Number.parseInt(req.rifaContext?.id, 10) || null;
-        
+
         // Se requiere al menos nombre + whatsapp para búsqueda
         if (!nombre || !whatsapp) {
             return res.status(400).json({
@@ -8756,7 +8766,7 @@ app.get('/api/ordenes/por-cliente/:email', limiterRecuperacionOrdenes, async (re
                 message: 'Datos insuficientes para recuperar la orden'
             });
         }
-        
+
         // Buscar en últimos 30 minutos (para recuperación de race conditions)
         const hace30Min = new Date(Date.now() - 30 * 60 * 1000);
 
@@ -8770,13 +8780,13 @@ app.get('/api/ordenes/por-cliente/:email', limiterRecuperacionOrdenes, async (re
             .select('numero_orden', 'estado', 'cantidad_boletos', 'total', 'created_at', 'nombre_cliente', 'telefono_cliente')
             .orderBy('created_at', 'desc')
             .limit(5);
-        
+
         // Filtrar por whatsapp (últimos dígitos del teléfono guardado)
         const ordenesFiltradas = ordenes.filter(o => {
             const telefonoGuardado = (o.telefono_cliente || '').replace(/[^0-9]/g, '');
             return telefonoGuardado.endsWith(whatsappDigitos) || telefonoGuardado === whatsappDigitos;
         });
-        
+
         return res.json(ordenesFiltradas.map((orden) => ({
             numero_orden: orden.numero_orden,
             estado: orden.estado,
@@ -8819,12 +8829,12 @@ app.get('/api/ordenes', verificarToken, async (req, res) => {
         const nombreFiltro = String(searchNombre || '').trim().toLowerCase();
         const whatsappFiltro = String(searchWhatsapp || '').replace(/[^0-9]/g, '');
         const idFiltro = String(searchId || '').trim().toLowerCase();
-        
+
         const applyFilters = (builder) => {
             aplicarFiltroRifa(builder, rifaIdActual);
             if (estadoFiltro) {
                 if (estadoFiltro === 'comprobante_recibido' || estadoFiltro === 'comprobante') {
-                    builder.where(function() {
+                    builder.where(function () {
                         this.whereNotNull('comprobante_path')
                             .orWhere('comprobante_recibido', true);
                     });
@@ -9116,8 +9126,8 @@ app.get('/api/admin/boleto-simple/:numero', verificarToken, async (req, res) => 
 
             // Obtener número de teléfono (fallback a campos alternativos si es necesario)
             let telefonoFinal = ordenEncontrada.telefono_cliente ||
-                               ordenEncontrada.telefono ||
-                               '';
+                ordenEncontrada.telefono ||
+                '';
 
             return res.json({
                 success: true,
@@ -9253,11 +9263,11 @@ app.get('/api/admin/numero-inteligente/:numero', verificarToken, async (req, res
             // Buscar en tabla orden_oportunidades FILTRANDO POR RIFA_ID
             const queryOportunidad = db('orden_oportunidades')
                 .where('numero_oportunidad', numero);
-            
+
             if (rifaIdActual) {
                 queryOportunidad.andWhere('rifa_id', rifaIdActual);
             }
-            
+
             const oportunidad = await queryOportunidad.first();
 
             if (!oportunidad) {
@@ -9306,8 +9316,8 @@ app.get('/api/admin/numero-inteligente/:numero', verificarToken, async (req, res
 
                 // Obtener número de teléfono
                 let telefonoFinal = ordenAsociada.telefono_cliente ||
-                                   ordenAsociada.telefono ||
-                                   '';
+                    ordenAsociada.telefono ||
+                    '';
 
                 return res.json({
                     success: true,
@@ -9370,11 +9380,11 @@ app.get('/api/admin/numero-inteligente/:numero', verificarToken, async (req, res
             const queryBoletoEstado = db('boletos_estado')
                 .select('numero', 'estado', 'numero_orden', 'created_at', 'updated_at')
                 .where('numero', numero);
-            
+
             if (rifaIdActual) {
                 queryBoletoEstado.andWhere('rifa_id', rifaIdActual);
             }
-            
+
             const boletoEstado = await queryBoletoEstado.first();
 
             let ordenEncontrada = null;
@@ -9399,7 +9409,7 @@ app.get('/api/admin/numero-inteligente/:numero', verificarToken, async (req, res
                     if (rifaIdActual && orden.rifa_id && Number(orden.rifa_id) !== rifaIdActual) {
                         continue; // Saltar órdenes de otra rifa
                     }
-                    
+
                     try {
                         let boletosArr = [];
                         const raw = orden.boletos;
@@ -9456,15 +9466,15 @@ app.get('/api/admin/numero-inteligente/:numero', verificarToken, async (req, res
                     }
                 }
             }
-            
+
             if (ordenEncontrada) {
                 const ciudadFinal = ordenEncontrada.ciudad_cliente || ordenEncontrada.ciudad || '';
                 const estadoFinal = ordenEncontrada.estado_cliente || '';
-                
-                let telefonoFinal = ordenEncontrada.telefono_cliente || 
-                                   ordenEncontrada.telefono ||
-                                   '';
-                
+
+                let telefonoFinal = ordenEncontrada.telefono_cliente ||
+                    ordenEncontrada.telefono ||
+                    '';
+
                 return res.json({
                     success: true,
                     ok: true,
@@ -9826,7 +9836,7 @@ app.get('/api/public/boletos/stats', async (req, res) => {
                         if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
                     }).where('estado', 'apartado').count('* as count').first()
                 ]);
-                
+
                 return {
                     vendidos: parseInt(vendidosResult?.count) || 0,
                     apartados: parseInt(apartadosResult?.count) || 0
@@ -9879,7 +9889,7 @@ app.get('/api/public/boletos/stats', async (req, res) => {
         log('error', 'GET /api/public/boletos/stats error', { error: error.message });
         const config = cargarConfigSorteo();
         const cacheSuffix = String(req.rifaContext?.slug || req.rifaContext?.id || 'default');
-        
+
         // ⭐ FALLBACK: Usar caché anterior o valores por defecto
         if (serverCache.boletosStatsCached?.[cacheSuffix]) {
             console.warn('[PublicBoletoStats] Error - usando cache anterior');
@@ -9896,7 +9906,7 @@ app.get('/api/public/boletos/stats', async (req, res) => {
                 }
             });
         }
-        
+
         return res.status(500).json({
             success: false,
             message: 'Error al obtener estadísticas',
@@ -9948,9 +9958,9 @@ app.get('/api/public/boletos', async (req, res) => {
         if (!usarRango && cachedFull) {
             return res.json(cachedFull.payload);
         }
-        
+
         const startTime = Date.now();
-        
+
         // ✅ OBTENER TOTAL DE BOLETOS DESDE LA CONFIGURACIÓN ACTUAL
         const configActual = obtenerConfigActual();
         const fallbackConfig = obtenerConfigExpiracion();
@@ -10124,7 +10134,7 @@ app.get('/api/public/boletos', async (req, res) => {
                 return res.json(cachedRange.payload);
             }
         }
-        
+
         // ⭐ SI FALLA, USAR CACHÉ ANTERIOR O DEVOLVER VACÍO
         if (serverCache.boletosPublicosCached?.[cacheSuffix]) {
             console.warn('[PublicBoletos] Error - usando cache antiguo');
@@ -10132,7 +10142,7 @@ app.get('/api/public/boletos', async (req, res) => {
         }
 
         const totalFallback = Number(obtenerConfigActual()?.rifa?.totalBoletos) || Number(obtenerConfigExpiracion()?.totalBoletos) || 60000;
-        
+
         return res.json({
             success: false,
             message: 'Error temporal',
@@ -10215,7 +10225,7 @@ app.get('/api/public/boletos/busqueda', limiterOrdenes, async (req, res) => {
             if (!/^\d+$/.test(valor)) {
                 return res.status(400).json({ success: false, message: 'Usa solo números' });
             }
-            
+
             let patron = `${valor}%`;
             if (modo === 'termina') patron = `%${valor}`;
             else if (modo === 'contiene') patron = `%${valor}%`;
@@ -10326,13 +10336,13 @@ app.get('/api/admin/stats', verificarToken, async (req, res) => {
                 if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
             })
             .select(
-            db.raw('COUNT(*) as total_ordenes'),
-            db.raw('SUM(cantidad_boletos) as total_boletos'),
-            db.raw('SUM(total) as ingresos_totales'),
-            db.raw("SUM(CASE WHEN estado IN ('confirmada','completada') THEN total ELSE 0 END) as ingresos_confirmados"),
-            db.raw("SUM(CASE WHEN estado IN ('confirmada','completada') THEN cantidad_boletos ELSE 0 END) as total_boletos_vendidos"),
-            db.raw('AVG(total) as promedio_orden')
-        )
+                db.raw('COUNT(*) as total_ordenes'),
+                db.raw('SUM(cantidad_boletos) as total_boletos'),
+                db.raw('SUM(total) as ingresos_totales'),
+                db.raw("SUM(CASE WHEN estado IN ('confirmada','completada') THEN total ELSE 0 END) as ingresos_confirmados"),
+                db.raw("SUM(CASE WHEN estado IN ('confirmada','completada') THEN cantidad_boletos ELSE 0 END) as total_boletos_vendidos"),
+                db.raw('AVG(total) as promedio_orden')
+            )
             .first();
 
         const porEstado = await db('ordenes')
@@ -10356,7 +10366,7 @@ app.get('/api/admin/stats', verificarToken, async (req, res) => {
 
         // ⭐ FASE 1: Agregar headers de caching HTTP (respuesta privada, 30s)
         setHttpCacheHeaders(res, 30, false);
-        
+
         return res.json({
             success: true,
             data: data
@@ -10404,7 +10414,7 @@ app.get('/api/public/boletos/:numero/oportunidades', limiterOrdenes, async (req,
         }
 
         const rangoVisible = oportunidadesConfig.rangoVisible;
-        
+
         if (
             !Number.isInteger(numeroBoleto)
             || !rangoVisible
@@ -10416,7 +10426,7 @@ app.get('/api/public/boletos/:numero/oportunidades', limiterOrdenes, async (req,
                 message: `Número de boleto inválido (debe estar entre ${rangoVisible?.inicio ?? 0} y ${rangoVisible?.fin ?? 0})`
             });
         }
-        
+
         const oportunidades = await db('orden_oportunidades')
             .modify((qb) => {
                 if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
@@ -10424,7 +10434,7 @@ app.get('/api/public/boletos/:numero/oportunidades', limiterOrdenes, async (req,
             .where('numero_boleto', numeroBoleto)
             .select('numero_oportunidad')
             .orderBy('numero_oportunidad');
-        
+
         if (oportunidades.length === 0) {
             return res.status(404).json({
                 success: false,
@@ -10444,9 +10454,9 @@ app.get('/api/public/boletos/:numero/oportunidades', limiterOrdenes, async (req,
                 }
             });
         }
-        
+
         const numeros = oportunidades.map(o => o.numero_oportunidad);
-        
+
         return res.json({
             success: true,
             numero_boleto: numeroBoleto,
@@ -10508,14 +10518,14 @@ app.post('/api/public/boletos/oportunidades/batch', limiterOrdenes, async (req, 
                 message: 'Requiere: { numeros: [1, 2, 3, ...] }'
             });
         }
-        
+
         if (numeros.length > 100) {
             return res.status(400).json({
                 success: false,
                 message: 'Máximo 100 boletos por batch (recibidos: ' + numeros.length + ')'
             });
         }
-        
+
         const rangoVisible = oportunidadesConfig.rangoVisible;
         const numerosValidos = numeros
             .map(n => parseInt(n, 10))
@@ -10523,14 +10533,14 @@ app.post('/api/public/boletos/oportunidades/batch', limiterOrdenes, async (req, 
                 && rangoVisible
                 && n >= rangoVisible.inicio
                 && n <= rangoVisible.fin);
-        
+
         if (numerosValidos.length === 0) {
             return res.status(400).json({
                 success: false,
                 message: 'No hay números de boleto válidos'
             });
         }
-        
+
         // 🚀 QUERY OPTIMIZADO: Un solo WHERE IN() para todos los boletos
         const oportunidades = await db('orden_oportunidades')
             .modify((qb) => {
@@ -10540,13 +10550,13 @@ app.post('/api/public/boletos/oportunidades/batch', limiterOrdenes, async (req, 
             .select('numero_boleto', 'numero_oportunidad')
             .orderBy('numero_boleto')
             .orderBy('numero_oportunidad');
-        
+
         // Agrupar por número de boleto
         const resultado = {};
         numerosValidos.forEach(n => {
             resultado[n] = [];
         });
-        
+
         oportunidades.forEach(row => {
             if (!resultado[row.numero_boleto]) {
                 resultado[row.numero_boleto] = [];
@@ -10569,7 +10579,7 @@ app.post('/api/public/boletos/oportunidades/batch', limiterOrdenes, async (req, 
                 detalles: boletosInconsistentes
             });
         }
-        
+
         return res.json({
             success: true,
             totales: {
@@ -10605,7 +10615,7 @@ app.post('/api/public/boletos/oportunidades/batch', limiterOrdenes, async (req, 
 app.post('/api/public/maquina/generar', async (req, res) => {
     try {
         const { cantidad, rifa_id } = req.body || {};
-        
+
         // Validaciones básicas
         if (!Number.isInteger(cantidad) || cantidad < 1 || cantidad > 100) {
             return res.status(400).json({
@@ -10613,18 +10623,18 @@ app.post('/api/public/maquina/generar', async (req, res) => {
                 message: 'Cantidad debe ser entre 1 y 100 boletos'
             });
         }
-        
+
         const rifaIdActual = Number.parseInt(rifa_id || req.rifaContext?.id, 10) || null;
         const config = cargarConfigSorteo();
         const totalBoletos = config.totalBoletos;
-        
+
         if (totalBoletos <= 0) {
             return res.status(400).json({
                 success: false,
                 message: 'No hay boletos disponibles en este sorteo'
             });
         }
-        
+
         // Verificar disponibilidad suficiente
         const disponiblesActuales = Number(config.estado?.boletosDisponibles || 0);
         if (disponiblesActuales < cantidad) {
@@ -10634,13 +10644,13 @@ app.post('/api/public/maquina/generar', async (req, res) => {
                 disponibles: disponiblesActuales
             });
         }
-        
+
         // ✅ TRANSACCIÓN: Reservar boletos temporalmente por 5 minutos
         const resultado = await db.transaction(async (trx) => {
             // Configurar timeouts
             await trx.raw("SET LOCAL lock_timeout = '5s'");
             await trx.raw("SET LOCAL statement_timeout = '20s'");
-            
+
             // Seleccionar boletos disponibles ALEATORIOS con FOR UPDATE SKIP LOCKED
             // Esto garantiza que múltiples usuarios NO reciban los mismos boletos
             const boletosSeleccionados = await trx('boletos_estado')
@@ -10654,17 +10664,17 @@ app.post('/api/public/maquina/generar', async (req, res) => {
                 .limit(cantidad)
                 .forUpdate()  // ← Bloquea para otros transactions
                 .timeout(5000);
-            
+
             if (boletosSeleccionados.length < cantidad) {
                 throw {
                     code: 'INSUFICIENTES_DISPONIBLES',
                     message: `Solo ${boletosSeleccionados.length} boletos disponibles actualmente`
                 };
             }
-            
+
             const numerosBoletos = boletosSeleccionados.map(b => b.numero);
             const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutos
-            
+
             // Reservar boletos temporalmente
             const actualizados = await trx('boletos_estado')
                 .modify((qb) => {
@@ -10676,47 +10686,47 @@ app.post('/api/public/maquina/generar', async (req, res) => {
                     estado: 'reservado_maquina',
                     updated_at: new Date()
                 });
-            
+
             if (actualizados !== numerosBoletos.length) {
                 throw {
                     code: 'BOLETOS_CAMBIARON_ESTADO',
                     message: 'Algunos boletos ya no están disponibles'
                 };
             }
-            
+
             return {
                 boletos: numerosBoletos,
                 expiresAt: expiresAt.toISOString(),
                 cantidad: numerosBoletos.length
             };
         });
-        
+
         console.log(`[Máquina] ✅ ${resultado.cantidad} boletos reservados por 5 min`);
-        
+
         return res.json({
             success: true,
             boletos: resultado.boletos,
             expiresAt: resultado.expiresAt,
             mensaje: `Boletos reservados por 5 minutos. Completa tu compra antes de ${new Date(resultado.expiresAt).toLocaleTimeString()}`
         });
-        
+
     } catch (error) {
         console.error('[Máquina] ❌ Error generando boletos:', error);
-        
+
         if (error.code === 'INSUFICIENTES_DISPONIBLES' || error.code === 'BOLETOS_CAMBIARON_ESTADO') {
             return res.status(409).json({
                 success: false,
                 message: error.message || 'Boletos no disponibles. Intenta con otra cantidad.'
             });
         }
-        
+
         if (error.message?.includes('timeout') || error.message?.includes('lock')) {
             return res.status(503).json({
                 success: false,
                 message: 'Alta concurrencia. Por favor intenta en unos segundos.'
             });
         }
-        
+
         return res.status(500).json({
             success: false,
             message: 'Error generando boletos aleatorios'
@@ -10783,11 +10793,11 @@ app.get('/api/public/oportunidades/disponibles', limiterOrdenes, async (req, res
                 queryTime: Date.now() - tiempoInicio
             });
         }
-        
+
         // 📊 PARÁMETROS: Soporte para paginación
         const limit = req.query.limit ? parseInt(req.query.limit) : null;
         const offset = req.query.offset ? parseInt(req.query.offset) : 0;
-        
+
         // Validar parámetros
         if (limit !== null) {
             if (isNaN(limit) || limit < 1 || limit > 100000) {
@@ -10803,15 +10813,15 @@ app.get('/api/public/oportunidades/disponibles', limiterOrdenes, async (req, res
                 });
             }
         }
-        
+
         const ahora = Date.now();
         const CACHE_TTL = 60000; // ⭐ 60 segundos
         const modosPaginado = limit !== null;
-        
+
         // ⭐ CACHE INTELIGENTE: Por página o global
         let cacheKey = 'oportunidades_disponibles';
         let caché = null;
-        
+
         if (modosPaginado) {
             // Cache por página
             cacheKey = `oportunidades_page_${offset}_${limit}`;
@@ -10823,7 +10833,7 @@ app.get('/api/public/oportunidades/disponibles', limiterOrdenes, async (req, res
             // Cache global (modo completo)
             caché = global.oportunidadesCache;
         }
-        
+
         // Verificar si hay cache válido
         if (caché && global.oportunidadesCacheTime) {
             const edad = ahora - global.oportunidadesCacheTime;
@@ -10854,7 +10864,7 @@ app.get('/api/public/oportunidades/disponibles', limiterOrdenes, async (req, res
                 const paginas = Math.ceil(total / limit);
                 // Calcular página actual, garantizando que no exceda el máximo
                 const paginaActual = Math.min(Math.floor(offset / limit) + 1, paginas);
-                
+
                 return {
                     success: true,
                     disponibles: numeros,
@@ -10878,9 +10888,9 @@ app.get('/api/public/oportunidades/disponibles', limiterOrdenes, async (req, res
             .whereNull('numero_orden')
             .whereBetween('numero_oportunidad', [rangoOculto.inicio, rangoOculto.fin])
             .select('numero_oportunidad');
-        
+
         let respuesta;
-        
+
         if (modosPaginado) {
             // PAGINACIÓN: 2 queries (count + data)
             // Query 1: Contar total disponibles
@@ -10891,19 +10901,19 @@ app.get('/api/public/oportunidades/disponibles', limiterOrdenes, async (req, res
                 .count('* as total')
                 .first()
                 .timeout(30000);  // 30s suficiente para paginado
-            
+
             // Query 2: Obtener datos paginados
             const dataQuery = query
                 .limit(limit)
                 .offset(offset)
                 .timeout(30000);  // 30s suficiente para paginado
-            
+
             // Ejecutar en paralelo
             const [countResult, disponibles] = await Promise.all([countQuery, dataQuery]);
-            
+
             const numeros = disponibles.map(o => o.numero_oportunidad);
             const totalEnBD = countResult.total || 0;
-            
+
             // Validar offset
             if (offset > totalEnBD && offset > 0) {
                 return res.status(400).json({
@@ -10911,7 +10921,7 @@ app.get('/api/public/oportunidades/disponibles', limiterOrdenes, async (req, res
                     message: `offset ${offset} excede total disponibles (${totalEnBD})`
                 });
             }
-            
+
             // Guardar en cache de página
             const respuestaPaginada = construirRespuesta({ total: totalEnBD, items: numeros }, false);
             if (!global.oportunidadesCachePages) {
@@ -10919,23 +10929,23 @@ app.get('/api/public/oportunidades/disponibles', limiterOrdenes, async (req, res
             }
             global.oportunidadesCachePages[cacheKey] = respuestaPaginada;
             global.oportunidadesCacheTime = ahora;
-            
+
             respuesta = respuestaPaginada;
         } else {
             // MODO COMPLETO: Sin paginación (backwards compatible)
             const disponibles = await query.timeout(90000);  // ⭐ 90s para query completa (750k registros puede tardar)
             const numeros = disponibles.map(o => o.numero_oportunidad);
-            
+
             // Guardar en cache global
             global.oportunidadesCache = { numeros, rango: rangoOculto };
             global.oportunidadesCacheTime = ahora;
-            
+
             respuesta = construirRespuesta(numeros, true);
         }
 
         setHttpCacheHeaders(res, 60, true);
         return res.json(respuesta);
-        
+
     } catch (error) {
         console.error('❌ [GET /api/public/oportunidades/disponibles] Error:', error.message);
         console.error('   Stack:', error.stack);
@@ -10964,7 +10974,7 @@ app.get('/api/public/oportunidades/disponibles', limiterOrdenes, async (req, res
 app.post('/api/public/oportunidades/validar', limiterOrdenes, async (req, res) => {
     try {
         const { numeros } = req.body;
-        
+
         // Validar entrada
         if (!Array.isArray(numeros) || numeros.length === 0) {
             return res.status(400).json({
@@ -11183,13 +11193,13 @@ app.get('/api/admin/oportunidades-stats', verificarToken, async (req, res) => {
                 // Totales
                 totalConfigurado: totalConfigurado,  // Total del sorteo actual
                 totalEnBD: totalEnBD,                // Total real en BD
-                
+
                 // Conteos por estado
                 disponibles: conteos.disponible,
                 asignadas: conteos.asignado,
                 apartadas: conteos.apartado,
                 canceladas: conteos.cancelado,
-                
+
                 // Derivados
                 enUso: enUso,                        // asignadas + apartadas
                 porcentajeUso: porcentajeUso         // % del total configurado
@@ -11222,7 +11232,7 @@ app.get('/api/admin/boletos', verificarToken, async (req, res) => {
         // Obtener totalBoletos desde la configuración actual
         const configSorteo = cargarConfigSorteo();
         const totalBoletos = configSorteo.totalBoletos;
-        
+
         // Crear set de boletos vendidos/reservados
         const boletosEnOrdenes = new Set();
         const boletosDetallados = [];
@@ -11321,7 +11331,7 @@ app.patch('/api/ordenes/:id/estado', verificarToken, async (req, res) => {
                 })
                 .where('numero_orden', id)
                 .first();
-            
+
             if (!ordenActual) {
                 throw new Error('ORDER_NOT_FOUND');
             }
@@ -11337,13 +11347,13 @@ app.patch('/api/ordenes/:id/estado', verificarToken, async (req, res) => {
             if (!transicionesPermitidas.includes(estado)) {
                 throw new Error(`INVALID_STATE_TRANSITION:${estadoActual}->${estado}`);
             }
-            
+
             let boletosActualizados = 0;
             const boletos = parseBoletosOrdenSeguro(ordenActual.boletos);
 
             // LÓGICA DE TRANSICIÓN DE ESTADOS Y BOLETOS
             // ==========================================
-            
+
             // Si cambia a 'confirmada' → boletos pasan a 'vendido'
             if (estado === 'confirmada' && ordenActual.estado !== 'confirmada') {
                 console.log(`[Orden ${id}] Boletos a confirmar:`, boletos);
@@ -11383,7 +11393,7 @@ app.patch('/api/ordenes/:id/estado', verificarToken, async (req, res) => {
                     }
                 }
             }
-            
+
             // Si cambia a 'cancelada' → boletos vuelven a 'disponible'
             if (estado === 'cancelada' && ordenActual.estado !== 'cancelada') {
                 console.log(`[Orden ${id}] Boletos a cancelar:`, boletos);
@@ -11406,7 +11416,7 @@ app.patch('/api/ordenes/:id/estado', verificarToken, async (req, res) => {
                     }
                     console.log(`[Orden ${id}] Cancelada: ${boletosActualizados} boletos devueltos a DISPONIBLE`);
                 }
-                
+
                 // NUEVO: Liberar OPORTUNIDADES (apartadas O vendidas) para esta orden
                 const oportunidadesLiberadas = await trx('orden_oportunidades')
                     .modify((qb) => {
@@ -11419,12 +11429,12 @@ app.patch('/api/ordenes/:id/estado', verificarToken, async (req, res) => {
                         estado: 'disponible',
                         numero_orden: null  // ✅ CORREGIDO: null en lugar de '0'
                     });
-                
+
                 if (oportunidadesLiberadas > 0) {
                     console.log(`[Orden ${id}] Cancelada: ${oportunidadesLiberadas} oportunidades devueltas a DISPONIBLE`);
                 }
             }
-            
+
             // Actualizar estado de orden dentro de transacción (atomic)
             await trx('ordenes')
                 .modify((qb) => {
@@ -11435,14 +11445,14 @@ app.patch('/api/ordenes/:id/estado', verificarToken, async (req, res) => {
                     estado: estado,
                     updated_at: new Date()
                 });
-            
+
             // 📌 NOTA: Las columnas de auditoría (confirmado_por, cancelado_por, etc.)
             // NO EXISTEN en el schema actual. Si necesitas agregar auditoría:
             // 1. Crear migración que agregue: confirmado_por, cancelado_por, 
             //    confirmado_en, cancelado_en, actualizado_por
             // 2. Descomentar el código en ENDPOINT-PATCH-ORDENES-ESTADO.md línea 4309-4325
             // Ver: ENDPOINT-PATCH-ORDENES-ESTADO.md para detalles
-            
+
             return {
                 success: true,
                 boletosActualizados,
@@ -11542,7 +11552,7 @@ app.patch('/api/ordenes/:id/estado', verificarToken, async (req, res) => {
                 message: `Transición de estado no permitida: ${transition}`
             });
         }
-        
+
         log('error', 'PATCH /api/ordenes/:id/estado error', { error: error.message });
         return res.status(500).json({
             success: false,
@@ -11610,7 +11620,7 @@ app.get('/api/admin/sales-stats', verificarToken, async (req, res) => {
                 ordenes: agregado?.ordenes || 0
             });
         }
-        
+
         return res.json({
             success: true,
             data: stats
@@ -11904,7 +11914,7 @@ app.get('/api/ganadores', async (req, res) => {
             return res.status(400).json({ success: false, message: 'Rifa no identificada' });
         }
         const rifaIdActual = rifaContext.id;
-        
+
         const rows = await db('ganadores')
             .where('rifa_id', rifaIdActual)
             .select('*')
@@ -11963,7 +11973,7 @@ app.get('/api/admin/ordenes-expiradas/stats', verificarToken, async (req, res) =
         const stats = await ordenExpirationService.obtenerEstadisticas({
             rifaId: req.rifaContext?.id
         });
-        
+
         res.json({
             success: true,
             data: stats,
@@ -11989,7 +11999,7 @@ app.get('/api/admin/ordenes-expiradas/estado-servicio', verificarToken, async (r
         const estadisticasOrdenes = await ordenExpirationService.obtenerEstadisticas({
             rifaId: req.rifaContext?.id
         });
-        
+
         res.json({
             success: true,
             data: {
@@ -12015,9 +12025,9 @@ app.get('/api/admin/ordenes-expiradas/estado-servicio', verificarToken, async (r
 app.post('/api/admin/ordenes-expiradas/limpiar', verificarToken, async (req, res) => {
     try {
         console.log('🧹 Limpieza manual de órdenes expiradas iniciada por admin');
-        
+
         await ordenExpirationService.limpiarOrdenesExpiradas();
-        
+
         const stats = await ordenExpirationService.obtenerEstadisticas();
 
         res.json({
@@ -12099,7 +12109,7 @@ app.post('/api/admin/ordenes-expiradas/configurar', verificarToken, async (req, 
 app.get('/api/admin/expiration-status', verificarToken, async (req, res) => {
     try {
         const estado = ordenExpirationService.obtenerEstado();
-        
+
         res.json({
             success: true,
             data: estado,
@@ -12125,7 +12135,7 @@ app.get('/api/admin/expiration-stats', verificarToken, async (req, res) => {
         const stats = await ordenExpirationService.obtenerEstadisticas({
             rifaId: req.rifaContext?.id
         });
-        
+
         res.json({
             success: true,
             data: stats,
@@ -12268,17 +12278,17 @@ app.post('/api/admin/ordenes-manual', verificarToken, async (req, res) => {
         const numeroOrden = `MAN-${Date.now()}`;
         await db.transaction(async (trx) => {
             await trx('ordenes').insert({
-            numero_orden: numeroOrden,
-            nombre_cliente: cliente_nombre || 'Venta Manual',
-            telefono_cliente: cliente_whatsapp || '',
-            cantidad_boletos: boletos.length,
-            boletos: JSON.stringify(boletos),
-            estado: 'completada',
-            created_at: new Date(),
-            updated_at: new Date(),
-            total: 0, // Venta en efectivo, sin registro de pago en sistema
-            ...(rifaIdActual ? { rifa_id: rifaIdActual } : {})
-        });
+                numero_orden: numeroOrden,
+                nombre_cliente: cliente_nombre || 'Venta Manual',
+                telefono_cliente: cliente_whatsapp || '',
+                cantidad_boletos: boletos.length,
+                boletos: JSON.stringify(boletos),
+                estado: 'completada',
+                created_at: new Date(),
+                updated_at: new Date(),
+                total: 0, // Venta en efectivo, sin registro de pago en sistema
+                ...(rifaIdActual ? { rifa_id: rifaIdActual } : {})
+            });
 
             await trx('boletos_estado')
                 .modify((qb) => aplicarFiltroRifa(qb, rifaIdActual))
@@ -12367,11 +12377,11 @@ app.patch('/api/admin/boletos/:numero/liberar', verificarToken, async (req, res)
                     let numerosArr = parseBoletosOrdenSeguro(orden.boletos);
 
                     const index = numerosArr.indexOf(numBoleto);
-                    
+
                     if (index !== -1) {
                         // Remover el boleto
                         numerosArr.splice(index, 1);
-                        
+
                         await trx('boletos_estado')
                             .modify((qb) => aplicarFiltroRifa(qb, rifaIdActual))
                             .where('numero', numBoleto)
@@ -12423,7 +12433,7 @@ app.patch('/api/admin/boletos/:numero/liberar', verificarToken, async (req, res)
                                     updated_at: new Date()
                                 });
                         }
-                        
+
                         return {
                             encontrado: true,
                             orden: orden.numero_orden,
@@ -12434,7 +12444,7 @@ app.patch('/api/admin/boletos/:numero/liberar', verificarToken, async (req, res)
                     // Ignorar JSON inválido
                 }
             }
-            
+
             // Si llegamos aquí, el boleto no fue encontrado
             throw new Error('BOLETO_NOT_FOUND');
         });
@@ -12460,7 +12470,7 @@ app.patch('/api/admin/boletos/:numero/liberar', verificarToken, async (req, res)
                 message: 'Boleto no encontrado'
             });
         }
-        
+
         log('error', 'PATCH /api/admin/boletos/:numero/liberar error', { error: error.message });
         return res.status(500).json({
             success: false,
@@ -12492,12 +12502,12 @@ app.get('/api/cliente', (req, res) => {
         }
 
         const config = obtenerConfigActual(req.rifaContext?.id || null);
-        
+
         // ✅ VALIDACIÓN: Asegurar estructura mínima
         if (!config.cliente) config.cliente = {};
         if (!config.rifa) config.rifa = {};
         if (!config.tecnica) config.tecnica = {};
-        
+
         // ✅ VALIDACIÓN: Campos críticos de rifa
         if (!config.rifa.nombreSorteo) {
             console.warn('⚠️  nombreSorteo vacío en configuración actual, usando fallback');
@@ -12512,7 +12522,7 @@ app.get('/api/cliente', (req, res) => {
             console.warn('⚠️  precioBoleto inválido en configuración actual, usando fallback');
             config.rifa.precioBoleto = Number(PRECIO_BOLETO_DEFAULT) || 0;
         }
-        
+
         // Combinar datos actuales con la estructura esperada por frontend
         const clienteData = {
             cliente: config.cliente || {},
@@ -12523,7 +12533,7 @@ app.get('/api/cliente', (req, res) => {
             tema: normalizarTemaConfig(config.tema || {}),
             marketing: config.marketing || {}
         };
-        
+
         const payload = {
             success: true,
             data: clienteData
@@ -12563,25 +12573,25 @@ app.get('/api/cliente', (req, res) => {
 app.patch('/api/admin/cliente', verificarToken, async (req, res) => {
     try {
         const updates = req.body;
-        
+
         if (!updates || Object.keys(updates).length === 0) {
             return res.status(400).json({
                 success: false,
                 message: 'No hay datos para actualizar'
             });
         }
-        
+
         // Actualizar en memoria
         Object.assign(clienteConfig, updates);
-        
+
         // Guardar en archivo (async)
         const configPath = path.join(__dirname, 'cliente-config.js');
         const configContent = `/**\n * Configuración del cliente\n * Actualizado: ${new Date().toISOString()}\n */\n\nmodule.exports = ${JSON.stringify(clienteConfig, null, 2)};`;
-        
+
         fs.writeFileSync(configPath, configContent, 'utf8');
-        
+
         console.log(`✅ Configuración del cliente actualizada`);
-        
+
         res.json({
             success: true,
             message: 'Configuración guardada correctamente',
@@ -12605,14 +12615,14 @@ app.patch('/api/admin/cliente', verificarToken, async (req, res) => {
 app.post('/api/admin/cliente/rifa', verificarToken, async (req, res) => {
     try {
         const rifaUpdates = req.body;
-        
+
         if (!rifaUpdates) {
             return res.status(400).json({
                 success: false,
                 message: 'No hay datos del sorteo para actualizar'
             });
         }
-        
+
         // Validaciones básicas
         if (rifaUpdates.totalBoletos && rifaUpdates.totalBoletos < 1) {
             return res.status(400).json({
@@ -12620,24 +12630,24 @@ app.post('/api/admin/cliente/rifa', verificarToken, async (req, res) => {
                 message: 'Total de boletos debe ser mayor a 0'
             });
         }
-        
+
         if (rifaUpdates.precioBoleto && rifaUpdates.precioBoleto < 0) {
             return res.status(400).json({
                 success: false,
                 message: 'Precio del boleto no puede ser negativo'
             });
         }
-        
+
         // Actualizar
         clienteConfig.rifa = Object.assign({}, clienteConfig.rifa, rifaUpdates);
-        
+
         // Guardar en archivo
         const configPath = path.join(__dirname, 'cliente-config.js');
         const configContent = `/**\n * Configuración del cliente\n * Actualizado: ${new Date().toISOString()}\n */\n\nmodule.exports = ${JSON.stringify(clienteConfig, null, 2)};`;
         fs.writeFileSync(configPath, configContent, 'utf8');
-        
+
         console.log(`✅ Configuración del sorteo actualizada`);
-        
+
         res.json({
             success: true,
             message: 'Sorteo actualizado correctamente',
@@ -12661,14 +12671,14 @@ app.post('/api/admin/cliente/rifa', verificarToken, async (req, res) => {
 app.post('/api/admin/cliente/cuentas', verificarToken, async (req, res) => {
     try {
         const cuentas = req.body;
-        
+
         if (!Array.isArray(cuentas)) {
             return res.status(400).json({
                 success: false,
                 message: 'Las cuentas deben ser un array'
             });
         }
-        
+
         // Validar cada cuenta
         for (const cuenta of cuentas) {
             if (!cuenta.nombreBanco || !cuenta.accountNumber) {
@@ -12678,16 +12688,16 @@ app.post('/api/admin/cliente/cuentas', verificarToken, async (req, res) => {
                 });
             }
         }
-        
+
         clienteConfig.cuentas = cuentas;
-        
+
         // Guardar
         const configPath = path.join(__dirname, 'cliente-config.js');
         const configContent = `/**\n * Configuración del cliente\n * Actualizado: ${new Date().toISOString()}\n */\n\nmodule.exports = ${JSON.stringify(clienteConfig, null, 2)};`;
         fs.writeFileSync(configPath, configContent, 'utf8');
-        
+
         console.log(`✅ Cuentas de pago actualizadas`);
-        
+
         res.json({
             success: true,
             message: 'Cuentas de pago actualizadas',
@@ -12783,10 +12793,10 @@ app.post('/api/boletos/verificar', async (req, res) => {
 
         const rifaIdActual = Number.parseInt(req.rifaContext?.id, 10) || null;
         const config = cargarConfigSorteo(rifaIdActual);
-        
+
         console.log(`[DEBUG] Verificar: rifaId=${rifaIdActual}, slug=${config.rifaSlug}, total=${config.totalBoletos}`);
 
-        const { disponibles, conflictos } = await BoletoService.verificarDisponibilidad(numeros, { 
+        const { disponibles, conflictos } = await BoletoService.verificarDisponibilidad(numeros, {
             rifaId: rifaIdActual,
             totalBoletos: config.totalBoletos
         });
@@ -13180,7 +13190,7 @@ app.post('/api/boletos/init-dev', async (req, res) => {
         const configSorteo = cargarConfigSorteo();
         const rifaIdActual = Number.parseInt(req.rifaContext?.id, 10) || null;
         let TOTAL = parseInt(req.body.totalBoletos) || configSorteo.totalBoletos;
-        
+
         // Validar que sea un número válido y razonable
         if (isNaN(TOTAL) || TOTAL < 1 || TOTAL > 10000000) {
             return res.status(400).json({
@@ -13259,7 +13269,7 @@ app.post('/api/boletos/init-dev', async (req, res) => {
                 }
 
                 console.log(`✅ COMPLETADO: ${insertados.toLocaleString()} boletos insertados`);
-                
+
                 // Verificar resultado
                 const final = await db('boletos_estado')
                     .modify((qb) => {
@@ -13444,7 +13454,7 @@ app.post('/api/admin/limpiar-ordenes-canceladas', verificarToken, async (req, re
     try {
         console.log('🧹 [CLEANUP] Iniciando limpieza de órdenes canceladas...');
         const rifaIdActual = obtenerRifaIdRequest(req);
-        
+
         // PASO 1: Encontrar todas las órdenes canceladas SIN comprobante
         const ordenesCanceladas = await db('ordenes')
             .modify((qb) => aplicarFiltroRifa(qb, rifaIdActual))
@@ -13535,7 +13545,7 @@ async function asegurarTablaOportunidades() {
         } else {
             console.log('✅ Tabla orden_oportunidades ya existe');
         }
-        
+
         // ✅ CREAR ÍNDICE ÚNICO PARCIAL PARA PREVENIR DUPLICADOS
         await asegurarConstraintUnicoOportunidades();
     } catch (error) {
@@ -13550,7 +13560,7 @@ async function asegurarTablaOportunidades() {
  */
 async function asegurarIndicesMultiRifa() {
     const tablas = ['ordenes', 'boletos_estado', 'ganadores', 'order_id_counter'];
-    
+
     for (const nombreTabla of tablas) {
         try {
             const existeTabla = await db.schema.hasTable(nombreTabla);
@@ -13568,7 +13578,7 @@ async function asegurarIndicesMultiRifa() {
             try {
                 await db.schema.table(nombreTabla, (table) => {
                     table.index(['rifa_id'], `idx_${nombreTabla}_rifa_id`);
-                    
+
                     // 🛡️ UNICIDAD CRÍTICA para el contador
                     if (nombreTabla === 'order_id_counter') {
                         table.unique(['cliente_id', 'rifa_id'], `uniq_${nombreTabla}_ctx`);
@@ -13597,7 +13607,7 @@ async function asegurarIndicesMultiRifa() {
 async function asegurarConstraintUnicoOportunidades() {
     try {
         console.log('🔒 Verificando constraint único para oportunidades activas...');
-        
+
         const indexResult = await db.raw(`
             SELECT indexdef
             FROM pg_indexes
@@ -13619,7 +13629,7 @@ async function asegurarConstraintUnicoOportunidades() {
             console.warn('♻️  Se detectó un idx_numero_opu_activo legacy. Reemplazando definición...');
             await db.raw('DROP INDEX IF EXISTS idx_numero_opu_activo');
         }
-        
+
         // Crear índice único PARCIAL (solo para estados activos)
         // Esto previene duplicados de oportunidades en estado apartado/vendido
         await db.raw(`
@@ -13627,7 +13637,7 @@ async function asegurarConstraintUnicoOportunidades() {
             ON orden_oportunidades(numero_oportunidad) 
             WHERE estado IN ('apartado', 'vendido');
         `);
-        
+
         console.log('✅ Constraint único creado: Oportunidades activas NO pueden duplicarse');
     } catch (error) {
         // Si el índice ya existe o hay error, no es fatal
@@ -13714,9 +13724,9 @@ const server = http.createServer(app);
 // 🔌 Configurar Socket.io con soporte CORS seguro
 const io = socketIO(server, {
     cors: {
-        origin: process.env.NODE_ENV === 'production' 
-            ? allowedCorsOrigins.length > 0 
-                ? allowedCorsOrigins 
+        origin: process.env.NODE_ENV === 'production'
+            ? allowedCorsOrigins.length > 0
+                ? allowedCorsOrigins
                 : false // Si no hay orígenes whitelistados, denegar TODOS en producción
             : ['http://localhost:3000', 'http://localhost:5500', 'http://127.0.0.1:5500', 'http://127.0.0.1:3000'],
         methods: ['GET', 'POST'],
@@ -13747,7 +13757,7 @@ server.listen(PORT, () => {
     console.log(`📍 Ambiente: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🔌 WebSocket habilitado en ws://localhost:${PORT}`);
     console.log('🛡️  Protección contra crashes activada\n');
-    
+
     // 🔌 Inicializar eventos de WebSocket
     wsEvents = inicializarEventosWebSocket(io, {
         verifyAdminToken: verificarSocketAdminToken
@@ -13782,7 +13792,7 @@ setTimeout(async () => {
             rifaService = new RifaService(db);
             await rifaService.inicializar();
         }
-        
+
         try {
             const backfillCampanas = await backfillSuscripcionesCampanaDesdeOrdenes(db);
             console.log(`✅ Backfill audiencia push listo (${backfillCampanas.created} nuevas, ${backfillCampanas.updated} actualizadas, ${backfillCampanas.processed} procesadas)`);
@@ -13808,7 +13818,7 @@ setTimeout(async () => {
         await asegurarTablaOportunidades();
         // 🛡️ Asegurar índices de rendimiento para Multi-Rifa
         await asegurarIndicesMultiRifa();
-        
+
         // Iniciar servicio de expiración de órdenes
         const configActual = rifaService?.enabled
             ? (await rifaService.obtenerRifaActivaPublica(true))?.configuracion || obtenerConfigActual()
