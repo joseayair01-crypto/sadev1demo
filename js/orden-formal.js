@@ -7,6 +7,10 @@
  * ============================================================
  */
 
+// Nota de despliegue: tocando este comentario se fuerza un nuevo build/deploy
+// para actualizar assets versionados (no afecta lógica).
+
+
 /* ============================================================ */
 /* FUNCIONES DEFENSIVAS DE ALMACENAMIENTO                      */
 /* ============================================================ */
