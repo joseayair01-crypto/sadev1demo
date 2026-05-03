@@ -7018,8 +7018,8 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
 
         const resultado = await db.transaction(async (trx) => {
             const trxStart = Date.now();
-            await trx.raw("SET LOCAL lock_timeout = '10s'");
-            await trx.raw("SET LOCAL statement_timeout = '30s'");
+            await trx.raw("SET LOCAL lock_timeout = '20s'");
+            await trx.raw("SET LOCAL statement_timeout = '60s'");
             perfMarks.trxSetupMs = Date.now() - trxStart;
 
             if (ordenIdSolicitado) {
@@ -7048,7 +7048,7 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
             }
 
             let createdResult = null;
-            for (let intentoOrdenId = 0; intentoOrdenId < 12; intentoOrdenId++) {
+            for (let intentoOrdenId = 0; intentoOrdenId < 30; intentoOrdenId++) {
                 if (!ordenId) {
                     const counterStart = Date.now();
                     ordenId = await generarSiguienteOrdenId(clienteIdActual, trx, rifaIdActual);
@@ -7087,7 +7087,8 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
                         telefonoActual: whatsapp
                     });
                     ordenId = '';
-                    await new Promise((resolve) => setTimeout(resolve, 30 + Math.floor(Math.random() * 120)));
+                    // Exponential/randomized backoff to reduce thundering herd
+                    await new Promise((resolve) => setTimeout(resolve, 50 + Math.floor(Math.random() * 300)));
                     continue;
                 }
 
@@ -7234,7 +7235,8 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
                     if (insErr && (insErr.code === '23505' || /duplicate key value|duplicate key/.test(errMsg))) {
                         console.warn('⚠️ [POST /api/ordenes] inserción colisionó (23505). Regenerando ordenId y reintentando', { ordenId, err: errMsg });
                         ordenId = '';
-                        await new Promise((resolve) => setTimeout(resolve, 30 + Math.floor(Math.random() * 120)));
+                        // Slightly longer randomized backoff on unique constraint collisions
+                        await new Promise((resolve) => setTimeout(resolve, 80 + Math.floor(Math.random() * 400)));
                         continue; // reintentar
                     }
 
