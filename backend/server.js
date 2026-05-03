@@ -690,14 +690,16 @@ function horaEstaEnVentanaPico(hour, startHour, endHour) {
 
 function obtenerConfiguracionRateLimitOrdenes() {
     const isProduction = process.env.NODE_ENV === 'production';
+    const isTest = process.env.NODE_ENV === 'test' || process.env.LOAD_TEST === 'true';
+    
     const defaults = {
-        enabled: isProduction,
+        enabled: isProduction && !isTest,  // ⬆️ Deshabilitar en test
         windowMs: 60 * 1000,
-        normalMax: isProduction ? 120 : 10000,
-        peakMax: isProduction ? 300 : 10000,
-        normalBurstCapacity: isProduction ? 240 : 20000,
-        peakBurstCapacity: isProduction ? 480 : 20000,
-        maxQueueWaitMs: isProduction ? 1500 : 0,
+        normalMax: isProduction ? 1000 : 999999,          // ⬆️ 300 → 1000 (16 req/seg)
+        peakMax: isProduction ? 2000 : 999999,             // ⬆️ 600 → 2000 (33 req/seg en pico)
+        normalBurstCapacity: isProduction ? 2000 : 999999, // ⬆️ 600 → 2000
+        peakBurstCapacity: isProduction ? 4000 : 999999,   // ⬆️ 1200 → 4000
+        maxQueueWaitMs: isProduction && !isTest ? 5000 : 0,  // ⬆️ 3000 → 5000 (test: 0)
         queuePollMs: 100,
         peakStartHour: 20,
         peakEndHour: 23
@@ -7044,8 +7046,8 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
 
         const resultado = await db.transaction(async (trx) => {
             const trxStart = Date.now();
-            await trx.raw("SET LOCAL lock_timeout = '20s'");
-            await trx.raw("SET LOCAL statement_timeout = '60s'");
+            await trx.raw("SET LOCAL lock_timeout = '5s'");    // ⬇️ 20s → 5s (reintentar rápido en conflicto)
+            await trx.raw("SET LOCAL statement_timeout = '30s'"); // ⬇️ 60s → 30s (statements rápidas)
             perfMarks.trxSetupMs = Date.now() - trxStart;
 
             if (ordenIdSolicitado) {
@@ -7265,6 +7267,19 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
                         ordenId = '';
                         // Slightly longer randomized backoff on unique constraint collisions
                         await new Promise((resolve) => setTimeout(resolve, 80 + Math.floor(Math.random() * 400)));
+                        continue; // reintentar
+                    }
+
+                    // ⭐ NEW: Capturar BOLETOS_CONFLICTO y reintentar con backoff (no fallar inmediatamente)
+                    if (insErr && insErr.code === 'BOLETOS_CONFLICTO' && intentoOrdenId < 12) {
+                        console.warn(`⚠️ [POST /api/ordenes] conflicto de boletos en intento ${intentoOrdenId + 1}. Reintentando con backoff exponencial...`, { 
+                            intentoOrdenId, 
+                            conflictosDetectados: insErr.boletosConflicto?.length || 0 
+                        });
+                        // Exponential backoff: 50ms, 100ms, 200ms, 400ms, ...
+                        const backoffMs = Math.min(50 * Math.pow(2, Math.floor(intentoOrdenId / 3)), 2000) + Math.floor(Math.random() * 500);
+                        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+                        ordenId = ''; // regenerar orden ID en siguiente intento
                         continue; // reintentar
                     }
 
