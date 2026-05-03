@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="rifaplus-api-base" content="http://localhost:5001">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' http://127.0.0.1:* http://localhost:* http://localhost:5001; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://fonts.googleapis.com http://localhost:5001 http://127.0.0.1:5001; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' http://127.0.0.1:* http://localhost:* https: http://localhost:5001 http://127.0.0.1:5001 ws: wss: ws://localhost:5001 wss://localhost:5001 ws://127.0.0.1:5001 wss://127.0.0.1:5001; img-src 'self' data: https:;">
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self' http://127.0.0.1:* http://localhost:* http://localhost:5001; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://fonts.googleapis.com http://localhost:5001 http://127.0.0.1:5001; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' http://127.0.0.1:* http://localhost:* https: http://localhost:5001 http://127.0.0.1:5001 ws: wss: ws://localhost:5001 wss://localhost:5001 ws://127.0.0.1:5001 wss://127.0.0.1:5001; img-src 'self' data: https:;">
     <!-- METADATOS DINÁMICOS - Cloudflare Functions y js/meta-inyector los actualizan desde la configuración actual -->
     <title>Sorteo en linea</title>
     <meta name="description" content="Informacion del sorteo en linea, compra de boletos y estado de tu participacion.">
@@ -25,7 +27,7 @@
     <link rel="stylesheet" href="css/styles.css?v=20260429.2">
     <script src="js/image-delivery.js"></script>
     <script>
-        (function() {
+        (function () {
             const imageDelivery = window.RifaPlusImageDelivery;
             let configLocal = {};
             let cachedLogo = 'images/placeholder-logo.svg';
@@ -46,7 +48,7 @@
                         if (valor !== undefined) {
                             return valor !== false;
                         }
-                    } catch (error) {}
+                    } catch (error) { }
                 }
 
                 for (const clave of clavesConfig) {
@@ -59,7 +61,7 @@
                         if (valor !== undefined) {
                             return valor !== false;
                         }
-                    } catch (error) {}
+                    } catch (error) { }
                 }
 
                 return true;
@@ -94,7 +96,7 @@
 
             window.__RIFAPLUS_CACHED_LOGO__ = imageDelivery?.resolverUrlImagen(rawLogo, 'logo') || rawLogo;
             window.__RIFAPLUS_CACHED_GALERIA__ = Array.isArray(cachedGallery) ? cachedGallery : [];
-            window.__RIFAPLUS_INDEX_HERO__ = (function() {
+            window.__RIFAPLUS_INDEX_HERO__ = (function () {
                 let edicion = '';
                 let nombre = '';
                 let descripcion = '';
@@ -139,7 +141,7 @@
             } else {
                 // Si el DOM ya se cargó, inyectar en head directamente
                 const head = document.head || document.documentElement;
-                
+
                 const preloadLogo = document.createElement('link');
                 preloadLogo.rel = 'preload';
                 preloadLogo.as = 'image';
@@ -199,16 +201,29 @@
             }
         })();
     </script>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" media="print" data-deferred-style="true">
-    <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"></noscript>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" data-deferred-style="true">
-    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap"
+        media="print" data-deferred-style="true">
+    <noscript>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap"
+            rel="stylesheet">
+    </noscript>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        media="print" data-deferred-style="true">
+    <noscript>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    </noscript>
     <link rel="stylesheet" href="css/modal-contacto.css" media="print" data-deferred-style="true">
-    <noscript><link rel="stylesheet" href="css/modal-contacto.css"></noscript>
+    <noscript>
+        <link rel="stylesheet" href="css/modal-contacto.css">
+    </noscript>
     <link rel="stylesheet" href="css/orden-formal.css" media="print" data-deferred-style="true">
-    <noscript><link rel="stylesheet" href="css/orden-formal.css"></noscript>
+    <noscript>
+        <link rel="stylesheet" href="css/orden-formal.css">
+    </noscript>
     <link rel="stylesheet" href="css/sistema-premios.css?v=20260410.1" media="print" data-deferred-style="true">
-    <noscript><link rel="stylesheet" href="css/sistema-premios.css?v=20260410.1"></noscript>
+    <noscript>
+        <link rel="stylesheet" href="css/sistema-premios.css?v=20260410.1">
+    </noscript>
     <script>
         (function activarEstilosDiferidos() {
             const estilos = document.querySelectorAll('link[data-deferred-style="true"]');
@@ -246,12 +261,12 @@
             const indexDebug = ['localhost', '127.0.0.1'].includes(window.location.hostname);
             const userAgent = navigator.userAgent.toLowerCase();
             const esBot = /facebookexternalhit|twitterbot|whatsapp|linkedinbot|slurp|googlebot|slackbot|discordbot/i.test(userAgent);
-            
+
             if (esBot && indexDebug) {
                 console.log('🤖 Bot detectado:', userAgent);
             }
         })();
-        
+
         // ============================================================
         // LIMPIEZA COMPLETA DE CACHÉ - EJECUTAR ANTES DE CARGAR CONFIG
         // ============================================================
@@ -273,7 +288,7 @@
                 'rifaplus_fecha',
                 'rifaplus_timestamp'
             ];
-            
+
             keysABorrar.forEach(key => {
                 if (localStorage.getItem(key)) {
                     if (indexDebug) {
@@ -282,7 +297,7 @@
                     localStorage.removeItem(key);
                 }
             });
-            
+
             if (indexDebug) {
                 console.log('✅ localStorage limpiado completamente');
                 console.log('Keys restantes en localStorage:', Object.keys(localStorage));
@@ -342,23 +357,27 @@
                 document.head.appendChild(script);
             }
 
-            const idle = window.requestIdleCallback || function(cb) {
+            const idle = window.requestIdleCallback || function (cb) {
                 return setTimeout(cb, 1200);
             };
 
-            window.addEventListener('load', function() {
+            window.addEventListener('load', function () {
                 idle(loadAnimator, { timeout: 2000 });
             }, { once: true });
         })();
     </script>
 </head>
+
 <body>
-    <div class="rifaplus-shell-overlay rifaplus-shell-overlay--logo-only" id="rifaplusPublicShell" role="status" aria-live="polite" aria-label="Cargando">
+    <div class="rifaplus-shell-overlay rifaplus-shell-overlay--logo-only" id="rifaplusPublicShell" role="status"
+        aria-live="polite" aria-label="Cargando">
         <div class="rifaplus-shell-card">
             <div class="rifaplus-shell-logo-frame">
-                <img id="rifaplusShellLogo" class="rifaplus-shell-logo" src="images/placeholder-logo.svg" alt="Logo del organizador" width="112" height="112">
+                <img id="rifaplusShellLogo" class="rifaplus-shell-logo" src="images/placeholder-logo.svg"
+                    alt="Logo del organizador" width="112" height="112">
             </div>
-            <p id="rifaplusShellCopy" class="rifaplus-shell-copy rifaplus-shell-copy--tagline">Preparando tu experiencia digital</p>
+            <p id="rifaplusShellCopy" class="rifaplus-shell-copy rifaplus-shell-copy--tagline">Preparando tu experiencia
+                digital</p>
         </div>
     </div>
     <!-- HEADER CON MENÚ -->
@@ -377,7 +396,9 @@
                     <script>
                         document.write('<img src="' + (window.__RIFAPLUS_CACHED_LOGO__ || "images/placeholder-logo.svg") + '" alt="Logo del organizador" class="logo-image dynamic-logo" data-dynamic-logo="true" fetchpriority="high" loading="eager" decoding="sync" width="320" height="137">');
                     </script>
-                    <noscript><img src="images/placeholder-logo.svg" alt="Logo del organizador" class="logo-image dynamic-logo" data-dynamic-logo="true" fetchpriority="high" loading="eager" decoding="sync" width="320" height="137"></noscript>
+                    <noscript><img src="images/placeholder-logo.svg" alt="Logo del organizador"
+                            class="logo-image dynamic-logo" data-dynamic-logo="true" fetchpriority="high"
+                            loading="eager" decoding="sync" width="320" height="137"></noscript>
                 </div>
                 <span class="logo-verified-badge" aria-hidden="true">✓</span>
             </a>
@@ -415,10 +436,17 @@
     <section class="hero" id="inicio">
         <div class="container">
             <div class="hero-content">
-                <p class="edicion-nombre" id="edicionNombre"><script>document.write(window.__RIFAPLUS_INDEX_HERO__?.edicion || '');</script></p>
-                <h1 class="hero-title" id="heroTitle"><span class="highlight" id="heroHighlight"><script>document.write(window.__RIFAPLUS_INDEX_HERO__?.nombre || '');</script></span></h1>
-                <p class="hero-description" id="heroDescription"><script>document.write(window.__RIFAPLUS_INDEX_HERO__?.descripcion || '');</script></p>
-                <button class="btn btn-secondary-accent btn-hero-cta" onclick="window.location.href='compra.html'" aria-label="Comprar boletos ahora">
+                <p class="edicion-nombre" id="edicionNombre">
+                    <script>document.write(window.__RIFAPLUS_INDEX_HERO__?.edicion || '');</script>
+                </p>
+                <h1 class="hero-title" id="heroTitle"><span class="highlight" id="heroHighlight">
+                        <script>document.write(window.__RIFAPLUS_INDEX_HERO__?.nombre || '');</script>
+                    </span></h1>
+                <p class="hero-description" id="heroDescription">
+                    <script>document.write(window.__RIFAPLUS_INDEX_HERO__?.descripcion || '');</script>
+                </p>
+                <button class="btn btn-secondary-accent btn-hero-cta" onclick="window.location.href='compra.html'"
+                    aria-label="Comprar boletos ahora">
                     Comprar Boletos Ahora
                     <span class="btn-arrow">→</span>
                 </button>
@@ -432,7 +460,7 @@
             <div class="carrusel">
                 <div class="carrusel-inner is-loading">
                     <script>
-                        (function() {
+                        (function () {
                             const imagenInicial = Array.isArray(window.__RIFAPLUS_CACHED_GALERIA__) && window.__RIFAPLUS_CACHED_GALERIA__.length > 0
                                 ? window.__RIFAPLUS_CACHED_GALERIA__[0]
                                 : null;
@@ -489,13 +517,15 @@
     <!-- CUENTA REGRESIVA - URGENCIA -->
     <section class="countdown-section">
         <div class="container">
-                <div class="countdown-card">
-                    <div class="countdown-header">
+            <div class="countdown-card">
+                <div class="countdown-header">
                     <h2 class="countdown-title">¡El Sorteo Está Cada Vez Más Cerca!</h2>
-                    <p class="countdown-subtitle" id="countdownSubtitle">La cuenta regresiva para el sorteo ya está en marcha.
-                    <strong>Asegura tu participación antes del cierre del sorteo.</strong></p>
-                    </div>
-                
+                    <p class="countdown-subtitle" id="countdownSubtitle">La cuenta regresiva para el sorteo ya está en
+                        marcha.
+                        <strong>Asegura tu participación antes del cierre del sorteo.</strong>
+                    </p>
+                </div>
+
                 <div class="countdown-timer" aria-live="polite">
                     <div class="countdown-item">
                         <span class="countdown-number" id="countdown-days">00</span>
@@ -586,7 +616,8 @@
             <div class="detalles-sorteo-content">
                 <span class="detalles-sorteo-eyebrow">Informacion Clave</span>
                 <h2 class="section-title">Detalles del Sorteo</h2>
-                <p class="detalles-sorteo-subtitle">Aquí puedes revisar fechas, dinámicas y datos esenciales para participar con claridad.</p>
+                <p class="detalles-sorteo-subtitle">Aquí puedes revisar fechas, dinámicas y datos esenciales para
+                    participar con claridad.</p>
                 <div class="info-grid" id="infoRifaGrid">
                     <!-- Se carga dinámicamente desde config.js -->
                 </div>
@@ -845,7 +876,7 @@
     <section class="precios-section perf-defer-mobile perf-defer-mobile--large">
         <div class="container">
             <h2 class="section-title">Precios y Promociones</h2>
-            
+
             <!-- PRECIO UNITARIO - Una sola tarjeta como en compra.html -->
             <div class="precios-grid-unitario">
                 <div class="precio-card-main" id="precioCardMain">
@@ -854,11 +885,12 @@
                     </div>
                     <!-- PRECIO NORMAL (cuando no hay promoción) -->
                     <div id="precioNormal" class="precio-normal-mode">
-                        <div class="precio-super-badge" id="precioSuperBadgeIndex" style="display: none;">Super promocion</div>
+                        <div class="precio-super-badge" id="precioSuperBadgeIndex" style="display: none;">Super
+                            promocion</div>
                         <h3>Precio por Boleto</h3>
                         <div class="precio-big"><span id="precioDinamicoIndex">Cargando...</span></div>
                     </div>
-                    
+
                     <!-- PRECIO CON OFERTA (cuando hay promoción) -->
                     <div id="precioOferta" class="precio-oferta-mode" style="display: none;">
                         <div class="oferta-topline">
@@ -867,13 +899,13 @@
                             </div>
                             <p class="precio-kicker">Promoción activa</p>
                         </div>
-                        
+
                         <!-- Precio normal tachado -->
                         <div class="oferta-precio-normal">
                             <h4>Precio Regular</h4>
                             <div class="precio-tachado" id="precioNormalOferta">$20</div>
                         </div>
-                        
+
                         <!-- Precio de oferta resaltado -->
                         <div class="oferta-precio-destacado">
                             <h3>Precio Especial</h3>
@@ -882,23 +914,25 @@
                         <p class="precio-caption">Aprovecha este precio antes de que termine</p>
                     </div>
                 </div>
-                
+
                 <!-- VIGENCIA DE LA OFERTA - Fuera de la card -->
                 <div class="oferta-vigencia" id="ofertaVigencia" style="display: none;">
                     <span class="vigencia-text" id="vigenciaOferta">Vigencia hasta: 15/03/2026 a las 23:59</span>
                 </div>
             </div>
-            
+
             <!-- AVISO DE OPORTUNIDADES -->
             <p id="oportunidadesTexto" class="oportunidades-texto" style="display: none;"></p>
-            
+
             <!-- PROMOCIONES/DESCUENTOS -->
             <div class="precios-promos-panel" id="preciosPromosPanel" style="display: none;">
                 <div class="precios-promos-sections">
-                    <section class="precios-promos-block precios-promos-block--oportunidades" id="indexOportunidadesBlock" style="display: none;">
+                    <section class="precios-promos-block precios-promos-block--oportunidades"
+                        id="indexOportunidadesBlock" style="display: none;">
                         <div class="precios-promos-header">
                             <h3 class="precios-promos-title">Oportunidades extra</h3>
-                            <p class="precios-promos-sub" id="indexOportunidadesSub">Cada boleto multiplica tus posibilidades de ganar.</p>
+                            <p class="precios-promos-sub" id="indexOportunidadesSub">Cada boleto multiplica tus
+                                posibilidades de ganar.</p>
                         </div>
                         <div class="precios-grid-promos" id="indexOportunidadesGrid">
                             <!-- Se carga dinámicamente desde config.js -->
@@ -908,7 +942,8 @@
                     <section class="precios-promos-block" id="indexDescuentosBlock" style="display: none;">
                         <div class="precios-promos-header">
                             <h3 class="precios-promos-title">Ahorra al comprar más</h3>
-                            <p class="precios-promos-sub" id="indexDescuentosSub">Llévate más boletos por un mejor precio.</p>
+                            <p class="precios-promos-sub" id="indexDescuentosSub">Llévate más boletos por un mejor
+                                precio.</p>
                         </div>
                         <div class="precios-grid-promos" id="preciosGrid">
                             <!-- Se carga dinámicamente desde config.js -->
@@ -922,12 +957,14 @@
     <!-- Logica publica movida a js/index-public.js -->
 
     <!-- BONOS SECTION -->
-    <section class="bonos-section perf-defer-mobile perf-defer-mobile--compact" id="bonosSection" style="display: none;">
+    <section class="bonos-section perf-defer-mobile perf-defer-mobile--compact" id="bonosSection"
+        style="display: none;">
         <div class="container">
             <div class="bonos-header">
                 <span class="bonos-eyebrow">Bonos Vigentes</span>
                 <h2 class="section-title">Bonos Especiales</h2>
-                <p class="bonos-subtitle">Cumple las condiciones de cada bono y participa por premios o beneficios adicionales.</p>
+                <p class="bonos-subtitle">Cumple las condiciones de cada bono y participa por premios o beneficios
+                    adicionales.</p>
             </div>
             <div class="bonos-grid" id="bonosGrid">
                 <!-- Se carga dinámicamente desde config.js -->
@@ -1238,12 +1275,13 @@
                 <div class="descripcion-header">
                     <span class="descripcion-eyebrow">Informacion Importante</span>
                     <h2 class="descripcion-titulo">Información del Sorteo</h2>
-                    <p class="descripcion-bajada">Consulta aquí las condiciones, aclaraciones y puntos clave antes de participar.</p>
+                    <p class="descripcion-bajada">Consulta aquí las condiciones, aclaraciones y puntos clave antes de
+                        participar.</p>
                 </div>
                 <div class="descripcion-intro" id="descripcionIntro">
                     <!-- Se carga dinámicamente desde config -->
                 </div>
-                
+
                 <div class="descripcion-texto" id="descripcionTextoDinamico">
                     <!-- Se carga dinámicamente desde admin -->
                 </div>
@@ -1255,14 +1293,16 @@
     <section class="por-que-confiar-section perf-defer-mobile perf-defer-mobile--large" id="confianzaSection">
         <div class="container">
             <h2 class="confianza-titulo">¿Por Qué Confiar En Esta Plataforma De Sorteos?</h2>
-            
+
             <div class="confianza-content">
                 <div class="confianza-lista">
                     <div class="confianza-item">
                         <div class="item-numero">01</div>
                         <div class="item-contenido">
                             <h3>Escala Sin Quedarte Corto</h3>
-                            <p>Podemos implementar sorteos con cientos de miles o millones de boletos, con carga optimizada, rangos inteligentes y control de disponibilidad para que tu operación siga fluida incluso cuando el proyecto crece fuerte.</p>
+                            <p>Podemos implementar sorteos con cientos de miles o millones de boletos, con carga
+                                optimizada, rangos inteligentes y control de disponibilidad para que tu operación siga
+                                fluida incluso cuando el proyecto crece fuerte.</p>
                         </div>
                     </div>
 
@@ -1270,7 +1310,9 @@
                         <div class="item-numero">02</div>
                         <div class="item-contenido">
                             <h3>Menos Dependencia De WhatsApp</h3>
-                            <p>Tu cliente puede generar su orden, subir comprobantes y dar seguimiento desde la misma plataforma. Eso reduce la carga manual, evita depender por completo de confirmaciones por chat y te ayuda a no poner en riesgo tus números de WhatsApp.</p>
+                            <p>Tu cliente puede generar su orden, subir comprobantes y dar seguimiento desde la misma
+                                plataforma. Eso reduce la carga manual, evita depender por completo de confirmaciones
+                                por chat y te ayuda a no poner en riesgo tus números de WhatsApp.</p>
                         </div>
                     </div>
 
@@ -1278,7 +1320,9 @@
                         <div class="item-numero">03</div>
                         <div class="item-contenido">
                             <h3>Control Total Desde El Panel</h3>
-                            <p>Administras órdenes, apartados, comprobantes, promociones, bonos, cuentas de pago, usuarios, configuraciones y disponibilidad desde un panel claro. Todo queda centralizado para que tu equipo trabaje más rápido y con menos errores.</p>
+                            <p>Administras órdenes, apartados, comprobantes, promociones, bonos, cuentas de pago,
+                                usuarios, configuraciones y disponibilidad desde un panel claro. Todo queda centralizado
+                                para que tu equipo trabaje más rápido y con menos errores.</p>
                         </div>
                     </div>
 
@@ -1286,7 +1330,9 @@
                         <div class="item-numero">04</div>
                         <div class="item-contenido">
                             <h3>Más Herramientas, Más Conversión</h3>
-                            <p>No solo hacemos una página bonita. Implementamos funciones útiles como ruletazo, estadísticas claras, promociones dinámicas, bonos, seguimiento de boletos, estados en tiempo real y una experiencia de compra pensada para vender mejor.</p>
+                            <p>No solo hacemos una página bonita. Implementamos funciones útiles como ruletazo,
+                                estadísticas claras, promociones dinámicas, bonos, seguimiento de boletos, estados en
+                                tiempo real y una experiencia de compra pensada para vender mejor.</p>
                         </div>
                     </div>
                 </div>
@@ -1429,12 +1475,14 @@
             }
         }
     </style>
-    <section class="seccion-ganadores perf-defer-mobile perf-defer-mobile--large" id="seccionGanadores" style="display: none;">
+    <section class="seccion-ganadores perf-defer-mobile perf-defer-mobile--large" id="seccionGanadores"
+        style="display: none;">
         <div class="container">
             <div class="ganadores-hero">
                 <span class="ganadores-kicker">Resultados publicados</span>
                 <h2 class="section-title">Ganadores confirmados del sorteo</h2>
-                <p class="ganadores-lead" id="ganadoresLead">Aquí aparecerán los boletos ganadores que ya hayan sido declarados oficialmente, incluyendo presorteos y ruletazos activos.</p>
+                <p class="ganadores-lead" id="ganadoresLead">Aquí aparecerán los boletos ganadores que ya hayan sido
+                    declarados oficialmente, incluyendo presorteos y ruletazos activos.</p>
             </div>
             <div class="ganadores-contenedor" id="ganadoresContenedor">
                 <!-- Se genera dinámicamente con JavaScript -->
@@ -1672,6 +1720,7 @@
                 opacity: 0;
                 transform: translateY(20px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -1749,7 +1798,9 @@
             <!-- 📱 BOLETERA DIGITAL CTA - LÍNEA DISCRETA -->
             <div class="footer-boletera-cta">
                 <div class="boletera-content">
-                    ¿Necesitas una boletera digital? <a href="https://wa.me/524591153960?text=Hola%2C%20me%20interesa%20conocer%20m%C3%A1s%20sobre%20las%20boleteras%20digitales" class="btn-boletera-whatsapp" target="_blank" rel="noopener noreferrer">Consulta aquí</a>
+                    ¿Necesitas una boletera digital? <a
+                        href="https://wa.me/524591153960?text=Hola%2C%20me%20interesa%20conocer%20m%C3%A1s%20sobre%20las%20boleteras%20digitales"
+                        class="btn-boletera-whatsapp" target="_blank" rel="noopener noreferrer">Consulta aquí</a>
                 </div>
             </div>
 
@@ -1757,7 +1808,8 @@
                 <!-- Columna izquierda: Logo y nombre -->
                 <div class="footer-logo-section">
                     <div class="footer-logo-box">
-                        <img src="images/placeholder-logo.svg" alt="Logo del organizador" class="footer-logo-img dynamic-logo" data-dynamic-logo="true" width="200" height="100">
+                        <img src="images/placeholder-logo.svg" alt="Logo del organizador"
+                            class="footer-logo-img dynamic-logo" data-dynamic-logo="true" width="200" height="100">
                     </div>
                     <h3 id="footerNombre" class="footer-client-name">SORTEO</h3>
                     <p id="footerEslogan" class="footer-eslogan">Rifas 100% Transparentes y Seguras</p>
@@ -1770,8 +1822,10 @@
                         <!-- Se carga dinámicamente desde config.js -->
                     </div>
                     <div class="footer-contact-details">
-                        <p><i class="fas fa-envelope"></i> <a id="footerEmail" href="mailto:contacto@mirifa.com">contacto@mirifa.com</a></p>
-                        <p><i class="fas fa-phone"></i> <a id="footerTelefono" href="tel:+525512345678">+52 55-1234-5678</a></p>
+                        <p><i class="fas fa-envelope"></i> <a id="footerEmail"
+                                href="mailto:contacto@mirifa.com">contacto@mirifa.com</a></p>
+                        <p><i class="fas fa-phone"></i> <a id="footerTelefono" href="tel:+525512345678">+52
+                                55-1234-5678</a></p>
                     </div>
                 </div>
             </div>
@@ -1795,12 +1849,13 @@
                 <h2>Tu Carrito 🛒</h2>
                 <button class="modal-carrito-close" id="closeCarrito" aria-label="Cerrar carrito">×</button>
             </div>
-            
+
             <div class="modal-carrito-body">
                 <!-- Mensaje si está vacío -->
                 <div class="carrito-vacio" id="carritoVacio">
                     <div class="carrito-vacio-content">
-                        <img src="images/placeholder-logo.svg" alt="Logo" class="carrito-logo dynamic-logo" data-dynamic-logo="true">
+                        <img src="images/placeholder-logo.svg" alt="Logo" class="carrito-logo dynamic-logo"
+                            data-dynamic-logo="true">
                         <p class="carrito-vacio-titulo">Tu carrito está vacío</p>
                         <p class="carrito-vacio-subtitulo">¡Comienza a seleccionar tus boletos favoritos!</p>
                         <button class="btn btn-primary btn-carrito-comprar" id="btnIrAComprar">
@@ -1822,7 +1877,8 @@
                             <span>Cantidad de boletos:</span>
                             <strong id="carritoResumenCantidad">0</strong>
                         </div>
-                        <button class="btn btn-danger btn-sm" id="btnLimpiarCarrito" title="Eliminar todos los boletos" aria-label="Eliminar todos los boletos del carrito">
+                        <button class="btn btn-danger btn-sm" id="btnLimpiarCarrito" title="Eliminar todos los boletos"
+                            aria-label="Eliminar todos los boletos del carrito">
                             Limpiar carrito
                         </button>
                     </div>
@@ -1867,17 +1923,26 @@
     </div>
 
     <!-- MODAL LOADING -->
-    <div id="modalLoadingOrden" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999; align-items: center; justify-content: center; flex-direction: column;">
-        <div style="background: white; padding: 40px; border-radius: 12px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
-            <div style="width: 60px; height: 60px; border: 4px solid #f0f0f0; border-top: 4px solid var(--secondary); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px;" id="spinnerOrden"></div>
+    <div id="modalLoadingOrden"
+        style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999; align-items: center; justify-content: center; flex-direction: column;">
+        <div
+            style="background: white; padding: 40px; border-radius: 12px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+            <div style="width: 60px; height: 60px; border: 4px solid #f0f0f0; border-top: 4px solid var(--secondary); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px;"
+                id="spinnerOrden"></div>
             <h3 style="margin: 0 0 10px 0; color: #333; font-size: 18px;">⏳ Apartando tu orden...</h3>
-            <p style="margin: 5px 0 15px 0; color: #666; font-size: 14px;">Por favor espera, esto puede tomar algunos segundos</p>
+            <p style="margin: 5px 0 15px 0; color: #666; font-size: 14px;">Por favor espera, esto puede tomar algunos
+                segundos</p>
             <p id="tiempoTranscurrido" style="margin: 0; color: #999; font-size: 12px;">Tiempo: 0s</p>
         </div>
         <style>
             @keyframes spin {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
+                0% {
+                    transform: rotate(0deg);
+                }
+
+                100% {
+                    transform: rotate(360deg);
+                }
             }
         </style>
     </div>
@@ -1887,7 +1952,9 @@
         <div class="orden-formal-container">
             <div class="orden-formal-header">
                 <h2>Orden de Pago</h2>
-                <p style="font-size: 0.9rem; opacity: 0.9; margin-bottom: 8px;">A continuación se muestra el resumen de su orden de pago con los datos bancarios para realizar su compra. Puede descargar o tomar una captura de pantalla de esta orden para tener constancia de su transacción.</p>
+                <p style="font-size: 0.9rem; opacity: 0.9; margin-bottom: 8px;">A continuación se muestra el resumen de
+                    su orden de pago con los datos bancarios para realizar su compra. Puede descargar o tomar una
+                    captura de pantalla de esta orden para tener constancia de su transacción.</p>
                 <p>Haga click en "Apartar boletos" para confirmar y guardar su orden en el sistema.</p>
             </div>
             <div class="orden-formal-content">
@@ -1913,4 +1980,5 @@
     </a>
 
 </body>
+
 </html>
