@@ -8992,9 +8992,8 @@ app.get('/api/admin/boleto-simple/:numero', verificarToken, async (req, res) => 
             });
         }
 
-        // 🎯 OBTENER RIFA_ID: Priorizar contexto, luego header, luego fallback
-        const rifaIdDelHeader = req.headers['x-rifa-id'] ? Number(req.headers['x-rifa-id']) : null;
-        const rifaIdActual = Number.parseInt(req.rifaContext?.id, 10) || rifaIdDelHeader || null;
+        // 🎯 OBTENER RIFA_ID: Usar resolución centralizada (soporta x-rifaplus-rifa-id y x-rifa-id)
+        const rifaIdActual = getRifaIdFromRequest(req);
 
         // ⚠️ VALIDACIÓN CRÍTICA: Debe haber una rifa identificada para búsquedas admin
         if (!rifaIdActual) {
@@ -9200,9 +9199,8 @@ app.get('/api/admin/numero-inteligente/:numero', verificarToken, async (req, res
             });
         }
 
-        // 🎯 OBTENER RIFA_ID: Priorizar contexto, luego header, luego fallback
-        const rifaIdDelHeader = req.headers['x-rifa-id'] ? Number(req.headers['x-rifa-id']) : null;
-        const rifaIdActual = Number.parseInt(req.rifaContext?.id, 10) || rifaIdDelHeader || null;
+        // 🎯 OBTENER RIFA_ID: Usar resolución centralizada (soporta x-rifaplus-rifa-id y x-rifa-id)
+        const rifaIdActual = getRifaIdFromRequest(req);
 
         // ⚠️ VALIDACIÓN CRÍTICA: Debe haber una rifa identificada para búsquedas admin
         if (!rifaIdActual) {
@@ -9575,9 +9573,8 @@ app.get('/api/admin/boleto/:numero', verificarToken, async (req, res) => {
             });
         }
 
-        // 🎯 OBTENER RIFA_ID: Priorizar contexto, luego header, luego fallback
-        const rifaIdDelHeader = req.headers['x-rifa-id'] ? Number(req.headers['x-rifa-id']) : null;
-        const rifaIdActual = Number.parseInt(req.rifaContext?.id, 10) || rifaIdDelHeader || null;
+        // 🎯 OBTENER RIFA_ID: Usar resolución centralizada (soporta x-rifaplus-rifa-id y x-rifa-id)
+        const rifaIdActual = getRifaIdFromRequest(req);
 
         // ⚠️ VALIDACIÓN CRÍTICA: Debe haber una rifa identificada para búsquedas admin
         if (!rifaIdActual) {
