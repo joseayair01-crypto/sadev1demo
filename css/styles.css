@@ -5720,7 +5720,7 @@ footer {
     border: 1px solid rgba(var(--primary-rgb), 0.10); 
     cursor: pointer; 
     transition: var(--transition-fast); 
-    color: var(--text-dark);
+    color: #000000;
     white-space: nowrap;
     flex-shrink: 0;
     box-shadow: 0 8px 18px rgba(var(--primary-rgb), 0.05);
@@ -5935,6 +5935,7 @@ footer {
     overflow: hidden;
     position: relative;
     isolation: isolate;
+    color: #000000;
     transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, transform 120ms ease, box-shadow 140ms ease, opacity 120ms ease;
     box-shadow: none;
     touch-action: manipulation;
@@ -5984,7 +5985,7 @@ footer {
 .numero-btn.is-pending:not(.selected) {
     background: rgba(var(--secondary-rgb), 0.12);
     border-color: rgba(var(--secondary-rgb), 0.5);
-    color: var(--text-dark);
+    color: #000000;
     box-shadow: 0 0 0 2px rgba(var(--secondary-rgb), 0.08);
     transform: scale(0.985);
     opacity: 0.94;
@@ -6058,7 +6059,7 @@ footer {
 
 .numero-btn.reserved {
     background: var(--apartado);
-    color: var(--secondary-dark);
+    color: #000000;
     border: 2px dashed #000;
     cursor: not-allowed;
     opacity: 1;
@@ -8273,7 +8274,7 @@ body.modal-scroll-locked {
     background: linear-gradient(135deg, rgba(215, 176, 122, 0.12), rgba(165, 107, 63, 0.08));
     font-size: 0.9rem;
     font-weight: 700;
-    color: #0000008c;
+    color: #000000;
     font-family: 'Courier New', monospace;
     display: inline-block;
 }

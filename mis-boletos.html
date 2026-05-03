@@ -206,30 +206,33 @@
 
     <!-- MODAL CONFIRMACIÓN COMPROBANTE RECIBIDO -->
     <div class="modal modal-overlay" id="modalComprobanteConfirmado">
-        <div class="modal-content modal-contacto" style="text-align: center; border-radius: 28px; overflow: hidden; width: 92%; max-width: 400px; border: none; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35); margin: auto;">
-            <div class="modal-body" style="padding: 2.5rem 1.5rem;">
-                <div style="margin-bottom: 1.5rem;">
-                    <div style="width: 72px; height: 72px; background: #ecfdf5; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto; box-shadow: 0 0 0 6px #f0fdf4;">
-                        <i class="fas fa-check" style="font-size: 1.8rem; color: #10b981;"></i>
+        <div class="modal-content" style="text-align: center; border-radius: 18px; overflow: hidden; width: 92%; max-width: 350px; border: none; box-shadow: 0 15px 35px rgba(0,0,0,0.2); margin: auto; background: white;">
+            <div class="modal-body" style="padding: 1.5rem 1.25rem;">
+                <!-- Icono de éxito solicitado: Verde con palomita blanca -->
+                <div style="margin-bottom: 0.75rem;">
+                    <div style="width: 56px; height: 56px; background: #10b981; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2);">
+                        <i class="fas fa-check" style="font-size: 1.5rem; color: white;"></i>
                     </div>
                 </div>
                 
-                <h2 style="color: #064e3b; margin-bottom: 0.75rem; font-weight: 800; font-size: 1.4rem; letter-spacing: -0.025em; line-height: 1.2;">¡Comprobante recibido!</h2>
+                <h2 style="color: #111827; margin-bottom: 0.4rem; font-weight: 800; font-size: 1.3rem; letter-spacing: -0.02em;">¡Comprobante Recibido!</h2>
                 
-                <div style="color: #374151; line-height: 1.5; margin-bottom: 1.5rem; font-size: 0.95rem;">
-                    <p style="margin-bottom: 0.8rem;">Tu pago ha sido enviado a validación. Te notificaremos en cuanto sea confirmado.</p>
-                    <div style="background: #f9fafb; padding: 1rem; border-radius: 16px; border: 1px solid #f3f4f6; text-align: left;">
-                        <p style="margin: 0; font-size: 0.9rem;">
-                            Puedes checar el estado en <strong>"Mis Boletos"</strong>. Cuando aparezca como <span style="color: #059669; font-weight: 700;">Confirmado</span>, ¡ya estarás participando!
+                <div style="color: #4b5563; line-height: 1.4; margin-bottom: 1rem; font-size: 0.88rem;">
+                    <p style="margin-bottom: 0.6rem;">Tu comprobante ha sido enviado y será validado pronto.</p>
+                    
+                    <div style="background: #f3f4f6; padding: 0.85rem; border-radius: 12px; text-align: left; margin-bottom: 0.85rem;">
+                        <p style="margin: 0; font-size: 0.82rem; color: #374151;">
+                            <i class="fas fa-info-circle" style="color: #10b981; margin-right: 4px;"></i>
+                            Te notificaremos al confirmar. Checa el estado en <strong>"Mis Boletos"</strong>; al estar <strong>Confirmado</strong>, ya estás participando.
                         </p>
                     </div>
+
+                    <p style="margin: 0; font-weight: 600; color: #10b981; font-size: 0.88rem;">
+                        ¡Gracias por participar y mucha suerte! 🍀
+                    </p>
                 </div>
 
-                <p style="margin-bottom: 1.5rem; color: #6b7280; font-size: 0.85rem; font-style: italic;">
-                    ¡Gracias por tu confianza y mucha suerte en el sorteo! 🍀
-                </p>
-
-                <button class="btn btn-primary" id="btnCerrarComprobanteConfirmado" style="width: 100%; padding: 16px; border-radius: 16px; font-weight: 700; font-size: 1rem; background: #10b981; border: none; box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.3);">
+                <button class="btn" id="btnCerrarComprobanteConfirmado" style="width: 100%; padding: 11px; border-radius: 10px; font-weight: 700; font-size: 0.95rem; background: #111827; color: white; border: none; cursor: pointer;">
                     Entendido
                 </button>
             </div>
