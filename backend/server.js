@@ -6836,7 +6836,15 @@ async function generarSiguienteOrdenId(cliente_id, trx, rifaId = null) {
         updated_at: new Date()
     };
 
-    await trx('order_id_counter').where('id', counter.id).update(updateData);
+    // Log previo al UPDATE para diagnosticar por qué no avanza el contador
+    try {
+        logOrdenesDebug('ℹ️ [counter] antes UPDATE', { counterId: counter.id, counter, updateData });
+        const updatedRows = await trx('order_id_counter').where('id', counter.id).update(updateData);
+        logOrdenesDebug('ℹ️ [counter] UPDATE result', { counterId: counter.id, updatedRows });
+    } catch (updErr) {
+        console.error('❌ [counter] Error actualizando order_id_counter:', updErr && (updErr.message || updErr));
+        throw updErr;
+    }
 
     logOrdenesDebug(`✅ Folio generado: ${fullOrderId}`);
     return fullOrderId;
