@@ -5764,6 +5764,8 @@ footer {
     border: 1px solid rgba(15, 23, 42, 0.08);
     border-radius: 24px;
     padding: 1.35rem;
+    will-change: transform; /* ⭐ OPTIMIZACIÓN: Aceleración por GPU */
+    -webkit-overflow-scrolling: touch;
     background:
         linear-gradient(180deg, rgba(255,255,255,0.98), rgba(247,250,252,0.98));
     margin: 1.5rem 0;
@@ -5874,6 +5876,8 @@ footer {
     will-change: contents;
     transform: translateZ(0);
     backface-visibility: hidden;
+    content-visibility: auto; /* ⭐ OPTIMIZACIÓN: Renderizado perezoso del navegador */
+    contain-intrinsic-size: 500px;
 }
 
 #numerosGrid[data-loading="true"] {
@@ -8070,6 +8074,8 @@ body.modal-scroll-locked {
 .modal-carrito-close:hover {
     background: rgba(255, 255, 255, 0.3);
     transform: rotate(90deg);
+}
+
 }
 
 .modal-carrito-close-red {

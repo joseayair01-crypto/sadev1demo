@@ -353,19 +353,27 @@ function resolverApiBaseRifaPlus() {
     const metaApiBase = obtenerMetaDeploy('rifaplus-api-base');
     const explicitApiBase = normalizarBaseUrl(globalDeploy.apiBase || metaApiBase);
 
+    // ⭐ OPTIMIZACIÓN PROFESIONAL: Detección de entorno
+    const hostname = window.location.hostname;
+    const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
+    
+    // Si estamos en producción (ej: pages.dev) y la URL meta dice 'localhost',
+    // es un error de despliegue. Intentamos usar el origen actual como API base.
+    if (!isLocal && explicitApiBase.includes('localhost')) {
+        console.warn('⚠️ [Config] Se detectó API de desarrollo en ambiente de producción. Usando fallback de origen actual.');
+        return normalizarBaseUrl(window.location.origin);
+    }
+
     if (explicitApiBase) {
         return explicitApiBase;
     }
 
-    const hostname = window.location.hostname;
-    const origin = window.location.origin;
     const puerto = window.rifaplusConfig?.backend?.puerto || 5001;
-
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    if (isLocal) {
         return `http://localhost:${puerto}`;
     }
 
-    return normalizarBaseUrl(origin);
+    return normalizarBaseUrl(window.location.origin);
 }
 
 function resolverSocketScriptUrlRifaPlus() {

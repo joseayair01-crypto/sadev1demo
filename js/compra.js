@@ -3168,7 +3168,7 @@ function setupInfiniteScrollObserver(renderRequestId = infiniteScrollState.rende
         });
     }, {
         root: document.getElementById('numerosGrid').parentElement,
-        rootMargin: '100px',  // Cargar 100px antes de llegar al final
+        rootMargin: '250px',  // ⭐ OPTIMIZACIÓN: Cargar antes para mayor fluidez
         threshold: 0.01
     });
     

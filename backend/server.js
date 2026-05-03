@@ -2242,8 +2242,19 @@ function construirQueryBusquedaSobreSerie(serieQuery, { availableOnly = false, l
     return query;
 }
 
-// Servir archivos estáticos en /public
-app.use('/public', express.static(path.join(__dirname, 'public')));
+// Servir archivos estáticos en /public con caché inteligente
+app.use('/public', express.static(path.join(__dirname, 'public'), {
+    maxAge: '1d', // Caché base de 1 día
+    setHeaders: (res, filePath) => {
+        if (filePath.match(/\.(jpg|jpeg|png|gif|svg|webp|ico|woff|woff2|ttf|otf)$/i)) {
+            // Imágenes y fuentes: 1 año (Agresiva)
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        } else if (filePath.match(/\.(css|js)$/i)) {
+            // CSS y JS: 1 mes
+            res.setHeader('Cache-Control', 'public, max-age=2592000');
+        }
+    }
+}));
 
 // 🔒 Bloquear acceso estático a archivos internos del proyecto
 app.use((req, res, next) => {
@@ -2282,9 +2293,23 @@ app.use((req, res, next) => {
     return next();
 });
 
-// ✅ Servir archivos estáticos del frontend (css, js, images, etc.)
+// ✅ Servir archivos estáticos del frontend con caché optimizada
 // IMPORTANTE: Va ANTES de la ruta catch-all de index.html
-app.use(express.static(path.join(__dirname, '..')));
+app.use(express.static(path.join(__dirname, '..'), {
+    maxAge: '1h', // Caché base de 1 hora para archivos generales
+    setHeaders: (res, filePath) => {
+        if (filePath.match(/\.(html|php)$/i)) {
+            // Documentos: Siempre frescos
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        } else if (filePath.match(/\.(jpg|jpeg|png|gif|svg|webp|ico|woff|woff2|ttf|otf)$/i)) {
+            // Imágenes y fuentes locales: 1 año
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        } else if (filePath.match(/\.(css|js)$/i)) {
+            // Scripts y estilos: 1 mes (apoyado por el versionado ?v= en el HTML)
+            res.setHeader('Cache-Control', 'public, max-age=2592000');
+        }
+    }
+}));
 
 // Nota: Frontend se sirve desde un host separado (Vercel, GitHub Pages, etc.)
 

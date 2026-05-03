@@ -1525,24 +1525,17 @@ async function actualizarBarraProgreso() {
             return;
         }
         
-        // 🎯 PASO 1: Determinar total y rango de boletos a mostrar
-        // Si oportunidades está habilitada, usar SOLO el rango visible
-        // Si no, usar el totalBoletos configurado
-        const oportunidadesConfig = config.rifa?.oportunidades;
-        const totalBoletosConfiguracion = typeof config?.obtenerTotalBoletos === 'function'
+        // 🎯 PASO 1: Determinar total de boletos (Global siempre para Countdown)
+        const totalBoletosGlobal = typeof config?.obtenerTotalBoletos === 'function'
             ? config.obtenerTotalBoletos()
             : (config.rifa?.totalBoletos || 0);
         
-        let totalParaMostrar = totalBoletosConfiguracion;
+        let totalParaMostrar = totalBoletosGlobal;
         let rangoVisible = null;
         
-        if (oportunidadesConfig && oportunidadesConfig.enabled && oportunidadesConfig.rango_visible) {
-            rangoVisible = oportunidadesConfig.rango_visible;
-            // El total a mostrar es el TAMAÑO del rango visible, no el config.totalBoletos
-            totalParaMostrar = (rangoVisible.fin - rangoVisible.inicio) + 1;
-            console.debug('[main] Oportunidades enabled, usando rango visible:', rangoVisible, 'Total:', totalParaMostrar);
-        } else {
-            console.debug('[main] Oportunidades disabled, usando totalBoletos:', totalParaMostrar);
+        // Mantener referencia al rango para filtrado de memoria si es necesario
+        if (config.rifa?.oportunidades?.enabled && config.rifa?.oportunidades?.rango_visible) {
+            rangoVisible = config.rifa.oportunidades.rango_visible;
         }
 
         if (!Number.isFinite(totalParaMostrar) || totalParaMostrar <= 0) {
@@ -1649,23 +1642,15 @@ function actualizarInterfazProgreso(sold = [], reserved = [], totalParaMostrar =
     let boletosVendidosParaMostrar = 0;
     
     // 🎯 DETERMINAR FUENTE DE VERDAD
-    if (backendVendidos !== null && (!Array.isArray(sold) || sold.length === 0)) {
-        // PRIORIDAD: Si tenemos data del backend y nada en memoria (típico en carga inicial de Index)
+    if (backendVendidos !== null) {
+        // PRIORIDAD: Datos reales del servidor (Globales)
         boletosVendidosParaMostrar = backendVendidos;
-        console.debug('[main] Usando backendVendidos (Prioridad):', boletosVendidosParaMostrar);
-    } else if (rangoVisible && rangoVisible.inicio !== undefined && rangoVisible.fin !== undefined) {
-        // 🎯 MODO OPORTUNIDADES: Contar solo boletos VENDIDOS del rango visible
-        sold.forEach(num => {
-            const n = Number(num);
-            if (n >= rangoVisible.inicio && n <= rangoVisible.fin) {
-                boletosVendidosParaMostrar++;
-            }
-        });
-        console.debug('[main] MODO OPORTUNIDADES - Vendidos en rango:', boletosVendidosParaMostrar);
+    } else if (rangoVisible && Array.isArray(sold) && sold.length > 0) {
+        // MODO MEMORIA: Si solo tenemos boletos cargados en el grid (parciales)
+        // Intentamos estimar el progreso global basándonos en lo que hay en memoria
+        boletosVendidosParaMostrar = sold.length;
     } else {
-        // 🎯 MODO NORMAL: Contar los vendidos en memoria
         boletosVendidosParaMostrar = Array.isArray(sold) ? sold.length : 0;
-        console.debug('[main] MODO NORMAL - Total vendidos (memoria):', boletosVendidosParaMostrar);
     }
     
     // 🎯 CALCULAR DISPONIBLES Y PORCENTAJE
