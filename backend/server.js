@@ -6505,7 +6505,8 @@ function descomponerOrdenId(ordenId, prefijoEsperado = '') {
         return null;
     }
 
-    const match = valor.match(/^[A-Z0-9]+-([A-Z]{2})(\d{3})$/);
+    // Soportar secuencias alfabéticas de longitud variable (AA, AB, ..., ZZ, AAA, ...)
+    const match = valor.match(/^[A-Z0-9]+-([A-Z]+)(\d{3})$/);
     if (!match) {
         return null;
     }
