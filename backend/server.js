@@ -7040,6 +7040,7 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
                 }
             }
 
+            let createdResult = null;
             for (let intentoOrdenId = 0; intentoOrdenId < 12; intentoOrdenId++) {
                 if (!ordenId) {
                     const counterStart = Date.now();
@@ -7055,45 +7056,189 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
                     .first();
                 perfMarks.duplicateCheckMs = (perfMarks.duplicateCheckMs || 0) + (Date.now() - duplicateStart);
 
-                if (!ordenExistente) {
-                    break;
+                if (ordenExistente) {
+                    if (esMismaOrdenIdempotente(ordenExistente, {
+                        whatsapp,
+                        boletos: boletosOrdenados
+                    })) {
+                        const cantidadOportunidadesExistente = calcularCantidadOportunidadesEsperadas(
+                            boletosOrdenados,
+                            oportunidadesConfig
+                        );
+
+                        // 200 OK: orden ya existe (idempotencia real)
+                        return {
+                            isDuplicate: true,
+                            ordenExistente: ordenExistente,
+                            cantidadOportunidades: cantidadOportunidadesExistente
+                        };
+                    }
+
+                    console.warn('⚠️ [POST /api/ordenes] ordenId recibido o generado ya pertenece a otra orden; se regenerará', {
+                        ordenId,
+                        telefonoExistente: ordenExistente.telefono_cliente,
+                        telefonoActual: whatsapp
+                    });
+                    ordenId = '';
+                    await new Promise((resolve) => setTimeout(resolve, 30 + Math.floor(Math.random() * 120)));
+                    continue;
                 }
 
-                if (esMismaOrdenIdempotente(ordenExistente, {
-                    whatsapp,
-                    boletos: boletosOrdenados
-                })) {
-                    const cantidadOportunidadesExistente = calcularCantidadOportunidadesEsperadas(
-                        boletosOrdenados,
-                        oportunidadesConfig
-                    );
+                // PASO 2: intentar INSERT orden; si colisiona por unique constraint, regenerar y reintentar
+                const ordenData = {
+                    rifa_id: rifaIdActual,
+                    numero_orden: ordenId,
+                    cantidad_boletos: boletosValidos.length,
+                    precio_unitario: Math.round(precioUnitario * 100) / 100,
+                    subtotal: Math.round(subtotal * 100) / 100,
+                    descuento: Math.round(descuento * 100) / 100,
+                    total: Math.round(total * 100) / 100,
+                    nombre_cliente: `${nombre} ${apellidos}`.trim().slice(0, 100),
+                    estado_cliente: estado.slice(0, 100),
+                    ciudad_cliente: ciudad.slice(0, 100),
+                    telefono_cliente: whatsapp.slice(0, 20),
+                    metodo_pago: sanitizar(orden.metodoPago || 'transferencia').slice(0, 20),
+                    detalles_pago: sanitizar(orden.cuenta?.accountNumber || '').slice(0, 255),
+                    nombre_banco: sanitizar(orden.cuenta?.nombreBanco || '').slice(0, 100),
+                    numero_referencia: sanitizar(orden.cuenta?.numero_referencia || orden.cuenta?.referencia || '').slice(0, 100),
+                    nombre_beneficiario: sanitizar(orden.cuenta?.beneficiary || '').slice(0, 150),
+                    estado: 'pendiente',
+                    boletos: JSON.stringify(boletosOrdenados),
+                    created_at: new Date(),
+                    updated_at: new Date()
+                };
 
-                    // 200 OK: orden ya existe (idempotencia real)
-                    return {
-                        isDuplicate: true,
-                        ordenExistente: ordenExistente,
-                        cantidadOportunidades: cantidadOportunidadesExistente
-                    };
+                try {
+                    const insertOrderStart = Date.now();
+                    await trx('ordenes').insert(ordenData).timeout(10000);
+                    perfMarks.insertOrderMs = (perfMarks.insertOrderMs || 0) + (Date.now() - insertOrderStart);
+
+                    // PASO 3: Reservar boletos de forma condicional.
+                    const reserveTicketsStart = Date.now();
+                    const boletosActualizados = await trx('boletos_estado')
+                        .modify((qb) => {
+                            if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+                        })
+                        .whereIn('numero', boletosOrdenados)
+                        .where('estado', 'disponible')
+                        .whereNull('numero_orden')
+                        .timeout(10000)
+                        .update({
+                            numero_orden: ordenId,
+                            estado: 'apartado',
+                            updated_at: new Date()
+                        });
+                    perfMarks.reserveTicketsMs = (perfMarks.reserveTicketsMs || 0) + (Date.now() - reserveTicketsStart);
+
+                    if (boletosActualizados !== boletosOrdenados.length) {
+                        const conflictQueryStart = Date.now();
+                        const diagnosticoBoletos = await obtenerDiagnosticoBoletosOrden(trx, boletosOrdenados, {
+                            rifaId: rifaIdActual
+                        });
+                        perfMarks.conflictQueryMs = (perfMarks.conflictQueryMs || 0) + (Date.now() - conflictQueryStart);
+
+                        throw {
+                            code: 'BOLETOS_CONFLICTO',
+                            boletosConflicto: diagnosticoBoletos.numerosConflictivos,
+                            boletosDisponibles: diagnosticoBoletos.boletosDisponibles,
+                            message: 'Algunos boletos cambiaron de estado mientras se procesaba la orden'
+                        };
+                    }
+
+                    if (oportunidadesHabilitadas) {
+                        if (!oportunidadesConfig.configuracionCompleta || !oportunidadesConfig.configuracionConsistente) {
+                            throw {
+                                code: 'OPORTUNIDADES_INCONSISTENTES',
+                                message: 'La configuración de oportunidades es inválida o incompleta',
+                                detalles: {
+                                    multiplicador: oportunidadesConfig.multiplicador,
+                                    rangoVisible: oportunidadesConfig.rangoVisible,
+                                    rangoOculto: oportunidadesConfig.rangoOculto,
+                                    totalEsperado: oportunidadesConfig.totalOportunidadesEsperadas,
+                                    totalConfigurado: oportunidadesConfig.totalOportunidadesConfiguradas,
+                                    errores: oportunidadesConfig.errores
+                                }
+                            };
+                        }
+
+                        const oppReserveStart = Date.now();
+                        const oportunidadesActualizadas = await trx('orden_oportunidades')
+                            .modify((qb) => {
+                                if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+                            })
+                            .whereIn('numero_boleto', boletosValidos)
+                            .where('estado', 'disponible')
+                            .whereNull('numero_orden')
+                            .timeout(10000)
+                            .update({
+                                numero_orden: ordenId,
+                                estado: 'apartado'
+                            });
+                        perfMarks.oppReserveMs = (perfMarks.oppReserveMs || 0) + (Date.now() - oppReserveStart);
+
+                        const oportunidadesEsperadasOrden = calcularCantidadOportunidadesEsperadas(
+                            boletosValidos,
+                            oportunidadesConfig
+                        );
+                        if (oportunidadesActualizadas !== oportunidadesEsperadasOrden) {
+                            throw {
+                                code: 'OPORTUNIDADES_INCONSISTENTES',
+                                message: 'La reserva de oportunidades preasignadas no coincidió con el multiplicador configurado',
+                                detalles: {
+                                    multiplicadorEsperado: oportunidadesConfig.multiplicador,
+                                    totalBoletos: boletosValidos.length,
+                                    oportunidadesEsperadas: oportunidadesEsperadasOrden,
+                                    oportunidadesActualizadas
+                                }
+                            };
+                        }
+
+                        createdResult = {
+                            isDuplicate: false,
+                            ordenId: ordenId,
+                            cantidad: boletosValidos.length,
+                            cantidadOportunidades: oportunidadesActualizadas,
+                            total: total,
+                            precioUnitario,
+                            subtotal,
+                            descuento,
+                            totalFinal: total,
+                            combo: totalesServidor.combo || null
+                        };
+                        break; // success
+                    } else {
+                        createdResult = {
+                            isDuplicate: false,
+                            ordenId: ordenId,
+                            cantidad: boletosValidos.length,
+                            cantidadOportunidades: 0,
+                            total: total,
+                            precioUnitario,
+                            subtotal,
+                            descuento,
+                            totalFinal: total,
+                            combo: totalesServidor.combo || null
+                        };
+                        break; // success
+                    }
+                } catch (insErr) {
+                    // Si la inserción falló por clave única en numero_orden, regenerar y reintentar
+                    const errMsg = String(insErr && (insErr.message || insErr));
+                    if (insErr && (insErr.code === '23505' || /duplicate key value|duplicate key/.test(errMsg))) {
+                        console.warn('⚠️ [POST /api/ordenes] inserción colisionó (23505). Regenerando ordenId y reintentando', { ordenId, err: errMsg });
+                        ordenId = '';
+                        await new Promise((resolve) => setTimeout(resolve, 30 + Math.floor(Math.random() * 120)));
+                        continue; // reintentar
+                    }
+
+                    // Re-throw para que el outer catch maneje otros errores o colisiones de oportunidades
+                    throw insErr;
                 }
-
-                console.warn('⚠️ [POST /api/ordenes] ordenId recibido o generado ya pertenece a otra orden; se regenerará', {
-                    ordenId,
-                    telefonoExistente: ordenExistente.telefono_cliente,
-                    telefonoActual: whatsapp
-                });
-                ordenId = '';
-                // Pequeño backoff aleatorio antes de reintentar para reducir contención
-                await new Promise((resolve) => setTimeout(resolve, 30 + Math.floor(Math.random() * 120)));
             }
 
-            if (!ordenId) {
+            if (!createdResult) {
                 throw new Error('NO_SE_PUDO_GENERAR_ORDEN_ID_UNICO');
             }
-
-            // PASO 2: INSERT orden
-            const ordenData = {
-                rifa_id: rifaIdActual,
-                numero_orden: ordenId,
                 cantidad_boletos: boletosValidos.length,
                 precio_unitario: Math.round(precioUnitario * 100) / 100,
                 subtotal: Math.round(subtotal * 100) / 100,
