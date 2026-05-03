@@ -6342,26 +6342,37 @@ app.post('/api/admin/order-counter/reset', verificarToken, async (req, res) => {
  * Función helper: Incrementa secuencia alfabética (AA → AB → AC... ZZ)
  */
 function incrementarSecuenciaSQL(secuencia) {
-    if (secuencia.length !== 2) return 'AA';
-    
-    let letra1 = secuencia.charCodeAt(0);
-    let letra2 = secuencia.charCodeAt(1);
-    
-    // Incrementar segunda letra
-    letra2++;
-    
-    // Si excede 'Z', reiniciar y avanzar primera letra
-    if (letra2 > 90) { // 90 es código ASCII de 'Z'
-        letra2 = 65; // 65 es código ASCII de 'A'
-        letra1++;
+    // Soportar secuencias alfabéticas de longitud variable.
+    // Ejemplos:
+    //  - 'AA' -> 'AB'
+    //  - 'AZ' -> 'BA'
+    //  - 'ZZ' -> 'AAA'
+    if (!secuencia || typeof secuencia !== 'string') return 'AA';
+
+    const chars = secuencia.toUpperCase().split('').map(c => c.charCodeAt(0));
+    // Validar y normalizar (A-Z)
+    for (let i = 0; i < chars.length; i++) {
+        if (chars[i] < 65 || chars[i] > 90) chars[i] = 65;
     }
-    
-    // Si excede 'Z', volvemos a 'AA'
-    if (letra1 > 90) {
-        return 'AA';
+
+    // Increment estilo base-26 con acarreo
+    let carry = 1;
+    for (let i = chars.length - 1; i >= 0 && carry; i--) {
+        chars[i] += carry;
+        if (chars[i] > 90) {
+            chars[i] = 65; // 'A'
+            carry = 1;
+        } else {
+            carry = 0;
+        }
     }
-    
-    return String.fromCharCode(letra1) + String.fromCharCode(letra2);
+
+    if (carry) {
+        // Si quedó acarreo al final, añadir una nueva 'A' al inicio
+        chars.unshift(65);
+    }
+
+    return String.fromCharCode(...chars);
 }
 
 function logOrdenesDebug(...args) {
