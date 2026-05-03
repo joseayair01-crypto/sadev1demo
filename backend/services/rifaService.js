@@ -204,7 +204,11 @@ class RifaService {
       rifa = await this.obtenerPorSlug(slug);
     }
 
-    if (!rifa && options.fallbackActive !== false) {
+    // Si se proporcionó un ID o Slug explícito, NO debemos hacer fallback a la rifa activa
+    // por defecto si no se encontró lo solicitado, para evitar contaminación de datos.
+    const hasExplicitRequest = (Number.isInteger(rifaId) && rifaId > 0) || slug;
+
+    if (!rifa && !hasExplicitRequest && options.fallbackActive !== false) {
       rifa = await this.obtenerRifaActivaPublica();
     }
 

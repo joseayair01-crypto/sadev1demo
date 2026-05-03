@@ -90,136 +90,12 @@ function addPassiveListener(target, eventName, handler, extraOptions) {
  * 🔥 CRÍTICO: Cargar resumen público al iniciar index.html
  * Para sorteos grandes, evita bajar arrays completos innecesarios.
  */
-(async function cargarBoletosEnIndexHtml() {
-    try {
-        const mostrarBarraProgreso = window.rifaplusConfig?.rifa?.publicacion?.progressBar !== false;
-        const necesitaResumenPublico = !!document.querySelector('.progress-stats')
-            || !!document.getElementById('boletos-vendidos')
-            || !!document.getElementById('progress-fill');
+/**
+ * 🔥 CRÍTICO: La carga de boletos ahora se centraliza en actualizarBarraProgreso
+ * para evitar duplicidad de peticiones y race conditions al inicio.
+ */
+// (Eliminado cargarBoletosEnIndexHtml redundante)
 
-        if (!necesitaResumenPublico || !mostrarBarraProgreso) {
-            console.debug('[main] Resumen público omitido: la página no tiene barra de progreso');
-            return;
-        }
-
-        const apiBase = (window.rifaplusConfig && window.rifaplusConfig.backend && window.rifaplusConfig.backend.apiBase) 
-            ? window.rifaplusConfig.backend.apiBase 
-            : 'http://localhost:3000';
-        const endpoint = String(apiBase).replace(/\/+$/, '');
-        
-        console.debug('[main] Cargando boletos públicos para progreso bar...');
-        
-        // 🎯 CACHÉ OPTIMIZADO: Solo almacena resumen (50 bytes), no arrays (262 KB)
-        const cacheKey = 'rifaplusBoletosCache';
-        const cachedData = localStorage.getItem(cacheKey);
-        
-        if (cachedData && window.rifaplusBoletosLoaded) {
-            try {
-                const cached = JSON.parse(cachedData);
-                const cacheAge = Date.now() - (cached.timestamp || 0);
-                
-                if (cacheAge < 300000) { // 5 minutos
-                    // Caché de resumen NO contiene arrays, solo contadores
-                    // Los arrays frescos se obtienen del backend
-                    console.debug('[main] Resumen caché (edad: ' + Math.round(cacheAge/1000) + 's): ' + cached.apartados + ' apartados');
-                    window.rifaplusBoletosLoaded = true;
-                    
-                    // DISPARA EVENTO para que countdown.js actualice la barra
-                    window.dispatchEvent(new CustomEvent('boletosListos', { detail: { origen: 'cache' } }));
-                    return; // Resumen listo
-                }
-            } catch (e) {
-                console.warn('[main] Error parseando caché resumen:', e.message);
-            }
-        }
-        
-        // 🎯 FETCH LIVIANO: Usar stats para no descargar arrays completos en el index
-        console.debug('[main] Fetch desde backend para resumen de boletos...');
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => {
-            controller.abort();
-            console.warn('[main] ⏱️ Timeout alcanzado (10s) - Abortando fetch de resumen de boletos');
-        }, 10000);
-
-        try {
-            const response = await fetch(`${endpoint}/api/public/boletos/stats`, {
-                signal: controller.signal,
-                cache: 'no-store',
-                headers: { 'Accept': 'application/json' }
-            });
-            
-            clearTimeout(timeoutId);
-            
-            if (!response.ok) {
-                console.warn('[main] Error cargando resumen de boletos:', response.status);
-                window.rifaplusSoldNumbers = [];
-                window.rifaplusReservedNumbers = [];
-                window.rifaplusBoletosLoaded = true;
-                window.dispatchEvent(new CustomEvent('boletosListos', { detail: { origen: 'backend-error' } }));
-                return;
-            }
-            
-            const json = await response.json();
-            const data = json.data || {};
-            const vendidos = Number(data.vendidos) || 0;
-            const apartados = Number(data.apartados) || 0;
-            const disponibles = Number(data.disponibles) || 0;
-            
-            window.rifaplusSoldNumbers = [];
-            window.rifaplusReservedNumbers = [];
-            window.rifaplusBoletosLoaded = true;
-
-            if (window.rifaplusConfig?.estado) {
-                window.rifaplusConfig.estado.boletosVendidos = vendidos;
-                window.rifaplusConfig.estado.boletosApartados = apartados;
-                window.rifaplusConfig.estado.boletosDisponibles = disponibles;
-            }
-            
-            // OPTIMIZADO: Guardar SOLO resumen (50 bytes) en lugar de arrays (262 KB)
-            try {
-                const totalBoletosActual = typeof window.rifaplusConfig?.obtenerTotalBoletos === 'function'
-                    ? window.rifaplusConfig.obtenerTotalBoletos()
-                    : Number(window.rifaplusConfig?.rifa?.totalBoletos || 0);
-                const cacheData = JSON.stringify({
-                    vendidos,
-                    apartados,
-                    disponibles: disponibles || Math.max(0, totalBoletosActual - vendidos - apartados),
-                    timestamp: Date.now()
-                });
-                
-                localStorage.setItem(cacheKey, cacheData);
-                console.debug('[main] Cache resumen guardado (' + (cacheData.length / 1024).toFixed(2) + 'KB)');
-            } catch (storageError) {
-                console.debug('[main] Caché resumen no guardado, pero datos del backend frescos');
-            }
-            
-            console.debug('[main] ✅ Resumen cargado:', { vendidos, apartados, disponibles });
-            
-            // 🔥 DISPARA EVENTO para que countdown.js actualice la barra
-            window.dispatchEvent(new CustomEvent('boletosListos', { detail: { origen: 'backend', sold: vendidos, reserved: apartados } }));
-        } catch (error) {
-            clearTimeout(timeoutId);
-            
-            // Checa si fue un timeout (AbortError)
-            const isTimeoutError = error.name === 'AbortError';
-            const errorMsg = isTimeoutError 
-                ? 'Timeout al cargar resumen de boletos (servidor lento)'
-                : error.message || 'Error desconocido';
-            
-            console.warn('[main] Error fetch boletos:', errorMsg, { 
-                isTimeout: isTimeoutError, 
-                errorName: error.name 
-            });
-            
-            window.rifaplusSoldNumbers = [];
-            window.rifaplusReservedNumbers = [];
-            window.rifaplusBoletosLoaded = true;
-            window.dispatchEvent(new CustomEvent('boletosListos', { detail: { origen: 'error', message: errorMsg } }));
-        }
-    } catch (error) {
-        console.error('[main] Error en cargarBoletosEnIndexHtml:', error);
-    }
-})();
 
 /**
  * ESTRUCTURA DE PROMOCIONES (PAQUETES FIJOS):
@@ -1516,107 +1392,113 @@ async function actualizarBarraProgreso() {
     try {
         const config = window.rifaplusConfig;
         if (!config || !config.backend) {
-            console.warn('⚠️ Config no disponible');
+            console.debug('[main] Config no disponible aún');
             return;
         }
 
         aplicarVisibilidadProgressStats();
-        if (!debeMostrarProgressBar()) {
-            return;
-        }
+        if (!debeMostrarProgressBar()) return;
         
-        // 🎯 PASO 1: Determinar total de boletos (Global siempre para Countdown)
+        // 🎯 PASO 1: Determinar total de boletos
         const totalBoletosGlobal = typeof config?.obtenerTotalBoletos === 'function'
             ? config.obtenerTotalBoletos()
             : (config.rifa?.totalBoletos || 0);
         
         let totalParaMostrar = totalBoletosGlobal;
         let rangoVisible = null;
-        
-        // Mantener referencia al rango para filtrado de memoria si es necesario
         if (config.rifa?.oportunidades?.enabled && config.rifa?.oportunidades?.rango_visible) {
             rangoVisible = config.rifa.oportunidades.rango_visible;
         }
 
         if (!Number.isFinite(totalParaMostrar) || totalParaMostrar <= 0) {
-            console.warn('⚠️ Total de boletos invalido para countdown-progress:', totalParaMostrar);
+            // Si el total no está listo, intentamos sincronizar y esperamos
+            console.debug('[main] Esperando totalBoletos válido...');
             return;
         }
         
-        // 🎯 PASO 2: Obtener datos de boletos (Prioridad: 1. Estado Global, 2. Memoria Parcial, 3. Backend)
+        // 🎯 PASO 2: Identificación de Contexto (Slug)
+        // Intentar obtener slug inmediatamente de URL o sesión
+        const slugActual = typeof config.obtenerSlugRifaActual === 'function' 
+            ? config.obtenerSlugRifaActual() 
+            : '';
+            
+        // Generar clave de caché ESTABLE que no dependa de si config.rifa.id existe aún
+        const cacheKey = slugActual ? `rifaplus:${slugActual}:last_stats` : 'rifaplus_stats_fallback';
+        
+        let cachedData = null;
+        try {
+            const rawCache = localStorage.getItem(cacheKey);
+            if (rawCache) cachedData = JSON.parse(rawCache);
+        } catch (e) {}
+
         const estadoGlobal = window.rifaplusConfig?.estado || {};
-        const soldGlobalCount = Number(estadoGlobal.boletosVendidos);
-        const reservedGlobalCount = Number(estadoGlobal.boletosApartados);
+        const soldGlobalCount = Number(estadoGlobal.boletosVendidos) || 0;
 
-        // Si tenemos el estado global (totales), usarlo directamente (si es mayor a 0 para evitar estado inicial)
-        if (Number.isFinite(soldGlobalCount) && soldGlobalCount > 0) {
-            console.debug('[main] Usando totales globales desde config.estado');
-            actualizarInterfazProgreso(
-                { length: soldGlobalCount }, 
-                { length: reservedGlobalCount || 0 }, 
-                totalParaMostrar, 
-                rangoVisible
-            );
+        // 🔥 DEFENSA 1: Mostrar caché inmediatamente si no hay nada en memoria real
+        if (cachedData && soldGlobalCount <= 0) {
+            actualizarInterfazProgreso([], [], totalParaMostrar, rangoVisible, cachedData.vendidos);
+        }
+
+        // Si ya tenemos datos frescos en el estado global (vía config-sync), usarlos
+        if (soldGlobalCount > 0) {
+            actualizarInterfazProgreso({ length: soldGlobalCount }, { length: 0 }, totalParaMostrar, rangoVisible);
+            localStorage.setItem(cacheKey, JSON.stringify({ vendidos: soldGlobalCount, ts: Date.now() }));
             return;
         }
 
-        const sold = (window.rifaplusSoldNumbers && Array.isArray(window.rifaplusSoldNumbers)) ? window.rifaplusSoldNumbers : [];
-        const reserved = (window.rifaplusReservedNumbers && Array.isArray(window.rifaplusReservedNumbers)) ? window.rifaplusReservedNumbers : [];
-        
-        // Fallback: Si tenemos datos en memoria (grid), usarlos (aunque sean parciales, es mejor que 0)
-        if (window.rifaplusBoletosLoaded && (sold.length > 0 || reserved.length > 0)) {
-            console.debug('[main] Usando datos en memoria (parciales)');
-            actualizarInterfazProgreso(sold, reserved, totalParaMostrar, rangoVisible);
-            return;
-        }
-        
-        // 🎯 PASO 3: FALLBACK - Obtener del backend si no hay datos en memoria
+        // 🎯 PASO 3: Obtener del backend
         const apiBase = config.backend.apiBase;
-        
-        // Usar constructor contextual para incluir ?rifa=slug si estamos en multi-rifa
         const url = typeof syncConstruirUrlPublicaContextualRifaPlus === 'function'
             ? syncConstruirUrlPublicaContextualRifaPlus(apiBase, '/api/public/ordenes-stats')
             : `${apiBase}/api/public/ordenes-stats`;
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 segundos timeout
-        
         try {
-            const respuesta = await fetch(url, {
-                signal: controller.signal,
-                headers: { 'Accept': 'application/json' }
-            });
-            
-            clearTimeout(timeoutId);
+            const respuesta = await fetch(url, { headers: { 'Accept': 'application/json' } });
             
             if (!respuesta.ok) {
-                console.warn('⚠️ Backend no respondió correctamente');
-                actualizarInterfazProgreso([], [], totalParaMostrar, rangoVisible);
+                // Si el backend dice 400 (Rifa no identificada), es que aún no enviamos el slug correcto
+                if (respuesta.status === 400) {
+                    console.debug('[main] Backend requiere identificación. Reintentando en 2s...');
+                    setTimeout(() => actualizarBarraProgreso(), 2000);
+                }
                 return;
             }
 
             const datos = await respuesta.json();
             if (datos.success && datos.data) {
-                const boletosVendidos = datos.data.total_boletos_vendidos || 0;
-                console.debug('[main] Usando datos del backend:', { boletosVendidos });
+                const boletosVendidos = Number(datos.data.total_boletos_vendidos) || 0;
+                const contextResolved = datos.data.context_resolved !== false;
+                
+                // 🔥 DEFENSA 2: "Anti-Zero Flash"
+                // Si el backend devuelve 0 pero no confirma resolución de contexto, ignoramos.
+                if (boletosVendidos === 0 && !contextResolved) {
+                    console.debug('[main] Backend devolvió 0 sin contexto confirmado. Reintentando...');
+                    setTimeout(() => actualizarBarraProgreso(), 2000);
+                    return;
+                }
+
+                // Si el backend devuelve 0 pero tenemos caché > 0, sospechamos de error de aislamiento.
+                if (boletosVendidos === 0 && cachedData && cachedData.vendidos > 0) {
+                    console.warn('⚠️ Backend reportó 0 pero caché tiene data. Manteniendo caché y reintentando...');
+                    setTimeout(() => actualizarBarraProgreso(), 5000);
+                    return;
+                }
+
                 actualizarInterfazProgreso([], [], totalParaMostrar, rangoVisible, boletosVendidos);
-            } else {
-                console.warn('⚠️ Respuesta inválida del backend');
-                actualizarInterfazProgreso([], [], totalParaMostrar, rangoVisible);
+                
+                // Guardar en caché solo si el contexto está resuelto para no contaminar el fallback
+                if (contextResolved) {
+                    localStorage.setItem(cacheKey, JSON.stringify({ vendidos: boletosVendidos, ts: Date.now() }));
+                }
             }
         } catch (fetchError) {
-            clearTimeout(timeoutId);
-            if (fetchError.name === 'AbortError') {
-                console.warn('⚠️ Timeout conectando a backend (URL:', url, ')');
-            } else {
-                console.warn('⚠️ No se puede conectar a backend:', apiBase);
-            }
-            actualizarInterfazProgreso([], [], totalParaMostrar, rangoVisible);
+            console.debug('[main] Error fetch stats, se mantiene caché:', fetchError.message);
         }
     } catch (error) {
         console.warn('⚠️ Error en actualizarBarraProgreso:', error.message);
     }
 }
+
 
 /**
  * actualizarInterfazProgreso - Actualiza elementos UI con datos de boletos

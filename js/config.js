@@ -522,11 +522,18 @@ if (!window.__RIFAPLUS_PUBLIC_RIFA_FETCH_PATCHED__) {
         // 🛡️ INYECCIÓN AUTOMÁTICA DE CABECERAS DE RIFA
         const slug = obtenerSlugRifaDesdeUrlRifaPlus();
         if (slug) {
-            finalOptions.headers = {
-                ...(finalOptions.headers || {}),
-                'x-rifaplus-rifa-slug': slug,
-                'x-rifa-id': window.rifaplusConfig?.rifa?.id || '' // Intentar enviar ID si está cargado
-            };
+            if (finalOptions.headers instanceof Headers) {
+                finalOptions.headers.set('x-rifaplus-rifa-slug', slug);
+                if (window.rifaplusConfig?.rifa?.id) {
+                    finalOptions.headers.set('x-rifa-id', String(window.rifaplusConfig.rifa.id));
+                }
+            } else {
+                finalOptions.headers = {
+                    ...(finalOptions.headers || {}),
+                    'x-rifaplus-rifa-slug': slug,
+                    'x-rifa-id': window.rifaplusConfig?.rifa?.id || ''
+                };
+            }
         }
         
         return originalFetchRifaPlus(scopedResource, finalOptions);

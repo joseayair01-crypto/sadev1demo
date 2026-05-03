@@ -735,10 +735,19 @@ window.rifaplusConfig.sincronizarEstadoBackend = async function() {
             
             if (statsData.success) {
                 const data = statsData.data || statsData;
+                const boletosVendidos = Number(data.vendidos) || 0;
+                const contextResolved = data.context_resolved !== false;
+
+                // 🛡️ ANTI-ZERO: No sobreescribir con 0 si no hay resolución de contexto confirmada
+                // o si contradice un valor previo positivo (sospecha de error de aislamiento).
+                if (boletosVendidos === 0 && (!contextResolved || (this.estado.boletosVendidos > 0))) {
+                    syncDebug('⚠️ Sincronización devolvió 0 pero el estado actual es > 0 o sin contexto. Ignorando.');
+                    return false;
+                }
                 
-                this.estado.boletosVendidos = data.vendidos;
-                this.estado.boletosApartados = data.apartados;
-                this.estado.boletosDisponibles = data.disponibles;
+                this.estado.boletosVendidos = boletosVendidos;
+                this.estado.boletosApartados = Number(data.apartados) || 0;
+                this.estado.boletosDisponibles = Number(data.disponibles) || (this.rifa.totalBoletos - boletosVendidos);
                 
                 this.estado.porcentajeVendido = (this.estado.boletosVendidos / this.rifa.totalBoletos) * 100;
                 this.estado.ultimaActualizacion = new Date();

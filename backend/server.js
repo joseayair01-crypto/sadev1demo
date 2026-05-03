@@ -9691,6 +9691,12 @@ app.get('/api/public/ordenes-stats', async (req, res) => {
     );
 
     try {
+        const rifaContext = req.rifaContext;
+        if (!rifaContext || !rifaContext.id) {
+            console.warn('[STATS_ERROR] Request without valid rifaContext.id');
+            return res.status(400).json({ success: false, message: 'Rifa no identificada' });
+        }
+
         setHttpCacheHeaders(res, Math.max(5, Math.floor(cacheTtl / 1000)), true);
 
         if (cached) {
@@ -9707,7 +9713,17 @@ app.get('/api/public/ordenes-stats', async (req, res) => {
         }
 
         const totalBoletosRifa = Number(req.rifaContext?.configuracion?.rifa?.totalBoletos) || 1000;
-        const currentRifaId = req.rifaContext?.id;
+        const currentRifaId = rifaContext?.id;
+        const isFallback = !currentRifaId;
+
+        console.log(`[STATS_DEBUG] Request Slug: ${rifaContext?.slug}, ID: ${currentRifaId}, TotalConfig: ${totalBoletosRifa}, Fallback: ${isFallback}`);
+
+        // Si es fallback y estamos en una página que espera una rifa específica, esto es un error
+        if (isFallback && (req.query.rifa || req.headers['x-rifaplus-rifa-slug'])) {
+            console.warn('[STATS_ERROR] Fallback detected when explicit slug was requested');
+            return res.status(400).json({ success: false, message: 'Rifa no identificada (Context mismatch)' });
+        }
+
 
         const stats = await resolverSingleFlightPublico(`public:ordenes-stats:${cacheSuffix}`, async () => {
             const result = await db('ordenes')
@@ -9743,7 +9759,8 @@ app.get('/api/public/ordenes-stats', async (req, res) => {
                 total_boletos_vendidos: stats.total_boletos_vendidos,
                 porcentaje_vendido: stats.porcentaje_vendido,
                 queryTime: Date.now() - startTime,
-                cached: false
+                cached: false,
+                context_resolved: !isFallback
             }
         });
     } catch (error) {
@@ -9809,8 +9826,15 @@ app.get('/api/public/boletos/stats', async (req, res) => {
         }
         const config = rifaContext.configuracion?.rifa || {};
         const rifaIdActual = Number.parseInt(rifaContext.id, 10);
+        const isFallback = !rifaIdActual;
         const cacheSuffix = String(rifaContext.slug || rifaIdActual);
         const totalBoletos = Number(config.totalBoletos) || 100;
+
+        // 🛡️ BLOQUEO DE CONTAMINACIÓN: Si se pidió un slug pero caímos en fallback, error.
+        if (isFallback && (req.query.rifa || req.headers['x-rifaplus-rifa-slug'])) {
+            return res.status(400).json({ success: false, message: 'Rifa no identificada (Context mismatch)' });
+        }
+
         // Por defecto cache largo para público; para peticiones admin/autenticadas usar TTL mucho menor
         let cacheTtl = obtenerTtlCachePublico({ productionMs: 30000, developmentMs: 5000 });
         try {
@@ -9843,7 +9867,8 @@ app.get('/api/public/boletos/stats', async (req, res) => {
                     disponibles: cached.payload.disponibles,
                     total: totalBoletos,
                     queryTime: cached.ageMs,
-                    cached: true
+                    cached: true,
+                    context_resolved: !isFallback
                 }
             });
         }
@@ -9905,7 +9930,8 @@ app.get('/api/public/boletos/stats', async (req, res) => {
                 disponibles: disponibles,
                 total: totalBoletos,
                 queryTime: queryTime,
-                cached: false
+                cached: false,
+                context_resolved: !isFallback
             }
         });
 
