@@ -7051,7 +7051,9 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
             for (let intentoOrdenId = 0; intentoOrdenId < 30; intentoOrdenId++) {
                 if (!ordenId) {
                     const counterStart = Date.now();
-                    ordenId = await generarSiguienteOrdenId(clienteIdActual, trx, rifaIdActual);
+                    // Generar ordenId en su propia transacción para que el contador
+                    // avance incluso si la transacción de la orden se revierte.
+                    ordenId = await generarSiguienteOrdenId(clienteIdActual, null, rifaIdActual);
                     perfMarks.counterMs = (perfMarks.counterMs || 0) + (Date.now() - counterStart);
                 }
 
