@@ -98,7 +98,7 @@ class ConfigManager {
         production: {
           general: 800,
           login: 5,
-          ordenes: 120,
+          ordenes: 300,
           windowMs: 900000,
           publicReadConfig: {
             enabled: true,
@@ -108,11 +108,11 @@ class ConfigManager {
           ordenesConfig: {
             enabled: true,
             windowMs: 60000,
-            normalMax: 120,
-            peakMax: 300,
-            normalBurstCapacity: 240,
-            peakBurstCapacity: 480,
-            maxQueueWaitMs: 1500,
+            normalMax: 300,
+            peakMax: 900,
+            normalBurstCapacity: 1200,
+            peakBurstCapacity: 3600,
+            maxQueueWaitMs: 10000,
             queuePollMs: 100,
             peakStartHour: 20,
             peakEndHour: 23

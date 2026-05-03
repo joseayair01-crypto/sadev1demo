@@ -169,12 +169,41 @@ async function preloadAvailableTickets(baseUrl, options) {
     const limit = 500;
 
     while (tickets.length < estimatedTickets) {
+        // Intento principal: GET /api/boletos/disponibles
         const result = await fetchJson(`${baseUrl}/api/boletos/disponibles?limit=${limit}&offset=${offset}`, {
             headers: { accept: 'application/json' }
         });
 
+        // Si GET falla con 404 o devuelve formato inesperado, intentamos el endpoint alternativo POST /disponibles-aleatorios
         if (!result.response.ok || result.json?.success !== true) {
-            throw new Error(`No se pudieron precargar boletos disponibles (status ${result.response.status})`);
+            // Si el servidor indica Not Found o la ruta no está expuesta, intentar POST alternativo
+            if (result.response.status === 404 || result.response.status === 403 || result.response.status === 401) {
+                // fallback: pedir bloques aleatorios hasta completar estimatedTickets
+                const remaining = Math.max(estimatedTickets - tickets.length, options.ticketsPerOrder);
+                const tryLimit = Math.min(limit, remaining);
+                const fallbackResult = await fetchJson(`${baseUrl}/api/boletos/disponibles-aleatorios`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', accept: 'application/json' },
+                    body: JSON.stringify({ cantidad: tryLimit, excludeNumbers: [] })
+                });
+
+                if (!fallbackResult.response.ok || fallbackResult.json?.success !== true) {
+                    console.warn(`Precarga: ambos endpoints GET y POST fallaron (GET ${result.response.status}, POST ${fallbackResult.response.status}). Cambiando a modo secuencial (--useAvailablePool=false).`);
+                    // Forzamos al caller a generar tickets secuenciales
+                    options.useAvailablePool = false;
+                    return [];
+                }
+
+                const pageTickets = normalizeTicketList(fallbackResult.json?.boletos);
+                if (pageTickets.length === 0) break;
+                tickets.push(...pageTickets);
+                // no cambia offset cuando usamos fallback; continuamos hasta llenar
+                continue;
+            }
+
+            console.warn(`Precarga GET /api/boletos/disponibles falló (status ${result.response.status}). Cambiando a modo secuencial (--useAvailablePool=false).`);
+            options.useAvailablePool = false;
+            return [];
         }
 
         const pageTickets = normalizeTicketList(result.json?.boletos);
