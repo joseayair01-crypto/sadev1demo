@@ -6170,10 +6170,8 @@ app.post('/api/public/order-counter/next', limiterOrdenes, async (req, res) => {
             || ''
         ).trim();
         
-        // Usar transacción con bloqueo explícito para evitar IDs duplicados bajo concurrencia
-        const orderId = await db.transaction(async (trx) => {
-            return await generarSiguienteOrdenId(cliente_id, trx, rifaIdActual);
-        });
+        // Generador maneja su propia transacción y bloqueo; no envolver aquí
+        const orderId = await generarSiguienteOrdenId(cliente_id, null, rifaIdActual);
 
         log('info', 'POST /api/public/order-counter/next success', { cliente_id, orden_id: orderId });
 
