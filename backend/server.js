@@ -6798,8 +6798,10 @@ async function generarSiguienteOrdenId(cliente_id, trx, rifaId = null) {
     const siguiente = avanzarComponenteOrden(componente);
 
     const updateData = {
+        // Guardar el último componente usado (secuencia y número)
         ultimo_numero: componente.numero,
-        ultima_secuencia: siguiente.secuencia,
+        ultima_secuencia: componente.secuencia,
+        // Proximo número a usar dentro de la misma secuencia
         proximo_numero: siguiente.numero,
         contador_total: (counter.contador_total || 0) + 1,
         updated_at: new Date()
