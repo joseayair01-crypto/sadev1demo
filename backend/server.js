@@ -6754,100 +6754,94 @@ function esMismaOrdenIdempotente(ordenExistente, contexto) {
  * @returns {Promise<string>} ordenId
  */
 async function generarSiguienteOrdenId(cliente_id, trx, rifaId = null) {
-    // 1. Determinar la clave interna del contador y el prefijo visible
     const cidOriginal = String(cliente_id || '').trim();
     const counterKey = construirClaveCounterOrden(rifaId, cidOriginal);
     const prefijo = construirPrefijoVisibleOrden(rifaId, cidOriginal, obtenerConfigActual(rifaId) || {});
-    
+
     logOrdenesDebug(`📋 Generando siguiente ID con prefijo "${prefijo}" para rifa_id=${rifaId}`);
 
-    // Si no nos pasaron una transacción, crear una transacción propia
-    if (!trx) {
-        return await db.transaction(async (localTrx) => {
-            return await generarSiguienteOrdenId(cliente_id, localTrx, rifaId);
-        });
-    }
+    // Ejecutar siempre en su propia transacción para garantizar persistencia
+    return await db.transaction(async (localTrx) => {
+        // 1) Adquirir advisory lock por counterKey para serializar generación
+        try {
+            await localTrx.raw('SELECT pg_advisory_xact_lock(hashtext(?))', [counterKey]);
+            logOrdenesDebug('🔐 Advisory lock adquirido para counterKey=' + counterKey);
+        } catch (lockErr) {
+            console.warn('⚠️ No se pudo adquirir advisory lock para', counterKey, lockErr && lockErr.message);
+        }
 
-    // INTENTAR ADVISORY LOCK por counterKey para serializar generación
-    try {
-        // pg_advisory_xact_lock accepts BIGINT; usar hashtext para derivar un entero estable
-        await trx.raw('SELECT pg_advisory_xact_lock(hashtext(?))', [counterKey]);
-        logOrdenesDebug('🔐 Advisory lock adquirido para counterKey=' + counterKey);
-    } catch (lockErr) {
-        // Si advisory lock no está disponible por alguna razón, seguir sin él
-        console.warn('⚠️ No se pudo adquirir advisory lock para', counterKey, lockErr && lockErr.message);
-    }
+        // 2) Insertar fila si no existe (concurrencia segura)
+        try {
+            await localTrx('order_id_counter')
+                .insert({
+                    cliente_id: counterKey,
+                    rifa_id: rifaId,
+                    ultima_secuencia: 'AA',
+                    ultimo_numero: 0,
+                    proximo_numero: 1,
+                    contador_total: 0,
+                    activo: true,
+                    created_at: new Date(),
+                    updated_at: new Date()
+                })
+                .onConflict(['cliente_id', 'rifa_id'])
+                .ignore();
+        } catch (insErr) {
+            logOrdenesDebug('ℹ️ Error insertando counter (posible concurrencia)', insErr && insErr.message);
+        }
 
-    // 2. Buscar o crear el contador específico para esta rifa/prefijo
-    let counter = await trx('order_id_counter')
-        .where({ cliente_id: counterKey, rifa_id: rifaId })
-        .forUpdate()
-        .first();
-
-    if (!counter) {
-        // Inicializar nuevo contador para esta rifa
-        logOrdenesDebug(`ℹ️ Inicializando nuevo contador para rifa_id=${rifaId} y counterKey=${counterKey}`);
-        await trx('order_id_counter').insert({
-            cliente_id: counterKey,
-            rifa_id: rifaId,
-            ultima_secuencia: 'AA',
-            ultimo_numero: 0,
-            proximo_numero: 1,
-            contador_total: 0,
-            created_at: new Date(),
-            updated_at: new Date()
-        });
-        
-        counter = await trx('order_id_counter')
+        // 3) Leer fila bajo FOR UPDATE
+        const counter = await localTrx('order_id_counter')
             .where({ cliente_id: counterKey, rifa_id: rifaId })
             .forUpdate()
             .first();
-    }
 
-    // 3. Obtener el componente actual y RECONCILIAR si es necesario
-    const candidato = {
-        secuencia: counter.ultima_secuencia || 'AA',
-        numero: counter.ultimo_numero || 0
-    };
+        if (!counter) throw new Error('NO_SE_PUDO_OBTENER_COUNTER');
 
-    // 🛡️ RECONCILIACIÓN DE SEGURIDAD: Verificar si ya existen órdenes mayores en la BD
-    // Esto previene duplicados si el contador se reseteó accidentalmente
-    const mayorPersistido = await obtenerMayorOrdenExistentePorPrefijo(trx, prefijo);
-    let componente = candidato;
+        // 4) Componente candidato y reconciliación
+        const candidato = {
+            secuencia: String(counter.ultima_secuencia || 'AA').toUpperCase(),
+            numero: Number.isFinite(Number(counter.ultimo_numero)) ? Number(counter.ultimo_numero) : 0
+        };
 
-    if (compararComponentesOrden(mayorPersistido, candidato) >= 0) {
-        componente = avanzarComponenteOrden(mayorPersistido);
-        logOrdenesDebug(`♻️ Folio reconciliado: El contador estaba en ${candidato.secuencia}${candidato.numero} pero se encontró orden ${mayorPersistido.secuencia}${mayorPersistido.numero}. Saltando a ${componente.secuencia}${componente.numero}`);
-    }
+        const mayorPersistido = await obtenerMayorOrdenExistentePorPrefijo(localTrx, prefijo);
+        let componente = candidato;
+        if (compararComponentesOrden(mayorPersistido, candidato) >= 0) {
+            componente = avanzarComponenteOrden(mayorPersistido);
+            logOrdenesDebug('♻️ Folio reconciliado', { candidato, mayorPersistido, componente });
+        }
 
-    // 4. Construir el ID completo (ej: S10-AA001)
-    const fullOrderId = construirOrdenIdDesdeComponente(prefijo, componente);
+        // 5) Construir fullOrderId y calcular siguiente
+        const fullOrderId = construirOrdenIdDesdeComponente(prefijo, componente);
+        const siguiente = avanzarComponenteOrden(componente);
 
-    // 5. Calcular y avanzar para el siguiente
-    const siguiente = avanzarComponenteOrden(componente);
+        // 6) Actualizar contador y retornar (UPDATE ... RETURNING)
+        const updateData = {
+            ultimo_numero: componente.numero,
+            ultima_secuencia: componente.secuencia,
+            proximo_numero: siguiente.numero,
+            contador_total: (counter.contador_total || 0) + 1,
+            updated_at: new Date()
+        };
 
-    const updateData = {
-        // Guardar el último componente usado (secuencia y número)
-        ultimo_numero: componente.numero,
-        ultima_secuencia: componente.secuencia,
-        // Proximo número a usar dentro de la misma secuencia
-        proximo_numero: siguiente.numero,
-        contador_total: (counter.contador_total || 0) + 1,
-        updated_at: new Date()
-    };
+        try {
+            const updated = await localTrx('order_id_counter')
+                .where('id', counter.id)
+                .update(updateData)
+                .returning('*');
 
-    // Log previo al UPDATE para diagnosticar por qué no avanza el contador
-    try {
-        logOrdenesDebug('ℹ️ [counter] antes UPDATE', { counterId: counter.id, counter, updateData });
-        const updatedRows = await trx('order_id_counter').where('id', counter.id).update(updateData);
-        logOrdenesDebug('ℹ️ [counter] UPDATE result', { counterId: counter.id, updatedRows });
-    } catch (updErr) {
-        console.error('❌ [counter] Error actualizando order_id_counter:', updErr && (updErr.message || updErr));
-        throw updErr;
-    }
+            if (!updated || updated.length === 0) {
+                throw new Error('NO_SE_PUDO_ACTUALIZAR_COUNTER');
+            }
+            logOrdenesDebug('ℹ️ [counter] UPDATE result', { counterId: counter.id, updated: updated[0] });
+        } catch (updErr) {
+            console.error('❌ [counter] Error actualizando order_id_counter:', updErr && (updErr.message || updErr));
+            throw updErr;
+        }
 
-    logOrdenesDebug(`✅ Folio generado: ${fullOrderId}`);
-    return fullOrderId;
+        logOrdenesDebug(`✅ Folio generado: ${fullOrderId}`);
+        return fullOrderId;
+    });
 }
 
 /**
