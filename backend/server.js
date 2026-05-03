@@ -6760,6 +6760,16 @@ async function generarSiguienteOrdenId(cliente_id, trx, rifaId = null) {
     
     logOrdenesDebug(`📋 Generando siguiente ID con prefijo "${prefijo}" para rifa_id=${rifaId}`);
 
+    // INTENTAR ADVISORY LOCK por counterKey para serializar generación
+    try {
+        // pg_advisory_xact_lock accepts BIGINT; usar hashtext para derivar un entero estable
+        await trx.raw('SELECT pg_advisory_xact_lock(hashtext(?))', [counterKey]);
+        logOrdenesDebug('🔐 Advisory lock adquirido para counterKey=' + counterKey);
+    } catch (lockErr) {
+        // Si advisory lock no está disponible por alguna razón, seguir sin él
+        console.warn('⚠️ No se pudo adquirir advisory lock para', counterKey, lockErr && lockErr.message);
+    }
+
     // 2. Buscar o crear el contador específico para esta rifa/prefijo
     let counter = await trx('order_id_counter')
         .where({ cliente_id: counterKey, rifa_id: rifaId })
