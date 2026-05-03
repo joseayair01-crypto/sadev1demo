@@ -952,7 +952,7 @@ async function guardarOrden() {
             || window.rifaplusConfig?.obtenerApiBase?.()
             || window.location.origin;
         const apiUrl = `${apiBase}/api/ordenes`;
-        const maxReintentos = 3;
+        const maxReintentos = 5;
         let ultimoError = null;
 
         // Calcular timeout dinámico según cantidad de boletos
@@ -1020,6 +1020,21 @@ async function guardarOrden() {
                         logOrdenFormalDebug(`[Orden-Formal] ${ultimoError}`);
                         await new Promise(resolve => setTimeout(resolve, delayMs));
                         continue;
+                    }
+
+                    // Manejo específico de 429 RATE_LIMIT_ORDENES: respetar retryAfterSeconds y reintentar con backoff
+                    if (response.status === 429 && errorData && errorData.code === 'RATE_LIMIT_ORDENES') {
+                        const retryAfter = Number(errorData.retryAfterSeconds) || 1;
+                        if (intento < maxReintentos) {
+                            const waitMs = retryAfter * 1000 * intento; // aumentar espera por intento
+                            logOrdenFormalDebug(`[Orden-Formal] RATE_LIMIT_ORDENES recibido. Esperando ${waitMs}ms antes de reintentar (intento ${intento})`);
+                            await new Promise(resolve => setTimeout(resolve, waitMs));
+                            continue;
+                        } else {
+                            // Último intento: notificar al usuario de forma clara
+                            alert('El servidor está recibiendo muchas solicitudes. Por favor espera unos segundos y vuelve a intentar. Si el problema persiste, inténtalo más tarde.');
+                            return;
+                        }
                     }
 
                     // Errores que NO se reintentan

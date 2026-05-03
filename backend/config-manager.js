@@ -28,6 +28,32 @@ class ConfigManager {
   }
 
   /**
+   * Reemplazar o fusionar rate_limits en memoria y persistir en disk
+   * payload: objeto parcial con la estructura rate_limits
+   */
+  setRateLimits(payload = {}) {
+    try {
+      if (!payload || typeof payload !== 'object') return false;
+      this.config = this.config || this.getDefaultConfig();
+      this.config.rate_limits = Object.assign({}, this.config.rate_limits || {}, payload);
+
+      // Persistir config en disco para sobrevivir reinicios
+      try {
+        fs.writeFileSync(this.configPath, JSON.stringify(this.config, null, 2), { encoding: 'utf8' });
+        this.cacheVersion++;
+        console.log('📝 ConfigManager: rate_limits actualizados y persistidos en config.json');
+      } catch (err) {
+        console.error('❌ No se pudo persistir config.json:', err.message);
+      }
+
+      return true;
+    } catch (error) {
+      console.error('setRateLimits error:', error.message);
+      return false;
+    }
+  }
+
+  /**
    * Cargar configuration.json desde disco
    */
   load() {
@@ -43,7 +69,21 @@ class ConfigManager {
       console.error(`❌ Error al cargar config.json: ${err.message}`);
       
       // Valores por defecto en caso de error
-      this.config = this.getDefaultConfig();
+        // Aplicar overrides desde variable de entorno (útil para despliegues en Railway sin editar files)
+        try {
+          const envJson = process.env.RATE_LIMITS_JSON;
+          if (envJson) {
+            const parsed = JSON.parse(envJson);
+            if (parsed && typeof parsed === 'object') {
+              this.config.rate_limits = Object.assign({}, this.config.rate_limits || {}, parsed);
+              this.cacheVersion++;
+              console.log('🔧 ConfigManager: rate_limits sobrescrito desde RATE_LIMITS_JSON');
+            }
+          }
+        } catch (errEnv) {
+          console.warn('⚠️ ConfigManager: error parseando RATE_LIMITS_JSON:', errEnv.message);
+        }
+
       return false;
     }
   }
