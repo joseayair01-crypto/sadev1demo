@@ -485,18 +485,37 @@ app.use(async (req, res, next) => {
         }
 
         const { rifaId, slug } = obtenerHeadersRifaRequest(req);
-        const contexto = await rifaService.resolverContexto({
-            rifaId,
-            slug,
-            fallbackActive: true
-        }) || construirContextoRifaFallback();
+        
+        // 🔄 Reintentar resolución de contexto si la BD está ocupada
+        let contexto = null;
+        let lastError = null;
+        for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+                contexto = await rifaService.resolverContexto({
+                    rifaId,
+                    slug,
+                    fallbackActive: true
+                });
+                if (contexto) break;
+            } catch (err) {
+                lastError = err;
+                const isConnError = /connection|pool|deadlock|max client/i.test(err.message);
+                if (isConnError && attempt < 2) {
+                    await new Promise(r => setTimeout(r, 200 + Math.floor(Math.random() * 500)));
+                    continue;
+                }
+                throw err;
+            }
+        }
+        
+        contexto = contexto || construirContextoRifaFallback();
 
         req.rifaContext = contexto;
         res.setHeader('X-RifaPlus-Rifa-Slug', String(contexto?.slug || ''));
         if (contexto?.id) {
             res.setHeader('X-RifaPlus-Rifa-Id', String(contexto.id));
         }
-
+        
         return requestRifaStorage.run(contexto, next);
     } catch (error) {
         console.warn('[rifa-context] No se pudo resolver el contexto de rifa:', error.message);
@@ -6760,8 +6779,8 @@ async function generarSiguienteOrdenId(cliente_id, trx, rifaId = null) {
 
     logOrdenesDebug(`📋 Generando siguiente ID con prefijo "${prefijo}" para rifa_id=${rifaId}`);
 
-    // Ejecutar siempre en su propia transacción para garantizar persistencia
-    return await db.transaction(async (localTrx) => {
+    // Usar transacción existente si se provee, de lo contrario crear una nueva
+    const executeInTransaction = async (localTrx) => {
         // 1) Adquirir advisory lock por counterKey para serializar generación
         try {
             await localTrx.raw('SELECT pg_advisory_xact_lock(hashtext(?))', [counterKey]);
@@ -6866,7 +6885,13 @@ async function generarSiguienteOrdenId(cliente_id, trx, rifaId = null) {
 
         logOrdenesDebug(`✅ Folio generado: ${fullOrderId}`);
         return fullOrderId;
-    });
+    };
+
+    if (trx) {
+        return await executeInTransaction(trx);
+    } else {
+        return await db.transaction(executeInTransaction);
+    }
 }
 
 /**
@@ -7079,9 +7104,8 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
             for (let intentoOrdenId = 0; intentoOrdenId < 30; intentoOrdenId++) {
                 if (!ordenId) {
                     const counterStart = Date.now();
-                    // Generar ordenId en su propia transacción para que el contador
-                    // avance incluso si la transacción de la orden se revierte.
-                    ordenId = await generarSiguienteOrdenId(clienteIdActual, null, rifaIdActual);
+                    // Usar la misma transacción para máxima velocidad y ahorro de conexiones
+                    ordenId = await generarSiguienteOrdenId(clienteIdActual, trx, rifaIdActual);
                     perfMarks.counterMs = (perfMarks.counterMs || 0) + (Date.now() - counterStart);
                 }
 
@@ -7262,11 +7286,18 @@ app.post('/api/ordenes', limiterOrdenes, async (req, res) => {
                 } catch (insErr) {
                     // Si la inserción falló por clave única en numero_orden, regenerar y reintentar
                     const errMsg = String(insErr && (insErr.message || insErr));
-                    if (insErr && (insErr.code === '23505' || /duplicate key value|duplicate key/.test(errMsg))) {
-                        console.warn('⚠️ [POST /api/ordenes] inserción colisionó (23505). Regenerando ordenId y reintentando', { ordenId, err: errMsg });
+                    const isRetryablePostgresError = insErr && (
+                        insErr.code === '23505' || // Duplicate key
+                        insErr.code === '55P03' || // Lock timeout
+                        insErr.code === '57014' || // Statement timeout
+                        /duplicate key value|duplicate key|lock timeout|statement timeout|deadlock/i.test(errMsg)
+                    );
+
+                    if (isRetryablePostgresError) {
+                        console.warn(`⚠️ [POST /api/ordenes] error reintentable (${insErr.code || 'TIMEOUT'}). Intento ${intentoOrdenId + 1}/30. Reintentando...`, { ordenId, err: errMsg });
                         ordenId = '';
-                        // Slightly longer randomized backoff on unique constraint collisions
-                        await new Promise((resolve) => setTimeout(resolve, 80 + Math.floor(Math.random() * 400)));
+                        // Randomized backoff
+                        await new Promise((resolve) => setTimeout(resolve, 100 + Math.floor(Math.random() * 500)));
                         continue; // reintentar
                     }
 
@@ -13701,6 +13732,18 @@ const io = socketIO(server, {
     pingTimeout: 60000
 });
 
+// 🔌 Inicializar RifaService ANTES de que el servidor acepte peticiones
+// Esto es CRÍTICO para que el contexto multirifa esté disponible desde el segundo 0
+(async () => {
+    try {
+        rifaService = new RifaService(db);
+        await rifaService.inicializar();
+        console.log('✅ RifaService inicializado (CRITICAL_PRIORITY)');
+    } catch (err) {
+        console.error('❌ Error crítico inicializando RifaService:', err.message);
+    }
+})();
+
 // Iniciar servidor HTTP
 server.listen(PORT, () => {
     console.log(`🚀 Servidor RifaPlus corriendo en puerto ${PORT}`);
@@ -13717,7 +13760,7 @@ server.listen(PORT, () => {
 
 // ✅ Tareas de inicialización en BACKGROUND (no bloquean startup)
 // Esto permite que el servidor responda inmediatamente
-setImmediate(async () => {
+setTimeout(async () => {
     try {
         // 🟦 NUEVO: Inicializar ConfigManagerV2 para persistencia en BD
         console.log('\n🟦 Inicializando persistencia de configuración en Supabase...');
@@ -13735,29 +13778,22 @@ setImmediate(async () => {
         console.log('   El sistema seguirá funcionando con config.json\n');
     }
 
+    // RifaService se inicializa de forma síncrona/rápida antes si es posible, 
+    // pero aquí mantenemos la compatibilidad con el flujo original si es necesario.
     try {
-        rifaService = new RifaService(db);
-        const multiRifaDisponible = await rifaService.inicializar();
-        if (multiRifaDisponible) {
-            console.log('✅ Servicio multi-rifa inicializado');
-            rifaArchiveService = new RifaArchiveService(db, rifaService);
-            console.log('ℹ️  Depuracion automatica de rifas desactivada; solo se ejecuta manualmente desde admin');
-            const contextoActivo = await rifaService.obtenerRifaActivaPublica(true);
-            if (contextoActivo?.configuracion) {
-                sincronizarConfigLegacyEnMemoria(contextoActivo.configuracion);
-            }
-
-            try {
-                const backfillCampanas = await backfillSuscripcionesCampanaDesdeOrdenes(db);
-                console.log(`✅ Backfill audiencia push listo (${backfillCampanas.created} nuevas, ${backfillCampanas.updated} actualizadas, ${backfillCampanas.processed} procesadas)`);
-            } catch (backfillError) {
-                console.warn('⚠️  No se pudo ejecutar el backfill de audiencia push:', backfillError.message);
-            }
-        } else {
-            console.log('ℹ️ Multi-rifa todavía no disponible; se mantiene modo legacy');
+        if (!rifaService) {
+            rifaService = new RifaService(db);
+            await rifaService.inicializar();
+        }
+        
+        try {
+            const backfillCampanas = await backfillSuscripcionesCampanaDesdeOrdenes(db);
+            console.log(`✅ Backfill audiencia push listo (${backfillCampanas.created} nuevas, ${backfillCampanas.updated} actualizadas, ${backfillCampanas.processed} procesadas)`);
+        } catch (backfillError) {
+            console.warn('⚠️  No se pudo ejecutar el backfill de audiencia push:', backfillError.message);
         }
     } catch (error) {
-        console.error('⚠️ Error inicializando servicio multi-rifa:', error.message);
+        console.error('⚠️ Error en tareas post-rifa:', error.message);
     }
 
     try {
@@ -13788,7 +13824,7 @@ setImmediate(async () => {
     } catch (e) {
         console.error('❌ Error en inicialización de background:', e.message);
     }
-});
+}, 5000);
 
 // Manejar cierre graceful
 process.on('SIGTERM', () => {

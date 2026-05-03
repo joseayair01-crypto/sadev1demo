@@ -1,0 +1,165 @@
+
+> rifaplus-backend@1.0.0 test:integration:multirifa
+> dotenv_config_path=./.env node -r dotenv/config --test tests/integration/multirifa.integration.test.js
+
+TAP version 13
+# ✅ DB: Conectando a PostgreSQL desde DATABASE_URL
+#    URL: postgresql://postgres.cmukfqjefduayddxrufj:hrJk1lWG09gNycDE@...
+# --- SERVER STDOUT ---
+#  ⚙️ [server] trust proxy defaulted to: true
+# ✅ DB: Conectando a PostgreSQL desde DATABASE_URL
+#    URL: postgresql://postgres.cmukfqjefduayddxrufj:hrJk1lWG09gNycDE@...
+# ✅ Cloudinary configurado correctamente
+#    Cloud: dhwvxom01
+# ✅ [Config-Loader] Configuración base cargada desde config.json
+# ⚙️  Configuración base de arranque cargada:
+#    - Tiempo reservado: 1 horas
+#    - Intervalo limpieza: 10 minutos
+#    - Precio boleto: $10
+# 📝 Config cargado desde config.json (versión: 1)
+# ✅ ConfigManager inicializado
+# 🚀 Servidor RifaPlus corriendo en puerto 5201
+# 📍 Ambiente: development
+# 🔌 WebSocket habilitado en ws://localhost:5201
+# 🛡️  Protección contra crashes activada
+# 🔌 [WebSocket] Inicializando eventos de tiempo real...
+# ✅ Sistema WebSocket inicializado
+# 🟦 Inicializando persistencia de configuración en Supabase...
+# 📋 ConfigManagerV2 inicializándose...
+#    - NODE_ENV: development
+#    - Modo desarrollo: true
+# ✅ ConfigManagerV2: Cargado desde rifas.configuracion (1 rifas cacheadas, v1)
+# ✅ ConfigManagerV2: Config cargada desde Supabase
+# ✅ ConfigManagerV2 listo - Configuración será persistente en BD
+#    Info: {"cargadoDesde":"Supabase","version":1,"tiempoCargas":"2026-05-03T10:37:27.116Z","enDesarrollo":true,"clienteNombre":"Sorteos SaDev","rifaNombre":"Cybertruck por solo 50 pesos","precioBoleto":50}
+# 📋 [INFO] Login exitoso { username: 'admin', ip: '::ffff:127.0.0.1' }
+# ✅ Servicio multi-rifa inicializado
+# ℹ️  Depuracion automatica de rifas desactivada; solo se ejecuta manualmente desde admin
+# ✅ Backfill audiencia push listo (0 nuevas, 1 actualizadas, 1 procesadas)
+# ✅ Cola de campañas push inicializada
+# ✅ Tabla orden_oportunidades ya existe
+# 🔒 Verificando constraint único para oportunidades activas...
+# ✅ Constraint único ya existe
+# 📋 [INFO] POST /api/admin/boletos/inventario/poblar success { usuario: 'admin', inicio: 0, fin: 9, insertados: 10 }
+# ╔════════════════════════════════════════════════════════╗
+# ║         🚀 SERVICIO DE EXPIRACIÓN INICIADO             ║
+# ╠════════════════════════════════════════════════════════╣
+# ║ Intervalo: 10 minutos                              
+# ║ Tiempo apartado: 2 horas                        
+# ║ Próxima ejecución: 2026-05-03T10:47:29.442Z
+# ╚════════════════════════════════════════════════════════╝
+# 📋 [INFO] POST /api/admin/boletos/inventario/poblar success { usuario: 'admin', inicio: 0, fin: 9, insertados: 10 }
+# 📋 [INFO] Orden creada exitosamente { ordenId: 'S11-AA001', cantidad: 2, total: 100 }
+# 📋 [INFO] POST /api/ordenes completado {
+#   duracionMs: 1119,
+#   ordenId: 'S11-AA001',
+#   cantidad: 2,
+#   total: 100,
+#   statusCode: 200
+# }
+# 📤 [WebSocket] Emitiendo nueva orden: { rifa_id: 11, cantidad: 2, clientes: 0 }
+# 📤 [WebSocket][Admin] Emitiendo nueva orden admin: { numero_orden: 'S11-AA001', rifa_id: 11, admins: 0 }
+# 📋 [INFO] GET /api/public/boletos/stats completado {
+#   duracionMs: 84,
+#   cached: false,
+#   vendidos: 0,
+#   apartados: 2,
+#   statusCode: 200
+# }
+# [2026-05-03T10:37:31.443Z] 🔍 [ExpService] INICIANDO LIMPIEZA MULTI-RIFA
+#    Búsqueda: órdenes 'pendiente' sin comprobante recibido
+#    NOTA: Órdenes con comprobante recibido NO expiran (esperan revisión de admin)
+# 📋 [INFO] GET /api/public/boletos/stats completado {
+#   duracionMs: 89,
+#   cached: false,
+#   vendidos: 0,
+#   apartados: 0,
+#   statusCode: 200
+# }
+# [COMPR-1777804651603] ═══════════════════════════════════════════════
+# [COMPR-1777804651603] [REQUEST] POST /api/public/ordenes-cliente/:numero_orden/comprobante
+# [COMPR-1777804651603] [REQUEST] Parámetros recibidos:
+# [COMPR-1777804651603] [REQUEST]   - numero_orden: S11-AA001
+# [COMPR-1777804651603] [REQUEST]   - whatsapp: ✅ YES
+# [COMPR-1777804651603] [REQUEST]   - archivo: ✅ YES
+# [COMPR-1777804651603] [REQUEST]   - archivo.name: proof.png
+# [COMPR-1777804651603] [REQUEST]   - archivo.size: 68 bytes
+# [COMPR-1777804651603] [REQUEST]   - archivo.mimetype: image/png
+# [COMPR-1777804651603] [REQUEST]   - archivo.data: ✅ Buffer present
+# [COMPR-1777804651603] [REQUEST] req.files keys: comprobante
+# [COMPR-1777804651603] [REQUEST] req.body keys: whatsapp
+# [COMPR-1777804651603] Content-Type: multipart/form-data; boundary=----formdata-undici-031122246236
+# [COMPR-1777804651603] User-Agent: node...
+# [PROC-COMPR-1777804651604] [STEP 1] Iniciando procesamiento
+# [PROC-COMPR-1777804651604] [STEP 1] Parámetros: orden=S11-AA001, whatsapp=YES, archivo=YES, rifaId=11
+# [PROC-COMPR-1777804651604] [STEP 1] Validando schema de BD...
+# [PROC-COMPR-1777804651604] [STEP 1] ✅ Schema válido
+# [PROC-COMPR-1777804651604] [STEP 2] Validando datos básicos...
+# [PROC-COMPR-1777804651604] [STEP 2] ✅ Datos válidos (whatsapp sanitizado)
+# [PROC-COMPR-1777804651604] [STEP 3] Validando archivo...
+# [PROC-COMPR-1777804651604] [STEP 3] Archivo info: name=proof.png, size=68 bytes, mimetype=image/png, hasData=true
+# [ComprobanteService] ✅ Validación OK { archivo: "proof.png", size: "0.1KB", extension: ".png", mimeType: "image/png" }
+# [PROC-COMPR-1777804651604] [STEP 3] ✅ Archivo válido (0.1KB)
+# [PROC-COMPR-1777804651604] [STEP 4] Validando orden en BD...
+# [PROC-COMPR-1777804651604] [STEP 4] ✅ Orden válida (estado=pendiente)
+# [PROC-COMPR-1777804651604] [STEP 5] Iniciando upload a Cloudinary...
+# [PROC-COMPR-1777804651604] [STEP 5] Nombre archivo: S11-AA001_1777804651768, mimetype: image/png
+# [PROC-COMPR-1777804651604] [STEP 5] ✅ Upload completado: https://res.cloudinary.com/dhwvxom01/image/upload/v177780465...
+# [PROC-COMPR-1777804651604] [STEP 6] Actualizando orden en BD...
+# [PROC-COMPR-1777804651604] [STEP 6] ✅ BD actualizada
+# [PROC-COMPR-1777804651604] [SUCCESS] ✅ Proceso completado exitosamente
+# [COMPR-1777804651603] ✅ SUCCESS - Comprobante procesado exitosamente
+# [COMPR-1777804651603] ═══════════════════════════════════════════════
+# 📋 [INFO] Comprobante subido exitosamente {
+#   numero_orden: 'S11-AA001',
+#   'tamaño_mb': '0.00',
+#   ip: '::ffff:127.0.0.1'
+# }
+# 📋 [INFO] POST /api/public/ordenes-cliente/:numero_orden/comprobante completado {
+#   duracionMs: 1088,
+#   numero_orden: 'S11-AA001',
+#   'tamaño_mb': '0.00',
+#   statusCode: 200
+# }
+# 📤 [WebSocket][Admin] Emitiendo orden actualizada: {
+#   numero_orden: 'S11-AA001',
+#   rifa_id: 11,
+#   estado: 'pendiente',
+#   admins: 0
+# }
+# --- SERVER STDERR ---
+#  ⚠️ [AUDITORÍA] Diferencia cliente/servidor en orden :
+#    Cliente: subtotal=$12.00, descuento=$0.00, total=$12.00
+#    Servidor: subtotal=$100.00, descuento=$0.00, total=$100.00
+# Subtest: multi-rifa aísla inventario, órdenes, comprobantes y resumen admin
+not ok 1 - multi-rifa aísla inventario, órdenes, comprobantes y resumen admin
+  ---
+  duration_ms: 8036.794166
+  type: 'test'
+  location: '/Users/ayair/Desktop/rifas-web/backend/tests/integration/multirifa.integration.test.js:185:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    summary de rifa A debe reflejar el total pendiente correcto
+    
+    100 !== 12
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 12
+  actual: 100
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/Users/ayair/Desktop/rifas-web/backend/tests/integration/multirifa.integration.test.js:221:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 0
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 13103.089125

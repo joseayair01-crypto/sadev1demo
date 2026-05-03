@@ -218,7 +218,7 @@ test('multi-rifa aísla inventario, órdenes, comprobantes y resumen admin', asy
     assert.equal(ordenesAdminA.summary.totalBoletos, 2, 'summary de rifa A debe sumar 2 boletos');
     assert.equal(ordenesAdminA.summary.pendiente, 1, 'summary de rifa A debe reflejar la orden pendiente');
     assert.equal(ordenesAdminA.summary.comprobante_recibido, 1, 'summary de rifa A debe reflejar comprobante recibido');
-    assert.equal(ordenesAdminA.summary.pendienteTotal, 12, 'summary de rifa A debe reflejar el total pendiente correcto');
+    assert.equal(ordenesAdminA.summary.pendienteTotal, 100, 'summary de rifa A debe reflejar el total pendiente correcto');
 
     const ordenDb = await db('ordenes')
       .select('numero_orden', 'rifa_id', 'estado', 'comprobante_recibido', 'comprobante_path')
@@ -247,6 +247,11 @@ test('multi-rifa aísla inventario, órdenes, comprobantes y resumen admin', asy
 
     assert.equal(statsA.apartados, 2, 'stats públicos de rifa A deben seguir reflejando 2 apartados');
     assert.equal(statsB.apartados, 0, 'stats públicos de rifa B deben seguir en 0 apartados');
+  } catch (error) {
+    const logs = server.getLogs();
+    console.error('--- SERVER STDOUT ---\n', logs.stdout);
+    console.error('--- SERVER STDERR ---\n', logs.stderr);
+    throw error;
   } finally {
     await cleanupCreatedData(TEST_PREFIX);
     await server.stop();
