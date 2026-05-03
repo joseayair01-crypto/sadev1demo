@@ -264,17 +264,8 @@ async function obtenerOrdenIdOficialFlujo(clienteGuardado = {}) {
         return '';
     }
 
-    if (typeof window.generarIdOrden === 'function') {
-        try {
-            const ordenIdGenerado = String(await window.generarIdOrden()).trim().toUpperCase();
-            if (esOrdenIdOficial(ordenIdGenerado)) {
-                return ordenIdGenerado;
-            }
-            console.warn('⚠️ [flujo-compra] window.generarIdOrden devolvió un valor no reutilizable:', ordenIdGenerado);
-        } catch (error) {
-            console.warn('⚠️ [flujo-compra] window.generarIdOrden falló:', error?.message || error);
-        }
-    }
+    // Evitar solicitar ID anticipado al servidor — dejar que el backend asigne el ID
+    // Esto previene colisiones cuando múltiples clientes piden IDs simultáneamente.
     return '';
 }
 
