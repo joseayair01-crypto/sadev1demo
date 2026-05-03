@@ -37,14 +37,14 @@ function getRifaIdFromRequest(req) {
   if (Number.isInteger(rifaIdContext) && rifaIdContext > 0) {
     return rifaIdContext;
   }
-  
+
   // Prioridad 2: Header de Rifa (enviado por frontend admin)
   const rifaIdHeaderRaw = req.headers['x-rifaplus-rifa-id'] || req.headers['x-rifa-id'];
   const rifaIdHeader = rifaIdHeaderRaw ? Number.parseInt(rifaIdHeaderRaw, 10) : null;
   if (Number.isInteger(rifaIdHeader) && rifaIdHeader > 0) {
     return rifaIdHeader;
   }
-  
+
   // Fallback: null (solo debería pasar en rutas públicas o mal configuradas)
   if (process.env.NODE_ENV === 'test' || process.env.DEBUG_RIFA_SCOPE) {
     console.log(`[DEBUG_RIFA_SCOPE] Headers: ${JSON.stringify(req.headers)}`);
