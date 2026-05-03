@@ -6760,6 +6760,13 @@ async function generarSiguienteOrdenId(cliente_id, trx, rifaId = null) {
     
     logOrdenesDebug(`📋 Generando siguiente ID con prefijo "${prefijo}" para rifa_id=${rifaId}`);
 
+    // Si no nos pasaron una transacción, crear una transacción propia
+    if (!trx) {
+        return await db.transaction(async (localTrx) => {
+            return await generarSiguienteOrdenId(cliente_id, localTrx, rifaId);
+        });
+    }
+
     // INTENTAR ADVISORY LOCK por counterKey para serializar generación
     try {
         // pg_advisory_xact_lock accepts BIGINT; usar hashtext para derivar un entero estable
