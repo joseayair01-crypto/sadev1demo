@@ -6797,9 +6797,20 @@ async function generarSiguienteOrdenId(cliente_id, trx, rifaId = null) {
         if (!counter) throw new Error('NO_SE_PUDO_OBTENER_COUNTER');
 
         // 4) Componente candidato y reconciliación
+        // CORRECCIÓN: Usar proximo_numero (lo que se generará) no ultimo_numero (lo que se usó)
+        // Si proximo_numero > 999, significa cambio de secuencia: resetear a 0 y avanzar secuencia
+        let proximoNumero = Number.isFinite(Number(counter.proximo_numero)) ? Number(counter.proximo_numero) : 1;
+        let proximaSecuencia = String(counter.ultima_secuencia || 'AA').toUpperCase();
+        if (proximoNumero > 999) {
+            proximoNumero = 0;
+            proximaSecuencia = incrementarSecuenciaSQL(proximaSecuencia);
+            logOrdenesDebug('⚠️ proximo_numero > 999, avanzando secuencia a:', proximaSecuencia);
+        }
+
+        // El candidato es LO QUE SE GENERARÁ PRÓXIMO
         const candidato = {
-            secuencia: String(counter.ultima_secuencia || 'AA').toUpperCase(),
-            numero: Number.isFinite(Number(counter.ultimo_numero)) ? Number(counter.ultimo_numero) : 0
+            secuencia: proximaSecuencia,
+            numero: proximoNumero
         };
 
         const mayorPersistido = await obtenerMayorOrdenExistentePorPrefijo(localTrx, prefijo);
@@ -6814,10 +6825,24 @@ async function generarSiguienteOrdenId(cliente_id, trx, rifaId = null) {
         const siguiente = avanzarComponenteOrden(componente);
 
         // 6) Actualizar contador y retornar (UPDATE ... RETURNING)
+        // CRÍTICO: Si siguiente.numero >= 1000, avanzar secuencia y resetear número
+        // La próxima lectura debe devolver la secuencia/número correcto
+        let proximoNumeroAGuardar = siguiente.numero;
+        let proximaSecuenciaAGuardar = siguiente.secuencia;
+        
+        if (proximoNumeroAGuardar >= 1000) {
+            proximoNumeroAGuardar = 0;
+            proximaSecuenciaAGuardar = incrementarSecuenciaSQL(siguiente.secuencia);
+            logOrdenesDebug('⚠️ siguiente.numero >= 1000, ajustando para próxima iteración', {
+                de: { secuencia: siguiente.secuencia, numero: siguiente.numero },
+                a: { secuencia: proximaSecuenciaAGuardar, numero: proximoNumeroAGuardar }
+            });
+        }
+
         const updateData = {
             ultimo_numero: componente.numero,
-            ultima_secuencia: componente.secuencia,
-            proximo_numero: siguiente.numero,
+            ultima_secuencia: proximaSecuenciaAGuardar,  // Guardar la secuencia que será próxima
+            proximo_numero: proximoNumeroAGuardar,      // Guardar el número que será próximo
             contador_total: (counter.contador_total || 0) + 1,
             updated_at: new Date()
         };
