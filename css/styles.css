@@ -8076,8 +8076,6 @@ body.modal-scroll-locked {
     transform: rotate(90deg);
 }
 
-}
-
 .modal-carrito-close-red {
     color: var(--primary) !important;
     background: rgba(165, 107, 63, 0.10);
