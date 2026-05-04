@@ -53,16 +53,22 @@
         }
     }
 
-    function resolverEsloganShell() {
+    function resolverEsloganShell(stage = 'default') {
         const configActual = window.rifaplusConfig || {};
         const configCacheada = leerConfigCacheada();
-        const eslogan = String(
+        const base = String(
             configActual?.cliente?.eslogan
             || configCacheada?.cliente?.eslogan
             || 'Preparando tu experiencia digital'
         ).trim();
 
-        return eslogan || 'Preparando tu experiencia digital';
+        const stages = {
+            'default': base,
+            'sync': 'Sincronizando sorteo...',
+            'assets': 'Cargando componentes...',
+            'ready': 'Todo listo, entrando...'
+        };
+        return stages[stage] || base;
     }
 
     function tieneConfigMinima() {
@@ -89,11 +95,18 @@
         }
     }
 
-    function actualizarEsloganShell() {
+    function actualizarEsloganShell(stage = 'default') {
         const copy = document.getElementById('rifaplusShellCopy');
         if (!copy) return;
-
-        copy.textContent = resolverEsloganShell();
+        const nuevoTexto = resolverEsloganShell(stage);
+        if (copy.textContent !== nuevoTexto) {
+            copy.style.transition = 'opacity 0.2s ease';
+            copy.style.opacity = 0;
+            setTimeout(() => {
+                copy.textContent = nuevoTexto;
+                copy.style.opacity = 1;
+            }, 200);
+        }
     }
 
     function normalizarRutaLogo(valor) {
@@ -360,7 +373,7 @@
             limpiarTimers();
             limpiarEventos();
             actualizarLogoShell();
-            actualizarEsloganShell();
+            actualizarEsloganShell('ready');
 
             const restante = Math.max(0, MIN_VISIBLE_MS - (performance.now() - estado.mostradoEn));
             window.setTimeout(() => {
@@ -378,8 +391,13 @@
         const evaluar = () => {
             if (estado.cerrado) return true;
 
+            const elapsed = performance.now() - estado.inicio;
+            let currentStage = 'default';
+            if (elapsed > 3500) currentStage = 'assets';
+            else if (elapsed > 1500) currentStage = 'sync';
+
             actualizarLogoShell();
-            actualizarEsloganShell();
+            actualizarEsloganShell(currentStage);
             actualizarEstadoLogoHeader(body);
             const readiness = obtenerReadiness();
 
