@@ -3489,10 +3489,9 @@
         }
 
         function ordenEsElegibleParaAutoPush(orden) {
-            const estadoValidado = validarEstadoOrden(orden?.estado);
             const pushMeta = orden?.push_notificaciones || {};
-            return estadoValidado === 'pendiente'
-                && pushMeta.enabled === true
+            // Permitimos suscripción en cualquier estado activo (pendiente o confirmado)
+            return pushMeta.enabled === true
                 && pushMeta.canSubscribe === true
                 && Boolean(pushMeta.token);
         }
@@ -5037,6 +5036,10 @@
                             if (debeRepintar) {
                                 renderizarOrdenes(data);
                                 mostrarListaOrdenes();
+                                // ✅ Forzar sincronización de push al cargar datos reales
+                                if (typeof sincronizarEstadoPushOrdenesVisibles === 'function') {
+                                    sincronizarEstadoPushOrdenesVisibles();
+                                }
                             }
                             
                             const primeraOrden = data[0];

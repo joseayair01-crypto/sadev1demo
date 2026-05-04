@@ -36,9 +36,9 @@ if (rawTrustProxy !== undefined) {
     app.set('trust proxy', value);
     console.log('⚙️ [server] trust proxy set from TRUST_PROXY env:', value);
 } else {
-    // Default safe behaviour: confiar en 1 proxy en producción, true en desarrollo
+    // Default safe behaviour: confiar en 1 proxy en producción, loopback en desarrollo
     const isProd = process.env.NODE_ENV === 'production';
-    const defaultValue = isProd ? 1 : true;
+    const defaultValue = isProd ? 1 : 'loopback';
     app.set('trust proxy', defaultValue);
     console.log('⚙️ [server] trust proxy defaulted to:', defaultValue);
 }

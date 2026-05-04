@@ -134,6 +134,7 @@
 
         initPromise = (async () => {
             const config = await fetchPushConfig();
+
             if (!config.enabled || !navegadorSoportaPush() || !esContextoSeguroPush()) {
                 hookMensajesServiceWorker();
                 return {
@@ -144,18 +145,22 @@
                 };
             }
 
-            const registration = await navigator.serviceWorker.register('/sw-push.js', {
-                scope: '/'
-            });
-            hookMensajesServiceWorker();
+            try {
+                const registration = await navigator.serviceWorker.register('/sw-push.js', {
+                    scope: '/'
+                });
+                hookMensajesServiceWorker();
 
-            return {
-                ready: true,
-                enabled: true,
-                supported: true,
-                secureContext: true,
-                registration
-            };
+                return {
+                    ready: true,
+                    enabled: true,
+                    supported: true,
+                    secureContext: true,
+                    registration
+                };
+            } catch (swError) {
+                return { ready: false, error: swError.message };
+            }
         })();
 
         return initPromise;

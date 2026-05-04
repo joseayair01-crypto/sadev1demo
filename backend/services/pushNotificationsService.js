@@ -673,7 +673,7 @@ function construirUrlMisBoletosPush(orden = {}, opciones = {}) {
 function construirPayloadPushOrdenConfirmada(orden = {}) {
     const numeroOrden = String(orden.numero_orden || orden.id || '').trim().toUpperCase();
     const cantidadBoletos = Number(orden.cantidad_boletos || 0) || 0;
-    const logoUrl = String(orden.logo || orden.logotipo || '/images/placeholder-logo.svg').trim() || '/images/placeholder-logo.svg';
+    const logoUrl = String(orden.logo || orden.logotipo || orden.organizerLogo || '/images/placeholder-logo.svg').trim() || '/images/placeholder-logo.svg';
     const destinationUrl = construirUrlMisBoletosPush(orden, { autoOpen: true });
 
     return {
@@ -699,7 +699,7 @@ function construirPayloadPushOrdenConfirmada(orden = {}) {
 
 function construirPayloadPushOrdenCancelada(orden = {}, options = {}) {
     const numeroOrden = String(orden.numero_orden || orden.id || '').trim().toUpperCase();
-    const logoUrl = String(orden.logo || orden.logotipo || '/images/placeholder-logo.svg').trim() || '/images/placeholder-logo.svg';
+    const logoUrl = String(orden.logo || orden.logotipo || orden.organizerLogo || '/images/placeholder-logo.svg').trim() || '/images/placeholder-logo.svg';
     const destinationUrl = construirUrlMisBoletosPush(orden, { autoOpen: true });
     const cancelReason = String(options.reason || 'manual').trim().toLowerCase();
     const reasonLabel = cancelReason === 'expired'
@@ -728,7 +728,7 @@ function construirPayloadPushOrdenCancelada(orden = {}, options = {}) {
 
 function construirPayloadPushOrdenPorVencer(orden = {}, options = {}) {
     const numeroOrden = String(orden.numero_orden || orden.id || '').trim().toUpperCase();
-    const logoUrl = String(orden.logo || orden.logotipo || '/images/placeholder-logo.svg').trim() || '/images/placeholder-logo.svg';
+    const logoUrl = String(orden.logo || orden.logotipo || orden.organizerLogo || '/images/placeholder-logo.svg').trim() || '/images/placeholder-logo.svg';
     const destinationUrl = construirUrlMisBoletosPush(orden, { autoOpen: true });
     const warningMinutes = Math.max(1, Number.parseInt(options.warningMinutes, 10) || 0);
     const plural = warningMinutes === 1 ? '' : 's';
@@ -761,7 +761,7 @@ function construirPayloadPushNuevaRifaDisponible(campaign = {}) {
     const destinationUrl = rifaSlug && !/[?&](rifa|slug)=/i.test(baseUrl)
         ? `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}rifa=${encodeURIComponent(rifaSlug)}`
         : baseUrl;
-    const icon = String(campaign.logo || campaign.logotipo || '/images/placeholder-logo.svg').trim() || '/images/placeholder-logo.svg';
+    const icon = String(campaign.logo || campaign.logotipo || campaign.organizerLogo || '/images/placeholder-logo.svg').trim() || '/images/placeholder-logo.svg';
     const variables = {
         organizerName,
         rifaNombre,
@@ -803,7 +803,7 @@ function construirPayloadPushRecordatorioEvento(campaign = {}) {
     const destinationUrl = rifaSlug && !/[?&](rifa|slug)=/i.test(baseUrl)
         ? `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}rifa=${encodeURIComponent(rifaSlug)}`
         : baseUrl;
-    const icon = String(campaign.logo || campaign.logotipo || '/images/placeholder-logo.svg').trim() || '/images/placeholder-logo.svg';
+    const icon = String(campaign.logo || campaign.logotipo || campaign.organizerLogo || '/images/placeholder-logo.svg').trim() || '/images/placeholder-logo.svg';
     const eventDate = campaign.eventDate ? new Date(campaign.eventDate) : null;
     const eventDateLabel = eventDate instanceof Date && !Number.isNaN(eventDate.getTime())
         ? eventDate.toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })
@@ -845,7 +845,7 @@ function construirPayloadPushResultadosDisponibles(campaign = {}) {
     const destinationUrl = rifaSlug && !/[?&](rifa|slug)=/i.test(baseUrl)
         ? `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}rifa=${encodeURIComponent(rifaSlug)}`
         : baseUrl;
-    const icon = String(campaign.logo || campaign.logotipo || '/images/placeholder-logo.svg').trim() || '/images/placeholder-logo.svg';
+    const icon = String(campaign.logo || campaign.logotipo || campaign.organizerLogo || '/images/placeholder-logo.svg').trim() || '/images/placeholder-logo.svg';
     const resultsCount = Math.max(0, Number.parseInt(campaign.resultsCount, 10) || 0);
     const defaultTitle = 'Resultados disponibles';
     const defaultBody = resultsCount > 0
@@ -1477,6 +1477,41 @@ async function backfillSuscripcionesCampanaDesdeOrdenes(knex) {
     };
 }
 
+const RIFAPLUS_LOGO_CACHE = new Map();
+const RIFAPLUS_LOGO_CACHE_TTL = 5 * 60 * 1000; // 5 minutos
+
+async function resolverLogoDinamicoRifa(knex, rifaId, currentLogo) {
+    if (currentLogo && String(currentLogo).startsWith('http')) {
+        return currentLogo;
+    }
+
+    if (!rifaId) return '/images/placeholder-logo.svg';
+
+    const ahora = Date.now();
+    const cached = RIFAPLUS_LOGO_CACHE.get(rifaId);
+    if (cached && (ahora - cached.timestamp) < RIFAPLUS_LOGO_CACHE_TTL) {
+        return cached.logo;
+    }
+
+    try {
+        const rifa = await knex('rifas')
+            .where('id', rifaId)
+            .first('configuracion');
+        
+        const config = rifa?.configuracion || {};
+        const logo = String(config?.cliente?.logo || config?.cliente?.logotipo || '').trim() || '/images/placeholder-logo.svg';
+        
+        RIFAPLUS_LOGO_CACHE.set(rifaId, {
+            logo,
+            timestamp: ahora
+        });
+
+        return logo;
+    } catch (error) {
+        return '/images/placeholder-logo.svg';
+    }
+}
+
 async function enviarPushEventoOrden(knex, orden = {}, eventType, options = {}) {
     const config = asegurarConfiguracionWebPush();
     const numeroOrden = String(orden.numero_orden || orden.id || '').trim().toUpperCase();
@@ -1538,6 +1573,8 @@ async function enviarPushEventoOrden(knex, orden = {}, eventType, options = {}) 
     }
 
     let rifaSlug = String(orden?.rifa_slug || orden?.rifaSlug || '').trim();
+    let organizerLogo = await resolverLogoDinamicoRifa(knex, rifaId, orden?.logo || orden?.logotipo || orden?.organizerLogo);
+
     if (!rifaSlug) {
         try {
             const rifa = await knex('rifas')
@@ -1545,14 +1582,15 @@ async function enviarPushEventoOrden(knex, orden = {}, eventType, options = {}) 
                 .first('slug');
             rifaSlug = String(rifa?.slug || '').trim();
         } catch (error) {
-            rifaSlug = '';
+            // Fallback silencioso
         }
     }
 
     const ordenConContexto = {
         ...orden,
         rifa_id: rifaId,
-        rifa_slug: rifaSlug
+        rifa_slug: rifaSlug,
+        organizerLogo: organizerLogo || '/images/placeholder-logo.svg'
     };
 
     const payloadData = construirPayloadEventoPushOrden(eventType, ordenConContexto, options);
