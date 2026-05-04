@@ -5166,7 +5166,7 @@
                 console.log('- ID:', orden.id);
                 console.log('- Nombre cliente:', orden.nombre_cliente || orden.nombre || 'N/A');
                 console.log('- Apellido cliente:', orden.apellido_cliente || orden.apellidos || 'N/A');
-                console.log('- Nombre sorteo:', orden.nombre_sorteo || orden.sorteo_nombre || 'N/A');
+                console.log('- Nombre sorteo:', orden.nombre_sorteo || orden.sorteo_nombre || window.rifaplusConfig?.rifa?.nombreSorteo || 'N/A');
                 
                 // Validar datos de la orden
                 const ordenCard = document.createElement('div');
@@ -5727,10 +5727,8 @@
             }
 
 
+
             configurarBotonesPushOrdenes();
-            sincronizarEstadoPushOrdenesVisibles().catch((error) => {
-                console.warn('[Push] No fue posible sincronizar botones de notificaciones:', error?.message || error);
-            });
             // Actualizar visibilidad del botón flotante basado en órdenes pendientes
             actualizarBtnFlotante();
         }

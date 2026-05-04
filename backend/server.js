@@ -8260,11 +8260,13 @@ app.get('/api/public/ordenes-cliente', async (req, res) => {
 
         // ✅ Consultar órdenes primero
         const ordenes = await db('ordenes')
+            .leftJoin('rifas', 'ordenes.rifa_id', 'rifas.id')
+            .select('ordenes.*', 'rifas.configuracion as rifa_config')
             .modify((qb) => {
-                if (rifaIdActual) qb.where('rifa_id', rifaIdActual);
+                if (rifaIdActual) qb.where('ordenes.rifa_id', rifaIdActual);
             })
-            .where('telefono_cliente', whatsappSanitizado)
-            .orderBy('created_at', 'desc');
+            .where('ordenes.telefono_cliente', whatsappSanitizado)
+            .orderBy('ordenes.created_at', 'desc');
 
         // DEBUG: Log si no encuentra nada
         if (ordenes.length === 0) {
@@ -8317,6 +8319,7 @@ app.get('/api/public/ordenes-cliente', async (req, res) => {
                 comprobante_recibido: orden.comprobante_recibido === true || Boolean(orden.comprobante_path),
                 createdAt: orden.created_at,
                 updatedAt: orden.updated_at,
+                nombre_sorteo: (typeof orden.rifa_config === 'string' ? JSON.parse(orden.rifa_config) : orden.rifa_config)?.rifa?.nombreSorteo || req.rifaContext?.configuracion?.rifa?.nombreSorteo || 'Sorteo',
                 push_notificaciones: construirMetadatosOrdenPushPublica(orden)
             };
         });
