@@ -210,13 +210,17 @@ class RifaService {
       rifa = await this.obtenerPorSlug(slug);
     }
 
-    if (!rifa && hostname && !['localhost', '127.0.0.1'].includes(hostname)) {
+    if (!rifa && hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
       rifa = await this.obtenerPorDominio(hostname);
     }
 
-    // Si se proporcionó un ID, Slug o Hostname explícito, NO debemos hacer fallback a la rifa activa
-    // por defecto si no se encontró lo solicitado, para evitar contaminación de datos.
-    const hasExplicitRequest = (Number.isInteger(rifaId) && rifaId > 0) || slug || (hostname && !['localhost', '127.0.0.1'].includes(hostname));
+    // 🛡️ Identificar si el dominio es "técnico" (localhost, railway, cloudflare pages)
+    const dominiosTecnicos = ['localhost', '127.0.0.1', 'up.railway.app', 'pages.dev'];
+    const esDominioTecnico = dominiosTecnicos.some(d => hostname === d || hostname.endsWith('.' + d));
+
+    // Si se proporcionó un ID, Slug o un Dominio personalizado (no técnico) explícito, 
+    // NO debemos hacer fallback a la rifa activa por defecto si no se encontró lo solicitado.
+    const hasExplicitRequest = (Number.isInteger(rifaId) && rifaId > 0) || slug || (hostname && !esDominioTecnico);
 
     if (!rifa && !hasExplicitRequest && options.fallbackActive !== false) {
       rifa = await this.obtenerRifaActivaPublica();
