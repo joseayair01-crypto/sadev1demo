@@ -215,8 +215,8 @@ function mostrarModalOrdenConfirmada(datosOrden) {
                             <span>Permite las notificaciones para recibir avisos sobre la confirmación de tu pago y el estado de tu orden.</span>
                         </div>
 
-                        <button id="btnIrAPagar" class="btn-ir-pagar">IR A PAGAR</button>
                     </div>
+                    <button id="btnIrAPagar" class="btn-ir-pagar" style="margin-top: 0.95rem;">IR A PAGAR</button>
                 </div>
             </div>
         `;
