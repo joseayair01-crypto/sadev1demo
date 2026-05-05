@@ -501,7 +501,7 @@ app.use(async (req, res, next) => {
                 contexto = await rifaService.resolverContexto({
                     rifaId,
                     slug,
-                    hostname: req.headers.host || req.hostname,
+                    hostname: (req.headers.host || req.hostname || '').split(':')[0],
                     fallbackActive: true
                 });
                 if (contexto) break;
@@ -1148,7 +1148,7 @@ function obtenerHeadersRifaRequest(req) {
     return {
         rifaId: req?.headers?.['x-rifaplus-rifa-id'] || req?.headers?.['x-rifa-id'] || req?.query?.rifa_id || null,
         slug: req?.headers?.['x-rifaplus-rifa-slug'] || req?.query?.rifa || req?.query?.slug || null,
-        hostname: req?.hostname || req?.headers?.host || null
+        hostname: (req?.headers?.host || req?.hostname || '').split(':')[0] || null
     };
 }
 
