@@ -1347,8 +1347,8 @@ const ADMIN_LAYOUT = {
     /**
      * Cerrar sesión
      */
-    logout() {
-        if (confirm('¿Estás seguro de que deseas cerrar sesión?')) {
+    logout(force = false) {
+        if (force || confirm('¿Estás seguro de que deseas cerrar sesión?')) {
             // Limpiar nombre antes de borrar el token
             const nombreDisplay = document.getElementById('userDisplayName');
             const rolDisplay = document.getElementById('userDisplayRole');
@@ -1359,6 +1359,12 @@ const ADMIN_LAYOUT = {
             localStorage.removeItem('rifaplus_token');
             localStorage.removeItem('admin_token');
             localStorage.removeItem('token');
+            
+            // Si es forzado, avisamos al usuario antes de redirigir
+            if (force) {
+                alert('Tu sesión ha expirado o es inválida. Por favor, inicia sesión de nuevo.');
+            }
+            
             window.location.href = 'admin-dashboard.html';
         }
     },
@@ -1543,11 +1549,11 @@ const ADMIN_LAYOUT = {
             headers
         });
         
-        // Si recibimos 401, significa que el token expiró
-        if (response.status === 401) {
-            console.warn('[AdminLayout] Token expirado; cerrando sesion');
-            this.logout();
-            return;
+        // Si recibimos 401 o 403, significa que el token expiró o no tiene permisos
+        if (response.status === 401 || response.status === 403) {
+            console.warn(`[AdminLayout] Error ${response.status}: Token inválido o expirado; cerrando sesión`);
+            this.logout(true); // Cierre de sesión forzado
+            return response;
         }
         
         return response;
