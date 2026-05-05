@@ -9747,7 +9747,14 @@ app.get('/api/public/ordenes-stats', async (req, res) => {
     try {
         const rifaContext = req.rifaContext;
         if (!rifaContext || !rifaContext.id) {
-            console.warn('[STATS_ERROR] Request without valid rifaContext.id');
+            console.warn('[STATS_ERROR] Detalle:', {
+                rifaId_del_contexto: rifaContext?.id,
+                slug_del_contexto: rifaContext?.slug,
+                hostname_detectado: (req.headers.host || '').split(':')[0],
+                url_pedida: req.originalUrl,
+                headers_rifa_id: req.headers['x-rifaplus-rifa-id'],
+                headers_rifa_slug: req.headers['x-rifaplus-rifa-slug']
+            });
             return res.status(400).json({ success: false, message: 'Rifa no identificada' });
         }
 
