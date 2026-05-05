@@ -1,5 +1,5 @@
 
-exports.up = async function(knex) {
+exports.up = async function (knex) {
   const hasColumn = await knex.schema.hasColumn('rifas', 'dominio');
   if (!hasColumn) {
     await knex.schema.table('rifas', (table) => {
@@ -9,7 +9,7 @@ exports.up = async function(knex) {
   }
 };
 
-exports.down = async function(knex) {
+exports.down = async function (knex) {
   const hasColumn = await knex.schema.hasColumn('rifas', 'dominio');
   if (hasColumn) {
     await knex.schema.table('rifas', (table) => {
