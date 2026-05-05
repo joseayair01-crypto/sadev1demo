@@ -96,10 +96,10 @@
       ],
       "enabled": true
     },
-    "estado": "borrador",
+    "estado": "activo",
     "rangos": [
       {
-        "fin": 19999,
+        "fin": 99999,
         "inicio": 0,
         "nombre": "Rango 1"
       }
@@ -111,12 +111,6 @@
           "url": "https://res.cloudinary.com/dhwvxom01/image/upload/v1776293575/rifaplus/sorteos/gallery-1776293575735-BzKnr-ba24dacb7116.webp",
           "titulo": "Imagen 2",
           "publicId": "rifaplus/sorteos/gallery-1776293575735-BzKnr-ba24dacb7116",
-          "descripcion": ""
-        },
-        {
-          "url": "https://res.cloudinary.com/dhwvxom01/image/upload/v1777924624/rifaplus/sorteos/gallery-1777924622593-Gemini_Generated_Image_gf9b5igf9b5igf9b-5131a0f3fa3f.webp",
-          "titulo": "Imagen 2",
-          "publicId": "rifaplus/sorteos/gallery-1777924622593-Gemini_Generated_Image_gf9b5igf9b5igf9b-5131a0f3fa3f",
           "descripcion": ""
         }
       ]
@@ -167,7 +161,7 @@
       ],
       "enabled": true
     },
-    "descripcion": "Participa en nuestro primer sorteo este 30 de mayo por solo $10 pesos el boletito y recibes 4 oportunidades adicionales por cada boleto que compres, no te lo pierdas.!!🔥🍀",
+    "descripcion": "Sorteo de lujo este 30 de mayo, también tenemos presorteo el 30 de abril y 10 ruletazos. No pierdas la oportunidad de participar por solo 6 pesitos y con excelentes promociones si compras más boletos.",
     "fechaSorteo": "2026-05-30T21:15:00",
     "publicacion": {
       "bonos": true,
@@ -181,19 +175,17 @@
       "logoVerificadoHeader": true
     },
     "zonaHoraria": "Hora Centro Mexico",
-    "nombreSorteo": "Honda XR + Iphone 17 pro max 🏍️📱🍀🔥",
-    "precioBoleto": 10,
-    "totalBoletos": 20000,
-    "edicionNombre": "Edicion Demo No.2",
-    "horaPresorteo": "",
+    "nombreSorteo": "Cybertruck por solo 50 pesos",
+    "precioBoleto": 50,
+    "totalBoletos": 100000,
+    "edicionNombre": "Edicion -Demo",
+    "horaPresorteo": "21:15",
     "maquinaSuerte": {
       "quickPicks": [
-        1,
         5,
         10,
         20,
-        50,
-        100
+        50
       ],
       "limiteBoletos": 100,
       "mostrarNotaDisponibilidad": false
@@ -201,16 +193,16 @@
     "oportunidades": {
       "enabled": false,
       "rango_oculto": {
-        "fin": 99999,
-        "inicio": 20000
+        "fin": 0,
+        "inicio": 0
       },
       "multiplicador": 4,
       "rango_visible": {
-        "fin": 19999,
+        "fin": 0,
         "inicio": 0
       }
     },
-    "fechaPresorteo": null,
+    "fechaPresorteo": "2026-04-30T21:15:00",
     "sistemaPremios": {
       "sorteo": [
         {
@@ -223,42 +215,85 @@
       ],
       "enabled": true,
       "mensaje": "Múltiples oportunidades de ganar premios extraordinarios",
-      "presorteo": [],
+      "presorteo": [
+        {
+          "icono": "💵",
+          "nombre": "Presorteo",
+          "premio": "$50,000 pesos",
+          "posicion": 1,
+          "descripcion": "Participan todos los boletos comprados hasta la fecha del presorteo."
+        }
+      ],
       "ruletazos": [
         {
           "icono": "🎰",
           "nombre": "Ruletazo 1",
-          "premio": "$1,000 pesos cada ruletazo",
+          "premio": "$1,000 Pesos c/u",
           "posicion": 1,
-          "descripcion": "Los ruletazos se jugaran el día del sorteo en la transmisión en vivo"
+          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
         },
         {
           "icono": "🎰",
           "nombre": "Ruletazo 2",
-          "premio": "$1,000 pesos cada ruletazo",
+          "premio": "$1,000 Pesos c/u",
           "posicion": 2,
-          "descripcion": "Los ruletazos se jugaran el día del sorteo en la transmisión en vivo"
+          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
         },
         {
           "icono": "🎰",
           "nombre": "Ruletazo 3",
-          "premio": "$1,000 pesos cada ruletazo",
+          "premio": "$1,000 Pesos c/u",
           "posicion": 3,
-          "descripcion": "Los ruletazos se jugaran el día del sorteo en la transmisión en vivo"
+          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
         },
         {
           "icono": "🎰",
           "nombre": "Ruletazo 4",
-          "premio": "$1,000 pesos cada ruletazo",
+          "premio": "$1,000 Pesos c/u",
           "posicion": 4,
-          "descripcion": "Los ruletazos se jugaran el día del sorteo en la transmisión en vivo"
+          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
         },
         {
           "icono": "🎰",
           "nombre": "Ruletazo 5",
-          "premio": "$1,000 pesos cada ruletazo",
+          "premio": "$1,000 Pesos c/u",
           "posicion": 5,
-          "descripcion": "Los ruletazos se jugaran el día del sorteo en la transmisión en vivo"
+          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
+        },
+        {
+          "icono": "🎰",
+          "nombre": "Ruletazo 6",
+          "premio": "$1,000 Pesos c/u",
+          "posicion": 6,
+          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
+        },
+        {
+          "icono": "🎰",
+          "nombre": "Ruletazo 7",
+          "premio": "$1,000 Pesos c/u",
+          "posicion": 7,
+          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
+        },
+        {
+          "icono": "🎰",
+          "nombre": "Ruletazo 8",
+          "premio": "$1,000 Pesos c/u",
+          "posicion": 8,
+          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
+        },
+        {
+          "icono": "🎰",
+          "nombre": "Ruletazo 9",
+          "premio": "$1,000 Pesos c/u",
+          "posicion": 9,
+          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
+        },
+        {
+          "icono": "🎰",
+          "nombre": "Ruletazo 10",
+          "premio": "$1,000 Pesos c/u",
+          "posicion": 10,
+          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
         }
       ]
     },
@@ -319,8 +354,8 @@
       "porcentaje": 100,
       "fechaInicio": "2026-03-31T19:03"
     },
-    "tiempoApartadoHoras": 1,
-    "fechaPresorteoFormato": "",
+    "tiempoApartadoHoras": 2,
+    "fechaPresorteoFormato": "30 de Abril del 2026",
     "informacionSorteoIntro": "Consulta aquí la información más importante del sorteo antes de participar. Al comprar, aceptas estas condiciones.",
     "modalFinalizadoSnapshot": null,
     "pushOrderWarningMinutes": [
@@ -414,7 +449,7 @@
       "canalWhatsappNombre": "Sorteos SaDev",
       "grupoWhatsappNombre": ""
     },
-    "imagenPrincipal": "https://res.cloudinary.com/dhwvxom01/image/upload/v1777924639/rifaplus/sorteos/principal-1777924638449-BVawp-4312cac92490.webp",
+    "imagenPrincipal": "https://res.cloudinary.com/dhwvxom01/image/upload/v1776293588/rifaplus/sorteos/principal-1776293588032-dPPHS-178e475754e5.webp",
     "mensajesWhatsapp": {
       "ganador": "",
       "rechazo": "",
