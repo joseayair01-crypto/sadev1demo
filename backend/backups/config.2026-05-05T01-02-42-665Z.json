@@ -2,10 +2,10 @@
   "seo": {
     "autor": "SaDev",
     "image": "https://res.cloudinary.com/dhwvxom01/image/upload/v1776293588/rifaplus/sorteos/principal-1776293588032-dPPHS-178e475754e5.webp",
-    "title": "SaDev - Cybertruck por solo 6 pesos el boleto",
+    "title": "SaDev - Cybertruck por solo 50 pesos",
     "author": "SaDev",
     "imagen": "https://res.cloudinary.com/dhwvxom01/image/upload/v1776293588/rifaplus/sorteos/principal-1776293588032-dPPHS-178e475754e5.webp",
-    "titulo": "SaDev - Cybertruck por solo 6 pesos el boleto",
+    "titulo": "SaDev - Cybertruck por solo 50 pesos",
     "twitter": {
       "card": "summary_large_image",
       "imagen": "https://res.cloudinary.com/dhwvxom01/image/upload/v1776293588/rifaplus/sorteos/principal-1776293588032-dPPHS-178e475754e5.webp",
@@ -96,10 +96,10 @@
       ],
       "enabled": true
     },
-    "estado": "activo",
+    "estado": "borrador",
     "rangos": [
       {
-        "fin": 99,
+        "fin": 19999,
         "inicio": 0,
         "nombre": "Rango 1"
       }
@@ -108,21 +108,15 @@
       "enabled": true,
       "imagenes": [
         {
-          "url": "https://res.cloudinary.com/dhwvxom01/image/upload/v1776293568/rifaplus/sorteos/gallery-1776293568233-dPPHS-d05054f6d60c.webp",
-          "titulo": "Imagen 1",
-          "publicId": "rifaplus/sorteos/gallery-1776293568233-dPPHS-d05054f6d60c",
-          "descripcion": ""
-        },
-        {
           "url": "https://res.cloudinary.com/dhwvxom01/image/upload/v1776293575/rifaplus/sorteos/gallery-1776293575735-BzKnr-ba24dacb7116.webp",
           "titulo": "Imagen 2",
           "publicId": "rifaplus/sorteos/gallery-1776293575735-BzKnr-ba24dacb7116",
           "descripcion": ""
         },
         {
-          "url": "https://res.cloudinary.com/dhwvxom01/image/upload/v1776293580/rifaplus/sorteos/gallery-1776293580915-anXEE-2754ce8a16b8.webp",
-          "titulo": "Imagen 3",
-          "publicId": "rifaplus/sorteos/gallery-1776293580915-anXEE-2754ce8a16b8",
+          "url": "https://res.cloudinary.com/dhwvxom01/image/upload/v1777924624/rifaplus/sorteos/gallery-1777924622593-Gemini_Generated_Image_gf9b5igf9b5igf9b-5131a0f3fa3f.webp",
+          "titulo": "Imagen 2",
+          "publicId": "rifaplus/sorteos/gallery-1777924622593-Gemini_Generated_Image_gf9b5igf9b5igf9b-5131a0f3fa3f",
           "descripcion": ""
         }
       ]
@@ -173,7 +167,7 @@
       ],
       "enabled": true
     },
-    "descripcion": "Sorteo de lujo este 30 de mayo, también tenemos presorteo el 30 de abril y 10 ruletazos. No pierdas la oportunidad de participar por solo 6 pesitos y con excelentes promociones si compras más boletos.",
+    "descripcion": "Participa en nuestro primer sorteo este 30 de mayo por solo $10 pesos el boletito y recibes 4 oportunidades adicionales por cada boleto que compres, no te lo pierdas.!!🔥🍀",
     "fechaSorteo": "2026-05-30T21:15:00",
     "publicacion": {
       "bonos": true,
@@ -187,125 +181,96 @@
       "logoVerificadoHeader": true
     },
     "zonaHoraria": "Hora Centro Mexico",
-    "nombreSorteo": "Cybertruck por solo $6 pesos 🤯🍀 (Sorteo Demo)",
-    "precioBoleto": 6,
-    "totalBoletos": 100,
-    "edicionNombre": "Edición No.1 - SaDev Demo",
-    "horaPresorteo": "21:15",
+    "nombreSorteo": "Honda XR + Iphone 17 pro max 🏍️📱🍀🔥",
+    "precioBoleto": 10,
+    "totalBoletos": 20000,
+    "edicionNombre": "Edicion Demo No.2",
+    "horaPresorteo": "",
     "maquinaSuerte": {
-      "quickPicks": [],
+      "quickPicks": [
+        1,
+        5,
+        10,
+        20,
+        50,
+        100
+      ],
       "limiteBoletos": 100,
       "mostrarNotaDisponibilidad": false
     },
     "oportunidades": {
-      "enabled": false,
+      "enabled": true,
       "rango_oculto": {
-        "fin": 0,
-        "inicio": 0
+        "fin": 99999,
+        "inicio": 20000
       },
       "multiplicador": 4,
       "rango_visible": {
-        "fin": 0,
+        "fin": 19999,
         "inicio": 0
       }
     },
-    "fechaPresorteo": "2026-04-30T21:15:00",
+    "fechaPresorteo": null,
     "sistemaPremios": {
       "sorteo": [
         {
           "icono": "🥇",
           "nombre": "Primer Lugar",
-          "premio": "Cybertruck negra 2025",
+          "premio": "Honda XR 150 nuevecita",
           "posicion": 1,
-          "descripcion": "Cybertruck 2025, se lleva a domicilio incluimos instalación de cargador u opción a efectivo"
+          "descripcion": "Motocicleta Honda XR 150, completamente nueva"
+        },
+        {
+          "icono": "🎁",
+          "nombre": "Segundo lugar",
+          "premio": "Iphone 17 Pro Max",
+          "posicion": 2,
+          "descripcion": "Iphone completamente nuevo con un año de plan Telcel"
         }
       ],
       "enabled": true,
       "mensaje": "Múltiples oportunidades de ganar premios extraordinarios",
-      "presorteo": [
-        {
-          "icono": "💵",
-          "nombre": "Presorteo",
-          "premio": "$50,000 pesos",
-          "posicion": 1,
-          "descripcion": "Participan todos los boletos comprados hasta la fecha del presorteo."
-        }
-      ],
+      "presorteo": [],
       "ruletazos": [
         {
           "icono": "🎰",
           "nombre": "Ruletazo 1",
-          "premio": "$1,000 Pesos c/u",
+          "premio": "$1,000 pesos cada ruletazo",
           "posicion": 1,
-          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
+          "descripcion": "Los ruletazos se jugaran el día del sorteo en la transmisión en vivo"
         },
         {
           "icono": "🎰",
           "nombre": "Ruletazo 2",
-          "premio": "$1,000 Pesos c/u",
+          "premio": "$1,000 pesos cada ruletazo",
           "posicion": 2,
-          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
+          "descripcion": "Los ruletazos se jugaran el día del sorteo en la transmisión en vivo"
         },
         {
           "icono": "🎰",
           "nombre": "Ruletazo 3",
-          "premio": "$1,000 Pesos c/u",
+          "premio": "$1,000 pesos cada ruletazo",
           "posicion": 3,
-          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
+          "descripcion": "Los ruletazos se jugaran el día del sorteo en la transmisión en vivo"
         },
         {
           "icono": "🎰",
           "nombre": "Ruletazo 4",
-          "premio": "$1,000 Pesos c/u",
+          "premio": "$1,000 pesos cada ruletazo",
           "posicion": 4,
-          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
+          "descripcion": "Los ruletazos se jugaran el día del sorteo en la transmisión en vivo"
         },
         {
           "icono": "🎰",
           "nombre": "Ruletazo 5",
-          "premio": "$1,000 Pesos c/u",
+          "premio": "$1,000 pesos cada ruletazo",
           "posicion": 5,
-          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
-        },
-        {
-          "icono": "🎰",
-          "nombre": "Ruletazo 6",
-          "premio": "$1,000 Pesos c/u",
-          "posicion": 6,
-          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
-        },
-        {
-          "icono": "🎰",
-          "nombre": "Ruletazo 7",
-          "premio": "$1,000 Pesos c/u",
-          "posicion": 7,
-          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
-        },
-        {
-          "icono": "🎰",
-          "nombre": "Ruletazo 8",
-          "premio": "$1,000 Pesos c/u",
-          "posicion": 8,
-          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
-        },
-        {
-          "icono": "🎰",
-          "nombre": "Ruletazo 9",
-          "premio": "$1,000 Pesos c/u",
-          "posicion": 9,
-          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
-        },
-        {
-          "icono": "🎰",
-          "nombre": "Ruletazo 10",
-          "premio": "$1,000 Pesos c/u",
-          "posicion": 10,
-          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
+          "descripcion": "Los ruletazos se jugaran el día del sorteo en la transmisión en vivo"
         }
       ]
     },
     "busquedaBoletos": {
-      "modoAvanzado": false
+      "modoAvanzado": true
     },
     "modalidadEnlace": {
       "tipo": "facebook"
@@ -362,7 +327,7 @@
       "fechaInicio": "2026-03-31T19:03"
     },
     "tiempoApartadoHoras": 1,
-    "fechaPresorteoFormato": "30 de Abril del 2026",
+    "fechaPresorteoFormato": "",
     "informacionSorteoIntro": "Consulta aquí la información más importante del sorteo antes de participar. Al comprar, aceptas estas condiciones.",
     "modalFinalizadoSnapshot": null,
     "pushOrderWarningMinutes": [
@@ -456,7 +421,7 @@
       "canalWhatsappNombre": "Sorteos SaDev",
       "grupoWhatsappNombre": ""
     },
-    "imagenPrincipal": "https://res.cloudinary.com/dhwvxom01/image/upload/v1776293588/rifaplus/sorteos/principal-1776293588032-dPPHS-178e475754e5.webp",
+    "imagenPrincipal": "https://res.cloudinary.com/dhwvxom01/image/upload/v1777924639/rifaplus/sorteos/principal-1777924638449-BVawp-4312cac92490.webp",
     "mensajesWhatsapp": {
       "ganador": "",
       "rechazo": "",
@@ -495,6 +460,16 @@
         "paymentType": "efectivo",
         "accountNumber": "2222 3333 1111 4444",
         "numero_referencia": "Tu nombre completo"
+      },
+      {
+        "id": 4,
+        "phone": "",
+        "accountType": "Cuenta",
+        "beneficiary": "Ricardo Torres",
+        "nombreBanco": "Oxxo - BBVA",
+        "paymentType": "efectivo",
+        "accountNumber": "0123521864532846253",
+        "numero_referencia": ""
       }
     ]
   },

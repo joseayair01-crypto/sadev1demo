@@ -1,3 +1,43 @@
+// ✅ PARCHE DE FETCH - AISLAMIENTO MULTI-TENANT (Sube al principio para capturar todo)
+(function PatchFetchEarly() {
+    if (window.__RIFAPLUS_PUBLIC_RIFA_FETCH_PATCHED__) return;
+    
+    const originalFetch = window.fetch;
+    window.fetch = async function(resource, config) {
+        try {
+            const requestUrl = resource instanceof Request ? resource.url : resource;
+            const resolvedUrl = new URL(String(requestUrl), window.location.href);
+            
+            // Detección de API Base
+            const hostname = window.location.hostname;
+            const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
+            const pathname = resolvedUrl.pathname;
+            
+            const isApiRequest = pathname.startsWith('/api/') || pathname === '/api';
+            const isPublicApi = isApiRequest && !pathname.startsWith('/api/admin/');
+
+            if (isPublicApi) {
+                const params = new URLSearchParams(window.location.search);
+                const slug = params.get('rifa') || params.get('slug') || sessionStorage.getItem('rifaplus_session_slug') || '';
+                
+                if (slug && !resolvedUrl.searchParams.has('rifa')) {
+                    resolvedUrl.searchParams.set('rifa', slug);
+                    
+                    if (resource instanceof Request) {
+                        const newRequest = new Request(resolvedUrl.toString(), resource);
+                        return originalFetch.call(window, newRequest, config);
+                    }
+                    return originalFetch.call(window, resolvedUrl.toString(), config);
+                }
+            }
+        } catch (e) {}
+        return originalFetch.call(window, resource, config);
+    };
+    
+    window.__RIFAPLUS_PUBLIC_RIFA_FETCH_PATCHED__ = true;
+    console.log('✅ [FetchPatch] Inyección de slug activada (Early Init)');
+})();
+
 /**
  * ============================================================
  * ARCHIVO: js/config.js
@@ -153,12 +193,10 @@ function construirClaveLocalRifaPlus(baseKey) {
 
 function leerFlagLogoVerificadoTempranoRifaPlus() {
     const clavesSnapshot = [
-        construirClaveLocalRifaPlus('rifaplus_public_snapshot_v1'),
-        'rifaplus_public_snapshot_v1'
+        construirClaveLocalRifaPlus('rifaplus_public_snapshot_v1')
     ];
     const clavesConfig = [
-        construirClaveLocalRifaPlus('config_actual_v2'),
-        'rifaplus_config_actual_v2'
+        construirClaveLocalRifaPlus('config_actual_v2')
     ];
 
     for (const clave of clavesSnapshot) {
@@ -370,7 +408,7 @@ function resolverApiBaseRifaPlus() {
 
     const puerto = window.rifaplusConfig?.backend?.puerto || 5001;
     if (isLocal) {
-        return `http://localhost:${puerto}`;
+        return `${window.location.protocol}//${window.location.hostname}:${puerto}`;
     }
 
     return normalizarBaseUrl(window.location.origin);
@@ -434,8 +472,9 @@ function mezclarConfigTempranaRifaPlus(destino, origen) {
 
 function leerSnapshotPublicoInicialRifaPlus() {
     try {
-        const raw = localStorage.getItem(construirClaveLocalRifaPlus(RIFAPLUS_PUBLIC_SNAPSHOT_KEY))
-            || localStorage.getItem(RIFAPLUS_PUBLIC_SNAPSHOT_KEY);
+        const keyScoped = construirClaveLocalRifaPlus(RIFAPLUS_PUBLIC_SNAPSHOT_KEY);
+        const raw = localStorage.getItem(keyScoped);
+        
         if (!raw) return null;
 
         const parsed = JSON.parse(raw);
@@ -470,76 +509,8 @@ window.rifaplusConfig.obtenerSnapshotPublicoLocal = function() {
     };
 };
 
-if (!window.__RIFAPLUS_PUBLIC_RIFA_FETCH_PATCHED__) {
-    const originalFetchRifaPlus = window.fetch.bind(window);
-    const resolveRifaScopedResource = (resource) => {
-        try {
-            const requestUrl = resource instanceof Request ? resource.url : resource;
-            const resolvedUrl = new URL(String(requestUrl), window.location.href);
-            const apiBase = resolverApiBaseRifaPlus();
+// ✅ PARCHE DE FETCH MOVIDO AL PRINCIPIO
 
-            if (!apiBase) {
-                return resource;
-            }
-
-            const apiUrl = new URL(String(apiBase), window.location.href);
-            if (resolvedUrl.origin !== apiUrl.origin) {
-                return resource;
-            }
-
-            const isApiRequest = resolvedUrl.pathname === '/api'
-                || resolvedUrl.pathname.startsWith('/api/');
-
-            if (!isApiRequest) {
-                return resource;
-            }
-
-            if (resolvedUrl.pathname.startsWith('/api/admin/')) {
-                return resource;
-            }
-
-            const slug = obtenerSlugRifaDesdeUrlRifaPlus();
-            if (!slug || resolvedUrl.searchParams.has('rifa') || resolvedUrl.searchParams.has('slug')) {
-                return resource;
-            }
-
-            resolvedUrl.searchParams.set('rifa', slug);
-
-            if (resource instanceof Request) {
-                return new Request(resolvedUrl.toString(), resource);
-            }
-
-            return resolvedUrl.toString();
-        } catch (error) {
-            return resource;
-        }
-    };
-
-    window.fetch = function(resource, options = {}) {
-        const scopedResource = resolveRifaScopedResource(resource);
-        const finalOptions = { ...(options || {}) };
-        
-        // 🛡️ INYECCIÓN AUTOMÁTICA DE CABECERAS DE RIFA
-        const slug = obtenerSlugRifaDesdeUrlRifaPlus();
-        if (slug) {
-            if (finalOptions.headers instanceof Headers) {
-                finalOptions.headers.set('x-rifaplus-rifa-slug', slug);
-                if (window.rifaplusConfig?.rifa?.id) {
-                    finalOptions.headers.set('x-rifa-id', String(window.rifaplusConfig.rifa.id));
-                }
-            } else {
-                finalOptions.headers = {
-                    ...(finalOptions.headers || {}),
-                    'x-rifaplus-rifa-slug': slug,
-                    'x-rifa-id': window.rifaplusConfig?.rifa?.id || ''
-                };
-            }
-        }
-        
-        return originalFetchRifaPlus(scopedResource, finalOptions);
-    };
-    window.__RIFAPLUS_PUBLIC_RIFA_FETCH_PATCHED__ = true;
-}
 
 // Versión de configuración
 window.rifaplusConfig._VERSION = '3.1.0';  // v3.1.0 = Arquitectura limpia sin duplicación
@@ -1019,7 +990,6 @@ window.rifaplusConfig._guardarEnLocal = function() {
         };
         
         localStorage.setItem(construirClaveLocalRifaPlus('config_actual_v2'), JSON.stringify(configUserOnly));
-        localStorage.setItem('rifaplus_config_actual_v2', JSON.stringify(configUserOnly));
         localStorage.removeItem('rifaplus_config_actual');
         
     } catch (e) {
@@ -1032,8 +1002,7 @@ window.rifaplusConfig._guardarEnLocal = function() {
  */
 window.rifaplusConfig.cargarDelLocal = function() {
     try {
-        const guardada = localStorage.getItem(construirClaveLocalRifaPlus('config_actual_v2'))
-            || localStorage.getItem('rifaplus_config_actual_v2');
+        const guardada = localStorage.getItem(construirClaveLocalRifaPlus('config_actual_v2'));
         if (!guardada) {
             localStorage.removeItem('rifaplus_config_actual');
             return false;
@@ -1081,7 +1050,6 @@ window.rifaplusConfig.limpiarParaNuevoSorteo = function() {
     try {
         console.log('🧹 Limpiando localStorage para nuevo sorteo...');
         localStorage.removeItem(construirClaveLocalRifaPlus('config_actual_v2'));
-        localStorage.removeItem('rifaplus_config_actual_v2');
         localStorage.removeItem('rifaplus_config_actual');
         console.log('✅ localStorage limpiado');
         return true;
@@ -1869,7 +1837,7 @@ window.rifaplusConfig.obtenerTotalBoletos = function() {
         const cacheKey = typeof construirClaveLocalRifaPlus === 'function' 
             ? construirClaveLocalRifaPlus('total_boletos_cache') 
             : 'rifaplus_total_boletos_cache';
-        const cached = Number(localStorage.getItem(cacheKey) || localStorage.getItem('rifaplus_total_boletos_cache') || 0);
+        const cached = Number(localStorage.getItem(cacheKey) || 0);
         if (Number.isFinite(cached) && cached > 0) {
             return Math.floor(cached);
         }

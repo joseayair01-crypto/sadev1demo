@@ -92,7 +92,15 @@
     </style>
     <script id="rifaplus-shell-early-init">
         (function() {
-            const logoCache = localStorage.getItem('rifaplus_cached_logo') || 'images/placeholder-logo.svg';
+            // ✅ MEJORA: Intentar obtener slug para cargar logo correcto de inmediato
+            const params = new URLSearchParams(window.location.search);
+            const slug = params.get('rifa') || params.get('slug') || '';
+            const buildKey = (base) => slug ? `rifaplus:${slug}:${base}` : base;
+            
+            const logoCache = localStorage.getItem(buildKey('cached_logo')) 
+                || (slug ? 'images/placeholder-logo.svg' : localStorage.getItem('rifaplus_cached_logo'))
+                || 'images/placeholder-logo.svg';
+                
             const imageDelivery = window.RifaPlusImageDelivery;
             
             // Optimizar URL de inmediato si es Cloudinary
@@ -240,10 +248,19 @@
             ];
 
             keysABorrar.forEach(key => {
-                if (localStorage.getItem(key)) {
+                const params = new URLSearchParams(window.location.search);
+                const slug = params.get('rifa') || params.get('slug') || '';
+                const scopedKey = slug ? `rifaplus:${slug}:${key}` : key;
+
+                if (localStorage.getItem(scopedKey)) {
                     if (indexDebug) {
-                        console.warn(`🧹 Limpiando localStorage: ${key}`);
+                        console.warn(`🧹 Limpiando localStorage: ${scopedKey}`);
                     }
+                    localStorage.removeItem(scopedKey);
+                }
+                
+                // También limpiar la global si existe (migración)
+                if (localStorage.getItem(key)) {
                     localStorage.removeItem(key);
                 }
             });

@@ -2,10 +2,10 @@
   "seo": {
     "autor": "SaDev",
     "image": "https://res.cloudinary.com/dhwvxom01/image/upload/v1776293588/rifaplus/sorteos/principal-1776293588032-dPPHS-178e475754e5.webp",
-    "title": "SaDev - Cybertruck por solo 6 pesos el boleto",
+    "title": "SaDev - Cybertruck por solo 50 pesos",
     "author": "SaDev",
     "imagen": "https://res.cloudinary.com/dhwvxom01/image/upload/v1776293588/rifaplus/sorteos/principal-1776293588032-dPPHS-178e475754e5.webp",
-    "titulo": "SaDev - Cybertruck por solo 6 pesos el boleto",
+    "titulo": "SaDev - Cybertruck por solo 50 pesos",
     "twitter": {
       "card": "summary_large_image",
       "imagen": "https://res.cloudinary.com/dhwvxom01/image/upload/v1776293588/rifaplus/sorteos/principal-1776293588032-dPPHS-178e475754e5.webp",
@@ -82,18 +82,24 @@
     "bonos": {
       "items": [
         {
+          "emoji": "📱",
+          "accion": "ninguna",
+          "titulo": "Iphone 17 Pro Max",
+          "descripcion": "Si resultas ganador, adquiriste 100 boletos o mas y pagaste en la primera hora de creación de la orden te llevas este bono adicional, los boletos son acumulables"
+        },
+        {
           "emoji": "💵",
           "accion": "ninguna",
-          "titulo": "$2,000 pesos adicionales ",
+          "titulo": "$10,000 pesos adicionales ",
           "descripcion": "Si resultas ganador y eres miembro de nuestro canal oficial de whatsapp eres acreedor a este bono"
         }
       ],
       "enabled": true
     },
-    "estado": "activo",
+    "estado": "borrador",
     "rangos": [
       {
-        "fin": 24999,
+        "fin": 19999,
         "inicio": 0,
         "nombre": "Rango 1"
       }
@@ -102,21 +108,15 @@
       "enabled": true,
       "imagenes": [
         {
-          "url": "https://res.cloudinary.com/dhwvxom01/image/upload/v1776293568/rifaplus/sorteos/gallery-1776293568233-dPPHS-d05054f6d60c.webp",
-          "titulo": "Imagen 1",
-          "publicId": "rifaplus/sorteos/gallery-1776293568233-dPPHS-d05054f6d60c",
-          "descripcion": ""
-        },
-        {
           "url": "https://res.cloudinary.com/dhwvxom01/image/upload/v1776293575/rifaplus/sorteos/gallery-1776293575735-BzKnr-ba24dacb7116.webp",
           "titulo": "Imagen 2",
           "publicId": "rifaplus/sorteos/gallery-1776293575735-BzKnr-ba24dacb7116",
           "descripcion": ""
         },
         {
-          "url": "https://res.cloudinary.com/dhwvxom01/image/upload/v1776293580/rifaplus/sorteos/gallery-1776293580915-anXEE-2754ce8a16b8.webp",
-          "titulo": "Imagen 3",
-          "publicId": "rifaplus/sorteos/gallery-1776293580915-anXEE-2754ce8a16b8",
+          "url": "https://res.cloudinary.com/dhwvxom01/image/upload/v1777924624/rifaplus/sorteos/gallery-1777924622593-Gemini_Generated_Image_gf9b5igf9b5igf9b-5131a0f3fa3f.webp",
+          "titulo": "Imagen 2",
+          "publicId": "rifaplus/sorteos/gallery-1777924622593-Gemini_Generated_Image_gf9b5igf9b5igf9b-5131a0f3fa3f",
           "descripcion": ""
         }
       ]
@@ -125,39 +125,50 @@
     "descuentos": {
       "reglas": [
         {
-          "total": 190,
-          "ahorro": 10,
-          "precio": 190,
+          "total": 280,
+          "ahorro": 20,
+          "precio": 280,
+          "cantidad": 50
+        },
+        {
+          "total": 550,
+          "ahorro": 50,
+          "precio": 550,
           "cantidad": 100
         },
         {
-          "total": 370,
-          "ahorro": 30,
-          "precio": 370,
+          "total": 1050,
+          "ahorro": 150,
+          "precio": 1050,
           "cantidad": 200
         },
         {
-          "total": 900,
-          "ahorro": 100,
-          "precio": 900,
+          "total": 2500,
+          "ahorro": 500,
+          "precio": 2500,
           "cantidad": 500
         }
       ],
-      "enabled": true
+      "enabled": false
     },
-    "horaSorteo": "21:45",
+    "horaSorteo": "",
     "bonosCompra": {
       "items": [
         {
+          "emoji": "📱",
+          "titulo": "Iphone 17 Pro Max",
+          "descripcion": "Recuerda que para acceder a este bono debes comprar 100 o mas boletos."
+        },
+        {
           "emoji": "💵",
-          "titulo": "$2,000 pesos adicionales",
+          "titulo": "$10,000 pesos adicionales",
           "descripcion": "Recuerda que para acceder a este bono solo tiene que unirte a nuestro canal de whatsapp"
         }
       ],
       "enabled": true
     },
-    "descripcion": "Este 5 de mayo llevate $25,000 en efectivo por solo $2 pesitos el boleto y cada boleto te da 4 oportunidades de ganar",
-    "fechaSorteo": "2026-05-05T21:45:00",
+    "descripcion": "Participa en nuestro primer sorteo este 30 de mayo por solo $10 pesos el boletito y recibes 4 oportunidades adicionales por cada boleto que compres, no te lo pierdas.!!🔥🍀",
+    "fechaSorteo": "",
     "publicacion": {
       "bonos": true,
       "ruletazo": true,
@@ -170,84 +181,127 @@
       "logoVerificadoHeader": true
     },
     "zonaHoraria": "Hora Centro Mexico",
-    "nombreSorteo": "Billetiza diaria #21 - $25,000 en efectivo",
-    "precioBoleto": 2,
-    "totalBoletos": 25000,
-    "edicionNombre": "Edicion No. 21 - sorteo demo",
+    "nombreSorteo": "Honda XR + Iphone 17 pro max 🏍️📱🍀🔥",
+    "precioBoleto": 10,
+    "totalBoletos": 20000,
+    "edicionNombre": "Edicion Demo No.2",
     "horaPresorteo": "",
     "maquinaSuerte": {
       "quickPicks": [
+        1,
+        5,
         10,
         20,
         50,
-        100,
-        200,
-        500
+        100
       ],
-      "limiteBoletos": 500,
+      "limiteBoletos": 100,
       "mostrarNotaDisponibilidad": false
     },
     "oportunidades": {
-      "enabled": true,
+      "enabled": false,
       "rango_oculto": {
-        "fin": 99999,
-        "inicio": 25000
+        "fin": 0,
+        "inicio": 0
       },
-      "multiplicador": 3,
+      "multiplicador": 4,
       "rango_visible": {
-        "fin": 24999,
+        "fin": 0,
         "inicio": 0
       }
     },
-    "fechaPresorteo": null,
+    "fechaPresorteo": "",
     "sistemaPremios": {
       "sorteo": [
         {
           "icono": "🥇",
           "nombre": "Primer Lugar",
-          "premio": "$25,000 pesos en efectivo",
+          "premio": "Cybertruck negra 2025",
           "posicion": 1,
-          "descripcion": "Se juega en base al ganador de la lotería nacional"
+          "descripcion": "Cybertruck 2025, se lleva a domicilio incluimos instalación de cargador u opción a efectivo"
         }
       ],
       "enabled": true,
       "mensaje": "Múltiples oportunidades de ganar premios extraordinarios",
-      "presorteo": [],
+      "presorteo": [
+        {
+          "icono": "💵",
+          "nombre": "Presorteo",
+          "premio": "$50,000 pesos",
+          "posicion": 1,
+          "descripcion": "Participan todos los boletos comprados hasta la fecha del presorteo."
+        }
+      ],
       "ruletazos": [
         {
           "icono": "🎰",
           "nombre": "Ruletazo 1",
-          "premio": "$500 pesos C/u",
+          "premio": "$1,000 Pesos c/u",
           "posicion": 1,
-          "descripcion": "Los ruletazos se jugaran el día del sorteo en la transmisión en vivo"
+          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
         },
         {
           "icono": "🎰",
           "nombre": "Ruletazo 2",
-          "premio": "$500 pesos C/u",
+          "premio": "$1,000 Pesos c/u",
           "posicion": 2,
-          "descripcion": "Los ruletazos se jugaran el día del sorteo en la transmisión en vivo"
+          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
         },
         {
           "icono": "🎰",
           "nombre": "Ruletazo 3",
-          "premio": "$500 pesos C/u",
+          "premio": "$1,000 Pesos c/u",
           "posicion": 3,
-          "descripcion": "Los ruletazos se jugaran el día del sorteo en la transmisión en vivo"
+          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
         },
         {
           "icono": "🎰",
           "nombre": "Ruletazo 4",
-          "premio": "$500 pesos C/u",
+          "premio": "$1,000 Pesos c/u",
           "posicion": 4,
-          "descripcion": "Los ruletazos se jugaran el día del sorteo en la transmisión en vivo"
+          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
         },
         {
           "icono": "🎰",
           "nombre": "Ruletazo 5",
-          "premio": "$500 pesos C/u",
+          "premio": "$1,000 Pesos c/u",
           "posicion": 5,
-          "descripcion": "Los ruletazos se jugaran el día del sorteo en la transmisión en vivo"
+          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
+        },
+        {
+          "icono": "🎰",
+          "nombre": "Ruletazo 6",
+          "premio": "$1,000 Pesos c/u",
+          "posicion": 6,
+          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
+        },
+        {
+          "icono": "🎰",
+          "nombre": "Ruletazo 7",
+          "premio": "$1,000 Pesos c/u",
+          "posicion": 7,
+          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
+        },
+        {
+          "icono": "🎰",
+          "nombre": "Ruletazo 8",
+          "premio": "$1,000 Pesos c/u",
+          "posicion": 8,
+          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
+        },
+        {
+          "icono": "🎰",
+          "nombre": "Ruletazo 9",
+          "premio": "$1,000 Pesos c/u",
+          "posicion": 9,
+          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
+        },
+        {
+          "icono": "🎰",
+          "nombre": "Ruletazo 10",
+          "premio": "$1,000 Pesos c/u",
+          "posicion": 10,
+          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
         }
       ]
     },
@@ -271,6 +325,14 @@
     },
     "informacionSorteo": [
       {
+        "titulo": "Fechas y cierre del sorteo",
+        "descripcion": "El sorteo principal se realizará el 30 de mayo de 2026 a las 9:15 PM y el presorteo el 30 de abril de 2026 a las 9:15 PM, ambos en vivo por Facebook. La venta de boletos cierra antes de iniciar cada dinámica o al agotarse la disponibilidad."
+      },
+      {
+        "titulo": "Participación y boletos",
+        "descripcion": "Participan únicamente los boletos pagados y validados. Si el pago no se confirma, los boletos pueden liberarse nuevamente para venta. Verifica bien tus datos al comprar.\n\n"
+      },
+      {
         "titulo": " Condición del sorteo",
         "descripcion": "Este sorteo está sujeto a alcanzar al menos el 80% de los boletos vendidos. Si no se llega a ese porcentaje, la fecha puede ser reprogramada y se avisará por medios oficiales.\n\n"
       },
@@ -279,11 +341,15 @@
         "descripcion": "El ganador se elegirá en transmisión en vivo por Facebook bajo la dinámica anunciada por el organizador. Los resultados se publicarán en los canales oficiales.\n\n"
       },
       {
+        "titulo": "Premios adicionales",
+        "descripcion": "Los boletos comprados a tiempo también participan en el presorteo de $50,000 pesos y en los 10 ruletazos de $1,000 pesos según la dinámica publicada."
+      },
+      {
         "titulo": "Aclaraciones importantes",
         "descripcion": "Las promociones, bonos y beneficios aplican según las condiciones publicadas. Cualquier cambio relevante o aviso oficial se dará a conocer en la plataforma y redes oficiales.\n\n"
       }
     ],
-    "fechaSorteoFormato": "5 de Mayo del 2026",
+    "fechaSorteoFormato": "",
     "promocionPorTiempo": {
       "enabled": false,
       "fechaFin": null,
@@ -296,8 +362,8 @@
       "porcentaje": 100,
       "fechaInicio": "2026-03-31T19:03"
     },
-    "tiempoApartadoHoras": 4,
-    "fechaPresorteoFormato": "",
+    "tiempoApartadoHoras": 1,
+    "fechaPresorteoFormato": "30 de Abril del 2026",
     "informacionSorteoIntro": "Consulta aquí la información más importante del sorteo antes de participar. Al comprar, aceptas estas condiciones.",
     "modalFinalizadoSnapshot": null,
     "pushOrderWarningMinutes": [
@@ -309,19 +375,19 @@
       "ejemplos": [
         {
           "boletos": 1,
-          "oportunidades": 4
+          "oportunidades": 5
+        },
+        {
+          "boletos": 10,
+          "oportunidades": 50
         },
         {
           "boletos": 20,
-          "oportunidades": 80
+          "oportunidades": 100
         },
         {
           "boletos": 50,
-          "oportunidades": 200
-        },
-        {
-          "boletos": 200,
-          "oportunidades": 800
+          "oportunidades": 250
         }
       ]
     }
@@ -391,7 +457,7 @@
       "canalWhatsappNombre": "Sorteos SaDev",
       "grupoWhatsappNombre": ""
     },
-    "imagenPrincipal": "https://res.cloudinary.com/dhwvxom01/image/upload/v1776293588/rifaplus/sorteos/principal-1776293588032-dPPHS-178e475754e5.webp",
+    "imagenPrincipal": "https://res.cloudinary.com/dhwvxom01/image/upload/v1777924639/rifaplus/sorteos/principal-1777924638449-BVawp-4312cac92490.webp",
     "mensajesWhatsapp": {
       "ganador": "",
       "rechazo": "",
@@ -434,11 +500,11 @@
       {
         "id": 4,
         "phone": "",
-        "accountType": "Tarjeta",
-        "beneficiary": "Ricardo Flores Magon",
-        "nombreBanco": "BanBajio",
-        "paymentType": "transferencia",
-        "accountNumber": "4521 3412 1231 3333",
+        "accountType": "Cuenta",
+        "beneficiary": "Ricardo Torres",
+        "nombreBanco": "Oxxo - BBVA",
+        "paymentType": "efectivo",
+        "accountNumber": "0123521864532846253",
         "numero_referencia": ""
       }
     ]
@@ -468,11 +534,11 @@
         "marketingRecencyDays": 120
       },
       "nuevaRifa": {
-        "body": "Billetiza diaria #21 - $25,000 en efectivo · s9",
+        "body": "{organizerName} ya abrió {rifaNombre}. Entra ahora y aparta tus boletos.",
         "title": "Nuevo sorteo disponible",
         "enabled": true,
-        "customUrl": "http://127.0.0.1:5500/?rifa=s9",
-        "useCustomUrl": true,
+        "customUrl": "",
+        "useCustomUrl": false,
         "autoSendOnPublicActivation": true
       },
       "eventReminders": {

@@ -95,14 +95,152 @@
 
         .config-tabs {
             display: flex;
-            gap: var(--spacing-md);
-            margin-bottom: var(--spacing-2xl);
-            border: 1px solid #dfe6ef;
-            background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
-            padding: 0.45rem;
-            border-radius: 18px;
-            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
-            flex-wrap: wrap;
+            gap: 0.65rem;
+            margin-bottom: 2.5rem;
+            padding: 0.5rem;
+            background: #f1f5f9;
+            border-radius: 20px;
+            overflow-x: auto;
+            scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
+            position: sticky;
+            top: 0;
+            z-index: 101;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.03);
+            margin: 0 -3rem 2.5rem -3rem;
+            padding: 0.5rem 3rem;
+        }
+
+        .config-tabs::-webkit-scrollbar {
+            display: none;
+        }
+
+        .config-tab {
+            flex: 1 0 auto;
+            padding: 0.75rem 1.4rem;
+            font-size: 0.92rem;
+            font-weight: 700;
+            color: #64748b;
+            border: 1px solid transparent;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.65rem;
+            white-space: nowrap;
+            border-radius: 14px;
+            user-select: none;
+        }
+
+        .config-tab i {
+            font-size: 1.1rem;
+            opacity: 0.7;
+            transition: transform 0.3s ease;
+        }
+
+        .config-tab:hover {
+            color: var(--primary);
+            background: #ffffff;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            transform: translateY(-1px);
+        }
+
+        .config-tab:hover i {
+            transform: scale(1.1);
+            opacity: 1;
+        }
+
+        .config-tab.active {
+            color: #ffffff;
+            background: linear-gradient(135deg, var(--primary) 0%, #0f5cc0 100%);
+            border-color: rgba(24, 119, 242, 0.1);
+            box-shadow: 0 10px 20px rgba(24, 119, 242, 0.2), inset 0 1px 1px rgba(255,255,255,0.2);
+        }
+
+        .config-tab.active i {
+            opacity: 1;
+            transform: scale(1.1);
+        }
+
+        @media (max-width: 992px) {
+            .container, .admin-main .container {
+                padding: 1.5rem 1rem;
+            }
+            .config-tabs {
+                margin: 0 -1rem 1.5rem -1rem;
+                padding: 0 1rem;
+                position: relative !important;
+                top: auto !important;
+                border-radius: 0;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .container, .admin-main .container {
+                padding: 1rem 0.5rem;
+            }
+            .config-tabs {
+                margin: 0 -0.5rem 1.25rem -0.5rem;
+                padding: 0 0.5rem;
+                position: relative !important;
+                top: auto !important;
+                border-radius: 0;
+            }
+            .config-section {
+                --section-pad: 0.85rem;
+                padding: var(--section-pad) !important;
+                border-radius: 20px;
+            }
+            .config-card {
+                padding: 1.25rem 0.85rem !important;
+                border-radius: 14px;
+            }
+
+            /* ✅ PESTAÑA SORTEO FULL-WIDTH EN CELULAR */
+            #tab-sorteo.config-section {
+                margin-left: -0.5rem;
+                margin-right: -0.5rem;
+                width: calc(100% + 1rem);
+                border-radius: 0;
+                border-left: none;
+                border-right: none;
+                padding-left: 0.5rem !important;
+                padding-right: 0.5rem !important;
+            }
+            
+            #tab-sorteo .config-card {
+                margin-left: -0.25rem;
+                margin-right: -0.25rem;
+                border-radius: 0;
+                border-left: none;
+                border-right: none;
+                box-shadow: none;
+                background: #ffffff;
+                border-bottom: 1px solid #eee;
+            }
+
+            #tab-sorteo .section-header {
+                padding: 1rem 0.5rem;
+                margin-bottom: 0.5rem;
+            }
+
+            #tab-sorteo .section-quicknav {
+                border-radius: 0;
+                margin-left: -0.5rem;
+                margin-right: -0.5rem;
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+
+            #tab-sorteo .form-actions {
+                flex-direction: column !important;
+                padding: 0 0.5rem 2rem;
+            }
+
+            #tab-sorteo .form-actions .btn {
+                width: 100% !important;
+            }
         }
 
         .config-alerts {
@@ -141,67 +279,234 @@
         }
 
         .section-quicknav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            padding: 1rem var(--section-pad);
+            margin: calc(var(--section-pad) * -1) calc(var(--section-pad) * -1) 2rem calc(var(--section-pad) * -1);
+            border-bottom: 1px solid #e2e8f0;
             display: flex;
-            flex-wrap: wrap;
-            gap: 0.7rem;
-            margin: -0.35rem 0 var(--spacing-xl);
-            padding-bottom: var(--spacing-xl);
-            border-bottom: 1px solid var(--divider);
+            gap: 0.75rem;
+            overflow-x: auto;
+            scroll-snap-type: x proximity;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+            border-radius: 26px 26px 0 0; /* Coincide con el padre */
+        }
+
+        .section-quicknav::-webkit-scrollbar {
+            display: none;
         }
 
         .quicknav-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.45rem;
-            padding: 0.72rem 0.98rem;
-            border-radius: 999px;
-            border: 1px solid #d6e1ee;
-            background: #ffffff;
-            color: #425466;
-            font-size: 0.83rem;
+            flex: 0 0 auto;
+            scroll-snap-align: start;
+            padding: 0.65rem 1.15rem;
+            font-size: 0.88rem;
             font-weight: 700;
+            border-radius: 999px;
+            border: 1px solid #e2e8f0;
+            background: #ffffff;
+            color: #475569;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
             cursor: pointer;
-            transition: all 0.2s ease;
-            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+
+        .quicknav-btn i {
+            font-size: 0.95rem;
+            opacity: 0.8;
         }
 
         .quicknav-btn:hover {
-            border-color: rgba(24, 119, 242, 0.24);
+            border-color: var(--primary);
             color: var(--primary);
-            background: #f4f9ff;
+            background: #f8fbff;
             transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(24, 119, 242, 0.1);
+        }
+
+        .quicknav-btn.active {
+            background: var(--primary) !important;
+            color: #ffffff !important;
+            border-color: var(--primary) !important;
+            box-shadow: 0 6px 16px rgba(24, 119, 242, 0.25) !important;
+        }
+
+        .config-card.focus-hidden {
+            display: none !important;
+        }
+
+        .form-input {
+            border: 1px solid #d1d5db;
+            border-radius: 0.6rem;
+            padding: 0.75rem 1rem;
+            font-size: 16px !important; /* Previene zoom en iOS */
+            transition: all 0.2s;
+            background-color: #ffffff;
+            width: 100%;
+            min-height: 48px;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px var(--primary-light);
+        }
+
+        .btn {
+            min-height: 48px;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.75rem;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+            cursor: pointer;
+            transition: all 0.2s;
         }
 
         .config-card {
-            scroll-margin-top: 120px;
+            position: relative;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(249, 251, 255, 0.98) 100%);
+            border: 1px solid #dfe6ef;
+            border-radius: 22px;
+            padding: 1.6rem 1.6rem 1.75rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 12px 26px rgba(15, 23, 42, 0.05);
+            overflow: hidden;
+            scroll-margin-top: 140px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .config-tab {
-            padding: 0.88rem 1rem;
-            background: transparent;
-            border: 1px solid transparent;
-            cursor: pointer;
-            color: #617082;
-            font-weight: 700;
-            transition: all 0.2s ease;
+        .config-card:hover {
+            box-shadow: 0 18px 38px rgba(15, 23, 42, 0.08);
+            border-color: #d5e0ec;
+            transform: translateY(-2px);
+        }
+
+        .config-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background: linear-gradient(90deg, rgba(24, 119, 242, 0.85) 0%, rgba(24, 119, 242, 0.35) 48%, rgba(24, 119, 242, 0.08) 100%);
+        }
+
+        @media (max-width: 640px) {
+            .section-header h1 {
+                font-size: 1.5rem;
+            }
+        }
+
+        .form-grid-2 {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.5rem;
+        }
+
+        .form-grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .form-grid-2, .form-grid-3 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .publish-item {
             display: flex;
             align-items: center;
-            gap: var(--spacing-sm);
-            white-space: nowrap;
-            border-radius: 14px;
+            justify-content: space-between;
+            padding: 1.25rem;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            gap: 1rem;
         }
 
-        .config-tab:hover {
-            color: var(--primary);
-            background: rgba(24, 119, 242, 0.06);
-            border-color: rgba(24, 119, 242, 0.12);
+        .publish-item-title {
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 0.25rem;
         }
 
-        .config-tab.active {
-            color: var(--primary);
-            border-color: rgba(24, 119, 242, 0.16);
-            background: linear-gradient(180deg, rgba(24, 119, 242, 0.11) 0%, rgba(24, 119, 242, 0.04) 100%);
-            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+        .publish-item-text {
+            font-size: 0.85rem;
+            color: #64748b;
+        }
+
+        .logo-upload-shell {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .logo-upload-toolbar {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.25rem;
+            flex-wrap: wrap;
+        }
+
+        .logo-preview-card {
+            background: #f8fafc;
+            border: 2px dashed #e2e8f0;
+            border-radius: 1rem;
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .logo-preview-card:hover {
+            border-color: var(--primary);
+            background: #f1f5f9;
+        }
+
+        .logo-preview-thumb img {
+            max-width: 100%;
+            max-height: 160px;
+            object-fit: contain;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
+        }
+
+        .logo-placeholder {
+            text-align: center;
+            color: #94a3b8;
+        }
+
+        .logo-placeholder-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            display: block;
+            opacity: 0.5;
+        }
+
+        .logo-placeholder-text {
+            font-size: 0.85rem;
+            max-width: 280px;
+            margin: 0 auto;
         }
 
         /* ========================================================== */
@@ -209,6 +514,7 @@
         /* ========================================================== */
 
         .config-section {
+            --section-pad: clamp(1.35rem, 2.5vw, 2.5rem);
             display: none;
             position: relative;
             background:
@@ -217,15 +523,16 @@
             border: 1px solid #dfe6ef;
             border-radius: 26px;
             box-shadow: 0 18px 42px rgba(15, 23, 42, 0.08);
-            padding: clamp(1.35rem, 2vw, 2.1rem);
+            padding: var(--section-pad);
             animation: fadeIn 0.3s ease;
             width: 100%;
             box-sizing: border-box;
             margin: 0;
+            overflow: hidden; /* Asegura que nada se salga de los bordes redondeados */
         }
 
         .config-section.active {
-            display: block;
+            display: block !important;
         }
 
         .config-section::before {
@@ -245,8 +552,8 @@
         }
 
         .section-header {
-            margin-bottom: 1.75rem;
-            padding: 0.4rem 0 1.3rem;
+            margin-bottom: 1.5rem;
+            padding: 0.2rem 0 1.1rem;
             border-bottom: 1px solid #e5ebf3;
         }
 
@@ -307,33 +614,7 @@
             box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
         }
 
-        .config-card {
-            position: relative;
-            background:
-                linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(249, 251, 255, 0.98) 100%);
-            border: 1px solid #dfe6ef;
-            border-radius: 22px;
-            padding: 1.45rem 1.45rem 1.5rem;
-            margin-bottom: 1.2rem;
-            box-shadow: 0 12px 26px rgba(15, 23, 42, 0.05);
-            overflow: hidden;
-        }
 
-        .config-card:hover {
-            box-shadow: 0 16px 34px rgba(15, 23, 42, 0.07);
-            border-color: #d5e0ec;
-        }
-
-        .config-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 5px;
-            border-radius: 22px 22px 0 0;
-            background: linear-gradient(90deg, rgba(24, 119, 242, 0.85) 0%, rgba(24, 119, 242, 0.35) 48%, rgba(24, 119, 242, 0.08) 100%);
-        }
 
         .config-card > p {
             color: #5f6b7a;
@@ -914,29 +1195,173 @@
             margin-bottom: var(--spacing-sm);
         }
 
+        .cuentas-lista {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+
         .cuenta-pago-card {
-            background: var(--bg-white);
-            border: 1px solid var(--divider);
-            border-radius: var(--radius-md);
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
             overflow: hidden;
-            transition: all 0.3s ease;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+            position: relative;
         }
 
         .cuenta-pago-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
             border-color: var(--primary);
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
-            transform: translateY(-2px);
         }
 
         .cuenta-header {
+            padding: 1.5rem;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border-bottom: 1px solid #e2e8f0;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: var(--spacing-lg);
-            background: linear-gradient(135deg, #f5f7fa 0%, #eef2f9 100%);
-            border-bottom: 1px solid var(--divider);
         }
+
+        .cuenta-banco-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .cuenta-icono {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .cuenta-nombres h3 {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin: 0;
+        }
+
+        .cuenta-numero-mask {
+            font-size: 0.8rem;
+            color: #64748b;
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0.2rem 0 0 0;
+        }
+
+        .cuenta-tipo-badge {
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 0.25rem 0.6rem;
+            border-radius: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
+
+        .cuenta-body {
+            padding: 1.5rem;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .cuenta-campo-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .cuenta-campo label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+            margin-bottom: 0.5rem;
+        }
+
+        .cuenta-footer {
+            padding: 1rem 1.5rem;
+            background: #f8fafc;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .config-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 1px;
+            overflow-x: auto;
+            scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
+            position: sticky;
+            top: 0;
+            background: #ffffff;
+            z-index: 101;
+            margin: 0 -1rem 2rem -1rem;
+            padding: 0 1rem;
+        }
+
+        .config-tabs::-webkit-scrollbar {
+            display: none;
+        }
+
+        .config-tab {
+            flex: 0 0 auto;
+            padding: 1rem 1.25rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #64748b;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            white-space: nowrap;
+        }
+
+        .config-tab i {
+            font-size: 1rem;
+        }
+
+        .config-tab:hover {
+            color: var(--primary);
+            background: #f8fafc;
+        }
+
+        .config-tab.active {
+            color: var(--primary);
+            background: rgba(24, 119, 242, 0.08);
+            border-bottom: 2px solid var(--primary);
+        }
+
+        @media (max-width: 640px) {
+            .section-header h1 {
+                font-size: 1.5rem;
+            }
+            .config-tab {
+                padding: 0.875rem 1rem;
+                font-size: 0.85rem;
+            }
+        }
+
+        /* Estilos de sección removidos para evitar conflictos con la definición global */
 
         .cuenta-banco-info {
             display: flex;
@@ -1036,17 +1461,17 @@
 
         @media (max-width: 768px) {
             .config-section {
-                border-radius: 22px;
-                padding: 1.1rem;
+                border-radius: 20px;
+                padding: 1.25rem 1rem !important;
             }
 
             .config-section::before {
-                border-radius: 22px 22px 0 0;
+                border-radius: 20px 20px 0 0;
             }
 
             .config-card {
                 border-radius: 18px;
-                padding: 1.15rem 1rem 1.2rem;
+                padding: 1.5rem 1.15rem !important;
             }
 
             .config-card::before {
@@ -2068,13 +2493,8 @@
         }
 
         @media (max-width: 640px) {
-            .config-section {
-                padding: 1rem;
-            }
+            /* Paddings y bordes gestionados en la sección global de media queries para evitar redundancia */
 
-            .config-card {
-                padding: 1rem 0.95rem 1.1rem;
-            }
 
             .usuarios-tabla-container {
                 overflow: visible;
@@ -2892,7 +3312,7 @@
                 </div>
             </div>
 
-            <div id="adminRifaActionsMount"></div>
+
 
             <!-- TABS DE SECCIONES -->
             <div class="config-tabs">
@@ -2920,12 +3340,16 @@
                     <p>Gestiona todos los parámetros y detalles de tus sorteos</p>
                 </div>
                 <div class="section-quicknav">
-                    <button class="quicknav-btn" type="button" onclick="irAConfigBloque('sorteo', 'card-sorteo-general')"><i class="fas fa-pen"></i> Información general</button>
-                    <button class="quicknav-btn" type="button" onclick="irAConfigBloque('sorteo', 'card-sorteo-boletaje')"><i class="fas fa-hashtag"></i> Boletaje y rangos</button>
-                    <button class="quicknav-btn" type="button" onclick="irAConfigBloque('sorteo', 'card-sorteo-fechas')"><i class="fas fa-calendar-alt"></i> Fechas y horarios</button>
+                    <button class="quicknav-btn" type="button" onclick="irAConfigBloque('sorteo', 'card-sorteo-general')"><i class="fas fa-pen"></i> General</button>
+                    <button class="quicknav-btn" type="button" onclick="irAConfigBloque('sorteo', 'card-sorteo-boletaje')"><i class="fas fa-cog"></i> Ajustes de Compra</button>
+                    <button class="quicknav-btn" type="button" onclick="irAConfigBloque('sorteo', 'card-sorteo-rangos')"><i class="fas fa-layer-group"></i> Rangos y Oportunidades</button>
+                    <button class="quicknav-btn" type="button" onclick="irAConfigBloque('sorteo', 'card-sorteo-fechas')"><i class="fas fa-calendar-alt"></i> Horarios</button>
                     <button class="quicknav-btn" type="button" onclick="irAConfigBloque('sorteo', 'card-sorteo-ganadores')"><i class="fas fa-trophy"></i> Ganadores</button>
-                    <button class="quicknav-btn" type="button" onclick="irAConfigBloque('sorteo', 'card-sorteo-informacion')"><i class="fas fa-align-left"></i> Contenido público</button>
-                    <button class="quicknav-btn" type="button" onclick="irAConfigBloque('sorteo', 'card-sorteo-bonos')"><i class="fas fa-gift"></i> Bonos</button>
+                    <button class="quicknav-btn" type="button" onclick="irAConfigBloque('sorteo', 'card-sorteo-informacion')"><i class="fas fa-align-left"></i> Contenido Público</button>
+                    <button class="quicknav-btn" type="button" onclick="irAConfigBloque('sorteo', 'card-sorteo-bonos')"><i class="fas fa-gift"></i> Bonos Web</button>
+                    <button class="quicknav-btn" type="button" onclick="irAConfigBloque('sorteo', 'card-sorteo-bonos-compra')"><i class="fas fa-star"></i> Bonos Compra</button>
+                    <button class="quicknav-btn" type="button" onclick="irAConfigBloque('sorteo', 'card-sorteo-inventario')"><i class="fas fa-database"></i> Inventario BD</button>
+                    <button class="quicknav-btn" type="button" onclick="irAConfigBloque('sorteo', 'card-sorteo-reset')"><i class="fas fa-broom"></i> Reinicio</button>
                 </div>
 
                 <!-- INFORMACIÓN GENERAL -->
@@ -2944,6 +3368,19 @@
                     <div class="form-group-single">
                         <label class="form-label">Nombre del Sorteo <span class="required">*</span></label>
                         <input type="text" class="form-input" id="sorteo-nombre" placeholder="Ej: SUPERCOMBO PARA CHAMBEAR">
+                    </div>
+
+                    <div class="form-grid-2">
+                        <div class="form-group-single">
+                            <label class="form-label">Nombre corto para el enlace <span class="required">*</span></label>
+                            <input type="text" class="form-input" id="sorteo-slug" placeholder="Ej: sorteo-verano">
+                            <small class="help-text">Se crea solo al escribir el nombre. Es lo que aparece al final de tu link.</small>
+                        </div>
+                        <div class="form-group-single">
+                            <label class="form-label">¿Tienes un dominio comprado? (Opcional)</label>
+                            <input type="text" class="form-input" id="sorteo-dominio" placeholder="Ej: www.mirifa.com">
+                            <small class="help-text">Si no tienes uno, deja este espacio vacío.</small>
+                        </div>
                     </div>
 
                     <!-- Descripción del Sorteo -->
@@ -3070,249 +3507,207 @@
 
                 <div class="config-card" id="card-sorteo-boletaje">
                     <div class="section-subheader">
-                        <i class="fas fa-hashtag"></i> Boletaje y Rangos
+                        <i class="fas fa-cog"></i> Ajustes de Compra y Máquina
                     </div>
                     <p style="color: var(--text-light); font-size: 0.9rem; margin-bottom: var(--spacing-lg);">
-                        Define el total de boletos del sorteo, los rangos públicos de compra y, si usas oportunidades, el rango visible y oculto.
+                        Configura los límites de boletos y el comportamiento de la máquina de la suerte.
                     </p>
 
-                    <div class="form-group-single">
-                        <label class="form-label">Total de boletos <span class="required">*</span></label>
-                        <input type="number" class="form-input" id="sorteo-total-boletos" min="1" max="10000000" step="1" placeholder="Ej: 1000000" data-number-guard="strict" data-number-mode="integer" inputmode="numeric" autocomplete="off">
-                        <div class="form-helper">Este valor debe coincidir con la escala real del sorteo. Si ya tienes los boletos inicializados en BD, aquí defines el universo activo. Ejemplo: si configuras 100000 boletos, el último número válido en rangos será 99999.</div>
-                    </div>
+                    <div class="form-grid-2">
+                        <div class="form-group-single">
+                            <label class="form-label">Total de boletos <span class="required">*</span></label>
+                            <input type="number" class="form-input" id="sorteo-total-boletos" min="1" max="10000000" step="1" placeholder="Ej: 1000000">
+                            <div id="sorteo-total-boletos-warning" style="display: none; margin-top: 0.75rem; padding: 0.85rem; border-radius: 12px; background: #fff7ed; border: 1px solid #ffedd5; color: #9a3412; font-size: 0.85rem; font-weight: 500; animation: fadeIn 0.3s ease;">
+                                <i class="fas fa-exclamation-triangle"></i> <span id="sorteo-total-boletos-warning-text"></span>
+                                <button type="button" onclick="ajustarRangosAlTotal()" style="display: block; margin-top: 0.5rem; background: #ea580c; color: white; border: none; padding: 0.3rem 0.8rem; border-radius: 8px; font-size: 0.75rem; cursor: pointer; font-weight: 700; transition: background 0.2s;">
+                                    <i class="fas fa-magic"></i> Ajustar rangos automáticamente
+                                </button>
+                            </div>
+                        </div>
 
-                    <div style="margin-top: var(--spacing-xl); display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
-                        <div class="form-group-single" style="margin: 0;">
+                        <div class="form-group-single">
                             <label class="form-label">Tiempo de apartado <span class="required">*</span></label>
                             <div style="display: flex; gap: 0.5rem; align-items: center;">
-                                <input type="text" class="form-input" id="tiempo-apartado-horas" required style="flex: 1;" inputmode="decimal" autocomplete="off" spellcheck="false" aria-describedby="tiempo-apartado-horas-help">
+                                <input type="text" class="form-input" id="tiempo-apartado-horas" required style="flex: 1;">
                                 <span style="color: #6B7280; font-size: 0.95rem;">horas</span>
                             </div>
-                            <div class="form-helper" id="tiempo-apartado-horas-help">Tiempo máximo que un boleto permanece apartado sin pago antes de liberarse.</div>
-                        </div>
-
-                        <div class="form-group-single" style="margin: 0;">
-                            <label class="form-label" for="push-warning-minutes">Avisos push antes de vencer</label>
-                            <input type="text" class="form-input" id="push-warning-minutes" inputmode="numeric" autocomplete="off" spellcheck="false" placeholder="Ej: 30, 15, 5" aria-describedby="push-warning-minutes-help">
-                            <div class="form-helper" id="push-warning-minutes-help">Escribe minutos separados por comas. Ejemplo: <code>30,15,5</code>. Si lo dejas vacio, no se enviaran avisos previos.</div>
-                        </div>
-
-                        <div class="form-group-single" style="margin: 0;">
-                            <label class="form-label" for="maquina-suerte-limite">Máximo de boletos por intento</label>
-                            <input type="number" class="form-input" id="maquina-suerte-limite" min="1" max="5000" step="1" placeholder="500" data-number-guard="strict" data-number-mode="integer" inputmode="numeric" autocomplete="off">
-                            <div class="form-helper" id="maquina-suerte-limite-help">La máquina podrá generar hasta 500 boletos por intento.</div>
                         </div>
                     </div>
 
-                    <div class="form-group-single" style="margin-top: 0.9rem;">
-                        <label class="form-label" for="maquina-suerte-quick-picks">Números rápidos de la máquina</label>
-                        <input type="text" class="form-input" id="maquina-suerte-quick-picks" placeholder="10, 20, 50, 100" inputmode="numeric" autocomplete="off" spellcheck="false" aria-describedby="maquina-suerte-quick-picks-help">
-                        <div class="form-helper" id="maquina-suerte-quick-picks-help">Escribe cantidades separadas por comas. Se guardan como enteros únicos, ordenados y nunca mayores al límite por intento.</div>
+                    <div class="form-grid-2" style="margin-top: 1rem;">
+                        <div class="form-group-single">
+                            <label class="form-label">Avisos push antes de vencer</label>
+                            <input type="text" class="form-input" id="push-warning-minutes" placeholder="Ej: 30, 15, 5">
+                        </div>
+
+                        <div class="form-group-single">
+                            <label class="form-label">Máximo de boletos por intento</label>
+                            <input type="number" class="form-input" id="maquina-suerte-limit" placeholder="500">
+                        </div>
                     </div>
 
-                    <div style="margin-top: var(--spacing-xl); padding: 1rem 1.1rem; border: 1px solid #e5e7eb; border-radius: 14px; background: #f8fafc;">
-                        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
-                            <div style="min-width: 240px; flex: 1;">
-                                <label class="form-label" style="margin-bottom: 0.35rem;">Búsqueda avanzada de boletos</label>
-                                <div class="form-helper" style="margin: 0;">
-                                    Actívala para rifas grandes. En compra aparecerán opciones claras como exacto, empieza con, termina con, contiene y rango. Si la dejas apagada, la barra seguirá simple como hasta ahora.
-                                </div>
+                    <div class="form-group-single" style="margin-top: 1rem;">
+                        <label class="form-label">Números rápidos (Máquina)</label>
+                        <input type="text" class="form-input" id="maquina-suerte-quick-picks" placeholder="10, 20, 50, 100">
+                    </div>
+
+                    <div style="margin-top: 1.5rem; display: grid; gap: 1rem;">
+                        <div class="publish-item">
+                            <div class="publish-item-copy">
+                                <div class="publish-item-title">Búsqueda avanzada</div>
+                                <div class="publish-item-text">Activa filtros de "Empieza con", "Termina con" en la web.</div>
                             </div>
-                            <label class="toggle-label" for="busqueda-boletos-modo-avanzado" style="margin: 0;">
+                            <label class="toggle-label" for="busqueda-boletos-modo-avanzado">
                                 <input type="checkbox" class="toggle-input" id="busqueda-boletos-modo-avanzado">
                                 <span class="toggle-bg"></span>
                                 <span class="toggle-circle"></span>
                             </label>
                         </div>
-                    </div>
 
-                    <div style="margin-top: var(--spacing-md); padding: 1rem 1.1rem; border: 1px solid #e5e7eb; border-radius: 14px; background: #f8fafc;">
-                        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
-                            <div style="min-width: 240px; flex: 1;">
-                                <label class="form-label" style="margin-bottom: 0.35rem;">Nota de disponibilidad en la máquina</label>
-                                <div class="form-helper" style="margin: 0;">
-                                    Muestra u oculta el texto de apoyo debajo del botón de la máquina de la suerte, como "boletos disponibles" o "cargando disponibilidad".
-                                </div>
+                        <div class="publish-item">
+                            <div class="publish-item-copy">
+                                <div class="publish-item-title">Nota de disponibilidad</div>
+                                <div class="publish-item-text">Muestra texto debajo del botón de la máquina.</div>
                             </div>
-                            <label class="toggle-label" for="maquina-suerte-mostrar-nota-disponibilidad" style="margin: 0;">
+                            <label class="toggle-label" for="maquina-suerte-mostrar-nota-disponibilidad">
                                 <input type="checkbox" class="toggle-input" id="maquina-suerte-mostrar-nota-disponibilidad">
                                 <span class="toggle-bg"></span>
                                 <span class="toggle-circle"></span>
                             </label>
                         </div>
                     </div>
+                </div>
 
-                    <div style="margin-top: var(--spacing-xl);">
-                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.75rem;">
+                <div class="config-card" id="card-sorteo-rangos">
+                    <div class="section-subheader">
+                        <i class="fas fa-layer-group"></i> Rangos y Oportunidades
+                    </div>
+                    <p style="color: var(--text-light); font-size: 0.9rem; margin-bottom: var(--spacing-lg);">
+                        Define qué boletos son visibles para compra directa y configura oportunidades.
+                    </p>
+
+                    <div style="margin-bottom: 2rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                             <label class="form-label" style="margin: 0;">Rangos públicos de compra</label>
-                            <button type="button" class="btn btn-secondary" id="btn-agregar-rango-publico">
-                                <i class="fas fa-plus"></i> Agregar rango
+                            <button type="button" class="btn btn-secondary btn-sm" id="btn-agregar-rango-publico">
+                                <i class="fas fa-plus"></i> Agregar
                             </button>
                         </div>
                         <div id="rangos-publicos-lista" style="display: grid; gap: 0.75rem;"></div>
-                        <div class="form-helper">Cada rango define qué números se muestran como bloques comprables en la interfaz pública.</div>
                     </div>
 
-                    <div style="margin-top: var(--spacing-xl); display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
+                    <div class="form-grid-2">
                         <div>
-                            <label class="form-label">Rango visible de oportunidades</label>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
-                                <input type="number" class="form-input" id="oportunidades-rango-visible-inicio" min="0" step="1" placeholder="Inicio" data-number-guard="strict" data-number-mode="integer" inputmode="numeric" autocomplete="off">
-                                <input type="number" class="form-input" id="oportunidades-rango-visible-fin" min="0" step="1" placeholder="Fin" data-number-guard="strict" data-number-mode="integer" inputmode="numeric" autocomplete="off">
+                            <label class="form-label">Rango visible (Oportunidades)</label>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                                <input type="number" class="form-input" id="oportunidades-rango-visible-inicio" placeholder="Inicio">
+                                <input type="number" class="form-input" id="oportunidades-rango-visible-fin" placeholder="Fin">
                             </div>
-                            <div class="form-helper">Si está vacío, la compra usa los rangos públicos normales.</div>
                         </div>
-
                         <div>
-                            <label class="form-label">Rango oculto de oportunidades</label>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
-                                <input type="number" class="form-input" id="oportunidades-rango-oculto-inicio" min="0" step="1" placeholder="Inicio" data-number-guard="strict" data-number-mode="integer" inputmode="numeric" autocomplete="off">
-                                <input type="number" class="form-input" id="oportunidades-rango-oculto-fin" min="0" step="1" placeholder="Fin" data-number-guard="strict" data-number-mode="integer" inputmode="numeric" autocomplete="off">
+                            <label class="form-label">Rango oculto (Oportunidades)</label>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                                <input type="number" class="form-input" id="oportunidades-rango-oculto-inicio" placeholder="Inicio">
+                                <input type="number" class="form-input" id="oportunidades-rango-oculto-fin" placeholder="Fin">
                             </div>
-                            <div class="form-helper">Útil si manejas oportunidades fuera del rango visible principal.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="config-card" id="card-sorteo-inventario">
+                    <div class="section-subheader">
+                        <i class="fas fa-database"></i> Inventario de Boletos en Base de Datos
+                    </div>
+                    <div id="inventario-boletos-resumen" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem;">
+                        <div style="padding: 1.2rem; border-radius: 16px; background: #fff; border: 1px solid #e5e7eb; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
+                            <div style="font-size: 0.75rem; color: #64748b; font-weight: 700; text-transform: uppercase; margin-bottom: 0.5rem;">Configurado</div>
+                            <div id="inventario-total-configurado" style="font-size: 1.5rem; font-weight: 800; color: var(--primary);">0</div>
+                        </div>
+                        <div style="padding: 1.2rem; border-radius: 16px; background: #fff; border: 1px solid #e5e7eb; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
+                            <div style="font-size: 0.75rem; color: #64748b; font-weight: 700; text-transform: uppercase; margin-bottom: 0.5rem;">En BD</div>
+                            <div id="inventario-total-bd" style="font-size: 1.5rem; font-weight: 800; color: var(--success);">0</div>
+                        </div>
+                        <div style="padding: 1.2rem; border-radius: 16px; background: #fff; border: 1px solid #e5e7eb; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
+                            <div style="font-size: 0.75rem; color: #64748b; font-weight: 700; text-transform: uppercase; margin-bottom: 0.5rem;">Faltantes</div>
+                            <div id="inventario-faltantes-bd" style="font-size: 1.5rem; font-weight: 800; color: #b45309;">0</div>
+                        </div>
+                        <div style="padding: 1.2rem; border-radius: 16px; background: #fff; border: 1px solid #e5e7eb; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
+                            <div style="font-size: 0.75rem; color: #64748b; font-weight: 700; text-transform: uppercase; margin-bottom: 0.5rem;">Cobertura</div>
+                            <div id="inventario-cobertura-bd" style="font-size: 1.5rem; font-weight: 800; color: #0369a1;">0%</div>
                         </div>
                     </div>
 
-                    <div class="form-actions" style="margin-top: 1.5rem;">
-                        <button type="button" class="btn btn-primary" id="btn-guardar-boletaje-rangos">
-                            <i class="fas fa-save"></i> Guardar Boletaje y Rangos
+                    <div class="form-grid-3">
+                        <div>
+                            <label class="form-label">Rango Inicio</label>
+                            <input type="number" class="form-input" id="inventario-boletos-inicio" placeholder="0">
+                        </div>
+                        <div>
+                            <label class="form-label">Rango Fin</label>
+                            <input type="number" class="form-input" id="inventario-boletos-fin" placeholder="99999">
+                        </div>
+                        <div>
+                            <label class="form-label">Cantidad</label>
+                            <input type="text" class="form-input" id="inventario-boletos-cantidad" readonly style="background: #f1f5f9;">
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 1.5rem;">
+                        <button type="button" class="btn btn-secondary" id="btn-preview-inventario-boletos">
+                            <i class="fas fa-search"></i> Vista Previa
+                        </button>
+                        <button type="button" class="btn btn-primary" id="btn-poblar-rango-boletos">
+                            <i class="fas fa-plus-circle"></i> Poblar Faltantes
+                        </button>
+                        <button type="button" class="btn btn-danger" id="btn-borrar-rango-boletos">
+                            <i class="fas fa-trash"></i> Borrar Boletos
                         </button>
                     </div>
 
-                    <div style="margin-top: var(--spacing-xl); padding: 1rem 1.1rem; border: 1px solid #dbe7f3; border-radius: 16px; background: linear-gradient(180deg, #f8fbff 0%, #eef6ff 100%);">
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
-                            <div style="min-width: 240px; flex: 1;">
-                                <div class="section-subheader" style="margin-bottom: 0.35rem;">
-                                    <i class="fas fa-database"></i> Inventario de Boletos en BD
-                                </div>
-                                <div class="form-helper" style="margin: 0;">
-                                    Usa este módulo para poblar o limpiar rangos de <code>boletos_estado</code> de forma segura. Nunca borra boletos apartados, vendidos ni boletos con oportunidades comprometidas.
-                                </div>
-                            </div>
-                            <button type="button" class="btn btn-secondary" id="btn-recargar-inventario-boletos">
-                                <i class="fas fa-rotate-right"></i> Recargar resumen
-                            </button>
-                        </div>
+                    <div id="inventario-boletos-preview" style="margin-top: 1.5rem; padding: 1rem; border-radius: 14px; background: #f8fafc; border: 1px dashed #cbd5e1; font-size: 0.9rem;">
+                        Presiona "Vista Previa" para analizar el rango.
+                    </div>
+                </div>
 
-                        <div id="inventario-boletos-resumen" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; margin-bottom: 1rem;">
-                            <div style="padding: 0.9rem; border-radius: 12px; background: #fff; border: 1px solid #e5e7eb;">
-                                <div style="font-size: 0.78rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em;">Configurado</div>
-                                <div id="inventario-total-configurado" style="font-size: 1.2rem; font-weight: 700; color: #0f172a;">0</div>
-                            </div>
-                            <div style="padding: 0.9rem; border-radius: 12px; background: #fff; border: 1px solid #e5e7eb;">
-                                <div style="font-size: 0.78rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em;">Cargados en BD</div>
-                                <div id="inventario-total-bd" style="font-size: 1.2rem; font-weight: 700; color: #0f172a;">0</div>
-                            </div>
-                            <div style="padding: 0.9rem; border-radius: 12px; background: #fff; border: 1px solid #e5e7eb;">
-                                <div style="font-size: 0.78rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em;">Faltantes</div>
-                                <div id="inventario-faltantes-bd" style="font-size: 1.2rem; font-weight: 700; color: #b45309;">0</div>
-                            </div>
-                            <div style="padding: 0.9rem; border-radius: 12px; background: #fff; border: 1px solid #e5e7eb;">
-                                <div style="font-size: 0.78rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em;">Cobertura</div>
-                                <div id="inventario-cobertura-bd" style="font-size: 1.2rem; font-weight: 700; color: #0369a1;">0%</div>
-                            </div>
-                        </div>
+                <div class="config-card" id="card-sorteo-reset">
+                    <div class="section-subheader">
+                        <i class="fas fa-broom"></i> Preparar Nueva Rifa (Reinicio)
+                    </div>
+                    <div style="padding: 1rem; border-radius: 16px; background: #fff8f1; border: 1px solid #ffedd5; margin-bottom: 1.5rem;">
+                        <p style="color: #9a3412; font-size: 0.9rem; font-weight: 500; display: flex; align-items: center; gap: 0.5rem;">
+                            <i class="fas fa-exclamation-triangle"></i> ¡ATENCIÓN! Esta acción borrará órdenes y apartados para empezar de cero.
+                        </p>
+                    </div>
 
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.9rem; align-items: end;">
-                            <div>
-                                <label class="form-label">Inicio del rango</label>
-                                <input type="number" class="form-input" id="inventario-boletos-inicio" min="0" step="1" placeholder="Ej: 0">
-                            </div>
-                            <div>
-                                <label class="form-label">Fin del rango</label>
-                                <input type="number" class="form-input" id="inventario-boletos-fin" min="0" step="1" placeholder="Ej: 19999">
-                            </div>
-                            <div>
-                                <label class="form-label">Cantidad calculada</label>
-                                <input type="text" class="form-input" id="inventario-boletos-cantidad" value="0" readonly>
-                            </div>
+                    <div id="nueva-rifa-resumen" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem;">
+                        <div style="padding: 1rem; border-radius: 12px; background: #fff; border: 1px solid #e5e7eb;">
+                            <div style="font-size: 0.7rem; color: #64748b; font-weight: 700; text-transform: uppercase; margin-bottom: 0.4rem;">Estado</div>
+                            <div id="nueva-rifa-estado" style="font-size: 0.9rem; font-weight: 700; color: #0f172a;">Sin revisar</div>
                         </div>
-
-                        <div class="form-helper" style="margin-top: 0.65rem;">
-                            El rango siempre debe quedar dentro del universo configurado en “Total de boletos”. Al borrar, solo se eliminarán boletos disponibles y sin uso; si tienen oportunidades disponibles ligadas, también se eliminarán por cascada.
+                        <div style="padding: 1rem; border-radius: 12px; background: #fff; border: 1px solid #e5e7eb;">
+                            <div style="font-size: 0.7rem; color: #64748b; font-weight: 700; text-transform: uppercase; margin-bottom: 0.4rem;">Órdenes</div>
+                            <div id="nueva-rifa-ordenes" style="font-size: 0.9rem; font-weight: 700; color: #0f172a;">0</div>
                         </div>
-
-                        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 1rem;">
-                            <button type="button" class="btn btn-secondary" id="btn-preview-inventario-boletos">
-                                <i class="fas fa-search"></i> Preview del rango
-                            </button>
-                            <button type="button" class="btn btn-primary" id="btn-poblar-rango-boletos">
-                                <i class="fas fa-layer-group"></i> Poblar rango faltante
-                            </button>
-                            <button type="button" class="btn btn-secondary" id="btn-borrar-rango-boletos" style="background: #fff1f2; border-color: #fecdd3; color: #be123c;">
-                                <i class="fas fa-trash"></i> Borrar boletos seguros
-                            </button>
+                        <div style="padding: 1rem; border-radius: 12px; background: #fff; border: 1px solid #e5e7eb;">
+                            <div style="font-size: 0.7rem; color: #64748b; font-weight: 700; text-transform: uppercase; margin-bottom: 0.4rem;">Boletos</div>
+                            <div id="nueva-rifa-boletos" style="font-size: 0.9rem; font-weight: 700; color: #0f172a;">0</div>
                         </div>
-
-                        <div id="inventario-boletos-preview" style="margin-top: 1rem; padding: 1rem; border-radius: 14px; background: #fff; border: 1px dashed #cbd5e1; color: #475569;">
-                            El preview del rango aparecerá aquí antes de poblar o borrar.
+                        <div style="padding: 1rem; border-radius: 12px; background: #fff; border: 1px solid #e5e7eb;">
+                            <div style="font-size: 0.7rem; color: #64748b; font-weight: 700; text-transform: uppercase; margin-bottom: 0.4rem;">Oportunidades</div>
+                            <div id="nueva-rifa-oportunidades" style="font-size: 0.9rem; font-weight: 700; color: #0f172a;">0</div>
+                        </div>
+                        <div style="padding: 1rem; border-radius: 12px; background: #fff; border: 1px solid #e5e7eb;">
+                            <div style="font-size: 0.7rem; color: #64748b; font-weight: 700; text-transform: uppercase; margin-bottom: 0.4rem;">Ganadores</div>
+                            <div id="nueva-rifa-ganadores" style="font-size: 0.9rem; font-weight: 700; color: #0f172a;">0</div>
+                        </div>
+                        <div style="padding: 1rem; border-radius: 12px; background: #fff; border: 1px solid #e5e7eb;">
+                            <div style="font-size: 0.7rem; color: #64748b; font-weight: 700; text-transform: uppercase; margin-bottom: 0.4rem;">Contadores</div>
+                            <div id="nueva-rifa-contadores" style="font-size: 0.9rem; font-weight: 700; color: #0f172a;">0</div>
                         </div>
                     </div>
 
-                    <div style="margin-top: var(--spacing-xl); padding: 1rem 1.1rem; border: 1px solid #fde68a; border-radius: 16px; background: linear-gradient(180deg, #fffdf5 0%, #fff7e6 100%);">
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
-                            <div style="min-width: 240px; flex: 1;">
-                                <div class="section-subheader" style="margin-bottom: 0.35rem;">
-                                    <i class="fas fa-rotate-left"></i> Preparar Nueva Rifa en Esta BD
-                                </div>
-                                <div class="form-helper" style="margin: 0;">
-                                    Este módulo limpia solo los datos operativos de la rifa anterior para reutilizar la misma BD. Se bloquea automáticamente si aún hay órdenes pendientes o apartados activos.
-                                </div>
-                            </div>
-                            <button type="button" class="btn btn-secondary" id="btn-recargar-nueva-rifa-preview">
-                                <i class="fas fa-rotate-right"></i> Revisar estado
-                            </button>
-                        </div>
-
-                        <div id="nueva-rifa-resumen" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; margin-bottom: 1rem;">
-                            <div style="padding: 0.9rem; border-radius: 12px; background: #fff; border: 1px solid #e5e7eb;">
-                                <div style="font-size: 0.78rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em;">Estado</div>
-                                <div id="nueva-rifa-estado" style="font-size: 1.05rem; font-weight: 700; color: #0f172a;">Sin revisar</div>
-                            </div>
-                            <div style="padding: 0.9rem; border-radius: 12px; background: #fff; border: 1px solid #e5e7eb;">
-                                <div style="font-size: 0.78rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em;">Órdenes en BD</div>
-                                <div id="nueva-rifa-ordenes" style="font-size: 1.05rem; font-weight: 700; color: #0f172a;">0</div>
-                            </div>
-                            <div style="padding: 0.9rem; border-radius: 12px; background: #fff; border: 1px solid #e5e7eb;">
-                                <div style="font-size: 0.78rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em;">Boletos en BD</div>
-                                <div id="nueva-rifa-boletos" style="font-size: 1.05rem; font-weight: 700; color: #0f172a;">0</div>
-                            </div>
-                            <div style="padding: 0.9rem; border-radius: 12px; background: #fff; border: 1px solid #e5e7eb;">
-                                <div style="font-size: 0.78rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em;">Oportunidades en BD</div>
-                                <div id="nueva-rifa-oportunidades" style="font-size: 1.05rem; font-weight: 700; color: #0f172a;">0</div>
-                            </div>
-                            <div style="padding: 0.9rem; border-radius: 12px; background: #fff; border: 1px solid #e5e7eb;">
-                                <div style="font-size: 0.78rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em;">Ganadores</div>
-                                <div id="nueva-rifa-ganadores" style="font-size: 1.05rem; font-weight: 700; color: #0f172a;">0</div>
-                            </div>
-                            <div style="padding: 0.9rem; border-radius: 12px; background: #fff; border: 1px solid #e5e7eb;">
-                                <div style="font-size: 0.78rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em;">Contadores de orden</div>
-                                <div id="nueva-rifa-contadores" style="font-size: 1.05rem; font-weight: 700; color: #0f172a;">0</div>
-                            </div>
-                        </div>
-
-                        <div id="nueva-rifa-checklist" style="display: grid; gap: 0.6rem; margin-bottom: 1rem;">
-                            <div style="padding: 0.85rem; border-radius: 12px; background: #fff; border: 1px dashed #cbd5e1; color: #64748b;">
-                                El checklist de seguridad aparecerá aquí.
-                            </div>
-                        </div>
-
-                        <div id="nueva-rifa-preview" style="padding: 1rem; border-radius: 14px; background: #fff; border: 1px dashed #cbd5e1; color: #475569; margin-bottom: 1rem;">
-                            Revisa primero el estado operativo actual. Si todo está listo, aquí verás exactamente qué se limpiará y cuál es la palabra de confirmación requerida.
-                        </div>
-
-                        <div style="display: grid; grid-template-columns: minmax(220px, 320px) auto; gap: 0.75rem; align-items: end;">
-                            <div>
-                                <label class="form-label" for="nueva-rifa-confirmacion">Confirmación obligatoria</label>
-                                <input type="text" class="form-input" id="nueva-rifa-confirmacion" placeholder="Escribe la palabra requerida">
-                                <div class="form-helper">Para ejecutar el reset escribe exactamente la palabra indicada en el preview.</div>
-                            </div>
-                            <button type="button" class="btn btn-secondary" id="btn-ejecutar-nueva-rifa" style="background: #fff1f2; border-color: #fecdd3; color: #be123c;">
-                                <i class="fas fa-broom-ball"></i> Preparar nueva rifa
-                            </button>
-                        </div>
-                    </div>
+                    <div id="nueva-rifa-checklist" style="margin-bottom: 1rem;"></div>
+                    <div id="nueva-rifa-preview" style="margin-bottom: 1.5rem; padding: 1rem; border-radius: 12px; background: #f8fafc; border: 1px dashed #cbd5e1; font-size: 0.85rem; color: #64748b;"></div>
                 </div>
 
                 <!-- PREMIOS Y GANADORES POR MODALIDAD -->
@@ -3564,13 +3959,8 @@
                     <h1><i class="fas fa-lock"></i> Seguridad y Usuarios</h1>
                     <p>Gestiona contraseñas, usuarios y permisos de acceso al sistema</p>
                 </div>
-                <div class="section-quicknav">
-                    <button class="quicknav-btn" type="button" onclick="irAConfigBloque('seguridad', 'card-seguridad-usuarios')"><i class="fas fa-users"></i> Usuarios</button>
-                    <button class="quicknav-btn" type="button" onclick="irAConfigBloque('seguridad', 'card-seguridad-roles')"><i class="fas fa-user-shield"></i> Roles</button>
-                </div>
-
                 <!-- GESTIÓN DE USUARIOS -->
-                <div class="config-card" id="card-seguridad-usuarios" style="margin-top: var(--spacing-2xl);">
+                <div class="config-card" id="card-seguridad-usuarios" style="margin-top: 1rem;">
                     <div class="section-subheader">
                         <i class="fas fa-users-cog"></i> Gestión de Usuarios
                     </div>
@@ -3651,16 +4041,16 @@
                         Actualiza la información principal de tu organización
                     </p>
 
-                    <!-- Nombre de la Organización -->
-                    <div class="form-group-single">
-                        <label class="form-label">Nombre de la Organización <span class="required">*</span></label>
-                        <input type="text" class="form-input" id="org-nombre" placeholder="Ej: Sorteos Torres" required>
-                    </div>
-
-                    <!-- Eslogan -->
-                    <div class="form-group-single" style="margin-top: var(--spacing-lg);">
-                        <label class="form-label">Eslogan <span class="required">*</span></label>
-                        <input type="text" class="form-input" id="org-eslogan" placeholder="Ej: La mejor forma de ganar" required>
+                    <!-- Nombre y Eslogan -->
+                    <div class="form-grid-2">
+                        <div class="form-group-single">
+                            <label class="form-label">Nombre de la Organización <span class="required">*</span></label>
+                            <input type="text" class="form-input" id="org-nombre" placeholder="Ej: Sorteos Torres" required>
+                        </div>
+                        <div class="form-group-single">
+                            <label class="form-label">Eslogan <span class="required">*</span></label>
+                            <input type="text" class="form-input" id="org-eslogan" placeholder="Ej: La mejor forma de ganar" required>
+                        </div>
                     </div>
 
                     <!-- Logotipo -->
@@ -3710,88 +4100,69 @@
 
                     <!-- DATOS DE CONTACTO -->
                     <div style="margin-bottom: var(--spacing-xl); padding-bottom: var(--spacing-xl); border-bottom: 1px solid var(--border-color);">
-                        <h4 style="margin-bottom: var(--spacing-md); font-weight: 600; color: var(--text-primary);">
+                        <h4 style="margin-bottom: var(--spacing-lg); font-weight: 700; color: #1e293b;">
                             <i class="fas fa-envelope-open"></i> Información de Contacto
                         </h4>
 
-                        <!-- Email -->
-                        <div class="form-group-single">
-                            <label class="form-label">Correo Electrónico <span class="required">*</span></label>
-                            <input type="email" class="form-input" id="contact-email" placeholder="contacto@ejemplo.com" required>
-                        </div>
-
-                        <!-- Teléfono -->
-                        <div class="form-group-single" style="margin-top: var(--spacing-lg);">
-                            <label class="form-label">Teléfono <span class="required">*</span></label>
-                            <input type="tel" class="form-input" id="contact-telefono" placeholder="+52 55 1234 5678" required>
+                        <div class="form-grid-2">
+                            <div class="form-group-single">
+                                <label class="form-label">Correo Electrónico <span class="required">*</span></label>
+                                <input type="email" class="form-input" id="contact-email" placeholder="contacto@ejemplo.com" required>
+                            </div>
+                            <div class="form-group-single">
+                                <label class="form-label">Teléfono <span class="required">*</span></label>
+                                <input type="tel" class="form-input" id="contact-telefono" placeholder="+52 55 1234 5678" required>
+                            </div>
                         </div>
                     </div>
 
                     <!-- REDES SOCIALES -->
                     <div style="margin-bottom: var(--spacing-xl);">
-                        <h4 style="margin-bottom: var(--spacing-md); font-weight: 600; color: var(--text-primary);">
+                        <h4 style="margin-bottom: var(--spacing-lg); font-weight: 700; color: #1e293b;">
                             <i class="fas fa-share-alt"></i> Redes Sociales
                         </h4>
 
-                        <!-- WhatsApp -->
-                        <div class="form-group-single">
-                            <label class="form-label">WhatsApp <span style="color: var(--text-light);">(número sin espacios)</span></label>
-                            <input type="tel" class="form-input" id="social-whatsapp" placeholder="+524591153960">
-                            <small style="color: var(--text-light);">Ej: +524591153960</small>
-                        </div>
-
-                        <!-- Facebook URL -->
-                        <div class="form-group-single" style="margin-top: var(--spacing-lg);">
-                            <label class="form-label">URL de Facebook</label>
-                            <input type="url" class="form-input" id="social-facebook" placeholder="https://www.facebook.com/tupagina">
-                        </div>
-
-                        <!-- Facebook Usuario -->
-                        <div class="form-group-single" style="margin-top: var(--spacing-lg);">
-                            <label class="form-label">Nombre de Usuario de Facebook</label>
-                            <input type="text" class="form-input" id="social-facebook-usuario" placeholder="Nombre de tu página">
-                        </div>
-
-                        <!-- Instagram URL -->
-                        <div class="form-group-single" style="margin-top: var(--spacing-lg);">
-                            <label class="form-label">URL de Instagram</label>
-                            <input type="url" class="form-input" id="social-instagram" placeholder="https://www.instagram.com/tuusuario">
-                        </div>
-
-                        <!-- Instagram Usuario -->
-                        <div class="form-group-single" style="margin-top: var(--spacing-lg);">
-                            <label class="form-label">Usuario de Instagram</label>
-                            <input type="text" class="form-input" id="social-instagram-usuario" placeholder="@tuusuario">
-                        </div>
-
-                        <!-- TikTok -->
-                        <div class="form-group-single" style="margin-top: var(--spacing-lg);">
-                            <label class="form-label">URL de TikTok</label>
-                            <input type="url" class="form-input" id="social-tiktok" placeholder="https://www.tiktok.com/@tuusuario">
-                        </div>
-
-                        <!-- Canal WhatsApp (Grupo/Comunidad) -->
-                        <div class="form-group-single" style="margin-top: var(--spacing-lg);">
-                            <label class="form-label">Enlace del Grupo de WhatsApp</label>
-                            <input type="url" class="form-input" id="social-grupo-whatsapp" placeholder="https://chat.whatsapp.com/...">
-                            <small style="color: var(--text-light);">Úsalo si quieres llevar a las personas a un grupo específico.</small>
-                        </div>
-
-                        <div class="form-group-single" style="margin-top: var(--spacing-lg);">
-                            <label class="form-label">Nombre del Grupo de WhatsApp</label>
-                            <input type="text" class="form-input" id="social-grupo-whatsapp-nombre" placeholder="Ej: Grupo VIP del sorteo">
-                        </div>
-
-                        <div class="form-group-single" style="margin-top: var(--spacing-lg);">
-                            <label class="form-label">Enlace del Canal/Grupo de WhatsApp</label>
-                            <input type="url" class="form-input" id="social-canal-whatsapp" placeholder="https://chat.whatsapp.com/...">
-                            <small style="color: var(--text-light);">Puedes usarlo como canal o dejarlo como enlace de respaldo si no configuras un grupo separado.</small>
-                        </div>
-
-                        <!-- Nombre del Canal WhatsApp -->
-                        <div class="form-group-single" style="margin-top: var(--spacing-lg);">
-                            <label class="form-label">Nombre del Canal o Grupo de Respaldo</label>
-                            <input type="text" class="form-input" id="social-canal-whatsapp-nombre" placeholder="Ej: Sorteos Yepe">
+                        <div class="form-grid-2">
+                            <div class="form-group-single">
+                                <label class="form-label">WhatsApp <span style="color: var(--text-light);">(número sin espacios)</span></label>
+                                <input type="tel" class="form-input" id="social-whatsapp" placeholder="+524591153960">
+                            </div>
+                            <div class="form-group-single">
+                                <label class="form-label">URL de Facebook</label>
+                                <input type="url" class="form-input" id="social-facebook" placeholder="https://www.facebook.com/tupagina">
+                            </div>
+                            <div class="form-group-single">
+                                <label class="form-label">Nombre de Usuario de Facebook</label>
+                                <input type="text" class="form-input" id="social-facebook-usuario" placeholder="Nombre de tu página">
+                            </div>
+                            <div class="form-group-single">
+                                <label class="form-label">URL de Instagram</label>
+                                <input type="url" class="form-input" id="social-instagram" placeholder="https://www.instagram.com/tuusuario">
+                            </div>
+                            <div class="form-group-single">
+                                <label class="form-label">Usuario de Instagram</label>
+                                <input type="text" class="form-input" id="social-instagram-usuario" placeholder="@tuusuario">
+                            </div>
+                            <div class="form-group-single">
+                                <label class="form-label">URL de TikTok</label>
+                                <input type="url" class="form-input" id="social-tiktok" placeholder="https://www.tiktok.com/@tuusuario">
+                            </div>
+                            <div class="form-group-single">
+                                <label class="form-label">Enlace Grupo WhatsApp</label>
+                                <input type="url" class="form-input" id="social-grupo-whatsapp" placeholder="https://chat.whatsapp.com/...">
+                            </div>
+                            <div class="form-group-single">
+                                <label class="form-label">Nombre del Grupo</label>
+                                <input type="text" class="form-input" id="social-grupo-whatsapp-nombre" placeholder="Ej: Grupo VIP">
+                            </div>
+                            <div class="form-group-single">
+                                <label class="form-label">Enlace Canal WhatsApp</label>
+                                <input type="url" class="form-input" id="social-canal-whatsapp" placeholder="https://chat.whatsapp.com/...">
+                            </div>
+                            <div class="form-group-single">
+                                <label class="form-label">Nombre del Canal</label>
+                                <input type="text" class="form-input" id="social-canal-whatsapp-nombre" placeholder="Ej: Sorteos Canal">
+                            </div>
                         </div>
                     </div>
 
@@ -3847,15 +4218,17 @@
                         Define el precio base de cada boleto. Este será el precio que verán los clientes en toda la plataforma.
                     </p>
                     
-                    <!-- Card de precio actual -->
-                    <div style="background: var(--bg-light); border: 2px solid var(--divider); border-radius: var(--radius-md); padding: var(--spacing-xl); margin-bottom: var(--spacing-xl); display: grid; grid-template-columns: 1fr auto; gap: var(--spacing-xl); align-items: center;">
+                    <!-- Card de precio actual - REDISEÑADA PREMIUM -->
+                    <div style="background: linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%); border: 1px solid #d0e1fd; border-radius: 24px; padding: 2rem; margin-bottom: 2rem; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 10px 25px -5px rgba(24, 119, 242, 0.1);">
                         <div>
-                            <p style="margin: 0 0 0.5rem 0; color: var(--text-light); font-size: 0.9rem; font-weight: 500;">💰 Precio Actual del Boleto</p>
-                            <p style="margin: 0; font-size: 2.5rem; font-weight: 700; color: var(--primary);" id="precio-display">$10,000</p>
-                            <p style="margin: 0.5rem 0 0 0; color: var(--text-light); font-size: 0.85rem;">Pesos Mexicanos (MXN)</p>
+                            <p style="margin: 0 0 0.5rem 0; color: #64748b; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">💰 Precio Actual del Boleto</p>
+                            <div style="display: flex; align-items: baseline; gap: 0.5rem;">
+                                <span style="font-size: 3rem; font-weight: 900; color: var(--primary); letter-spacing: -0.02em;" id="precio-display">$10,000</span>
+                                <span style="color: #94a3b8; font-weight: 600; font-size: 1rem;">MXN</span>
+                            </div>
                         </div>
-                        <div style="text-align: center;">
-                            <div style="font-size: 3rem; opacity: 0.2;">🎫</div>
+                        <div style="width: 70px; height: 70px; background: #E7F3FF; border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; color: var(--primary);">
+                            <i class="fas fa-ticket-alt"></i>
                         </div>
                     </div>
 
@@ -3919,7 +4292,7 @@
                                 <div class="form-helper">Precio especial durante el período de promoción</div>
                             </div>
                             
-                            <div class="form-group-row" style="margin-top: var(--spacing-lg);">
+                            <div class="form-grid-2" style="margin-top: var(--spacing-lg);">
                                 <div class="form-group-single">
                                     <label class="form-label">Fecha y Hora de Inicio</label>
                                     <input type="datetime-local" class="form-input" id="promo-tiempo-inicio" oninput="actualizarPreviewPromocionTiempo()">
@@ -3965,7 +4338,7 @@
                                 <div class="form-helper">Descuento sobre el precio normal del boleto</div>
                             </div>
 
-                            <div class="form-group-row" style="margin-top: var(--spacing-lg);">
+                            <div class="form-grid-2" style="margin-top: var(--spacing-lg);">
                                 <div class="form-group-single">
                                     <label class="form-label">Fecha y Hora de Inicio</label>
                                     <input type="datetime-local" class="form-input" id="promo-porcentaje-inicio" oninput="actualizarPreviewPromocionPorcentaje()">
@@ -4244,6 +4617,7 @@
                     <button class="quicknav-btn" type="button" onclick="irAConfigBloque('publicacion', 'card-publicacion-faq')"><i class="fas fa-circle-question"></i> Ayuda y FAQ</button>
                     <button class="quicknav-btn" type="button" onclick="irAConfigBloque('publicacion', 'card-publicacion-modulos')"><i class="fas fa-toggle-on"></i> Módulos públicos</button>
                     <button class="quicknav-btn" type="button" onclick="irAConfigBloque('publicacion', 'card-publicacion-tema')"><i class="fas fa-palette"></i> Tema visual</button>
+                    <button class="quicknav-btn" type="button" onclick="irAConfigBloque('publicacion', 'card-publicacion-campanas-push')"><i class="fas fa-bell"></i> Campañas Push</button>
                 </div>
 
                 <div class="config-card config-card-muted" id="card-publicacion-seo">
@@ -4354,10 +4728,10 @@
                     </div>
                     <p>Activa medición básica para campañas de Facebook e Instagram sin tocar código. El organizador solo pega su Pixel ID y el sitio enviará eventos clave del flujo de compra.</p>
 
-                    <div class="theme-activation" style="margin-top: 0; margin-bottom: 1rem;">
+                    <div class="theme-activation" style="margin-top: 0; margin-bottom: 1.5rem; background: #f8fafc; border: 1px solid #e2e8f0; padding: 1.25rem; border-radius: 1rem; display: flex; align-items: center; justify-content: space-between;">
                         <div class="theme-activation-copy">
-                            <div class="theme-activation-title">Activar Meta Pixel</div>
-                            <div class="theme-activation-text">Si está desactivado, el sitio no cargará el script de Meta ni enviará eventos.</div>
+                            <div class="theme-activation-title" style="font-weight: 700; color: #1e293b; margin-bottom: 0.25rem;">Activar Meta Pixel</div>
+                            <div class="theme-activation-text" style="font-size: 0.85rem; color: #64748b;">Si está desactivado, el sitio no cargará el script de Meta ni enviará eventos.</div>
                         </div>
                         <label class="toggle-label">
                             <input type="checkbox" id="meta-pixel-enabled" class="toggle-input">
@@ -4931,14 +5305,15 @@
                         </button>
                     </div>
 
-                    <div class="theme-activation">
+                    <div class="theme-activation" style="margin-top: 1rem; margin-bottom: 2rem; background: #f8fafc; border: 1px solid #e2e8f0; padding: 1.25rem; border-radius: 1rem; display: flex; align-items: center; justify-content: space-between;">
                         <div class="theme-activation-copy">
-                            <div class="theme-activation-title">Activar tema personalizado</div>
-                            <div class="theme-activation-text">Si está apagado, el sitio público conserva su apariencia actual. Puedes preparar la nueva paleta aquí y activarla solo cuando realmente quieras publicarla.</div>
+                            <div class="theme-activation-title" style="font-weight: 700; color: #1e293b; margin-bottom: 0.25rem;">Activar tema personalizado</div>
+                            <div class="theme-activation-text" style="font-size: 0.85rem; color: #64748b;">Si está apagado, el sitio público conserva su apariencia actual. Puedes preparar la nueva paleta aquí y activarla solo cuando realmente quieras publicarla.</div>
                         </div>
-                        <label class="switch">
-                            <input type="checkbox" id="tema-personalizado-activo">
-                            <span class="slider"></span>
+                        <label class="toggle-label">
+                            <input type="checkbox" id="tema-personalizado-activo" class="toggle-input">
+                            <span class="toggle-bg"></span>
+                            <span class="toggle-circle"></span>
                         </label>
                     </div>
 
@@ -5549,6 +5924,20 @@
             if (tab) tab.classList.add('active');
             sessionStorage.setItem('adminConfiguracionTabActiva', tabName);
             
+            // ✅ Inicializar Modo Enfoque para la pestaña seleccionada
+            // Buscamos el primer botón de quicknav de esta sección y lo activamos
+            if (section) {
+                const firstQuickNav = section.querySelector('.quicknav-btn');
+                if (firstQuickNav) {
+                    // Extraer los argumentos de la función onclick (tabName, blockId)
+                    const onclickStr = firstQuickNav.getAttribute('onclick') || '';
+                    const match = onclickStr.match(/'([^']+)',\s*'([^']+)'/);
+                    if (match && match[2]) {
+                        irAConfigBloque(tabName, match[2]);
+                    }
+                }
+            }
+
             // Si es el tab de cliente, cargar los datos
             if (tabName === 'cliente') {
                 cargarDatosCliente();
@@ -5572,12 +5961,42 @@
         }
 
         function irAConfigBloque(tabName, blockId) {
-            cambiarTab(tabName);
+            // Asegurarnos de que estamos en la pestaña correcta
+            const section = document.getElementById(`tab-${tabName}`);
+            if (!section) return;
 
+            if (!section.classList.contains('active')) {
+                cambiarTab(tabName);
+            }
+
+            // 🎯 MODO ENFOQUE: Ocultar todas las tarjetas de esta sección
+            section.querySelectorAll('.config-card').forEach(card => {
+                if (card.id === blockId) {
+                    card.classList.remove('focus-hidden');
+                } else {
+                    card.classList.add('focus-hidden');
+                }
+            });
+
+            // ✨ Resaltar el botón activo en el quicknav
+            section.querySelectorAll('.quicknav-btn').forEach(btn => {
+                const onclickStr = btn.getAttribute('onclick') || '';
+                if (onclickStr.includes(`'${blockId}'`)) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+
+            // Scroll suave al inicio de la tarjeta (con margen para el header sticky)
             requestAnimationFrame(() => {
                 const bloque = document.getElementById(blockId);
                 if (!bloque) return;
-                bloque.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                
+                window.scrollTo({
+                    top: section.offsetTop - 20,
+                    behavior: 'smooth'
+                });
             });
         }
 
@@ -7255,6 +7674,10 @@
                     console.log('🔔 Evento "estadoActualizado" emitido para ganadores');
                 }
                 
+                mostrarModalGuardadoExitoso({
+                    titulo: '¡Configuración Guardada!',
+                    subtitulo: 'La modalidad de ganadores y presorteos ha sido actualizada correctamente.'
+                });
                 mostrarAlerta('✅ Configuración de ganadores guardada correctamente en la base de datos', 'success');
             } catch (error) {
                 if (error.name === 'AbortError') {
@@ -7448,13 +7871,7 @@
             document.getElementById('modal-usuario').classList.add('show');
         }
 
-        function cerrarModalUsuario() {
-            document.getElementById('modal-usuario').classList.remove('show');
-            document.getElementById('input-username').value = '';
-            document.getElementById('input-email').value = '';
-            document.getElementById('input-password').value = '';
-            document.getElementById('input-rol').value = '';
-        }
+
 
         function abrirEditarUsuario(id, username) {
             // ✅ Cargar datos del usuario a editar
@@ -9621,7 +10038,7 @@
             actualizarEstadoGuardadoPrecio();
 
             // ✅ IMPORTANTE: Esperar a que el selector de rifas se cargue completamente
-            // Esto garantiza que adminRifaActionsPanel y adminRifaSwitcher se rendericen
+            // Esto garantiza que el switcher de rifas en el header se renderice correctamente
             if (typeof ADMIN_LAYOUT?.cargarSelectorRifas === 'function') {
                 await ADMIN_LAYOUT.cargarSelectorRifas().catch((error) => {
                     console.warn('Advertencia: No se pudo cargar selector de rifas en DOMContentLoaded', error?.message);
@@ -9648,6 +10065,59 @@
                 }, 2000);
                 return;
             }
+
+            // --- LÓGICA CONSOLIDADA DE OTROS LISTENERS ---
+            // Inicializar eventos de bonos y maquina de suerte
+            const btnGuardarBonos = document.getElementById('btn-guardar-bonos');
+            if (btnGuardarBonos) {
+                btnGuardarBonos.onclick = guardarBonos;
+            }
+            const btnGuardarBonosCompra = document.getElementById('btn-guardar-bonos-compra');
+            if (btnGuardarBonosCompra) {
+                btnGuardarBonosCompra.onclick = guardarBonosCompra;
+            }
+            const inputLimiteMaquinaSuerte = document.getElementById('maquina-suerte-limite');
+            if (inputLimiteMaquinaSuerte) {
+                inputLimiteMaquinaSuerte.addEventListener('input', actualizarAyudaLimiteMaquinaSuerte);
+                inputLimiteMaquinaSuerte.addEventListener('change', function() {
+                    this.value = obtenerLimiteMaquinaSuerteNormalizado(this.value, maquinaSuerteLimiteTemporal || 500);
+                    actualizarAyudaLimiteMaquinaSuerte();
+                    const inputQuickPicks = document.getElementById('maquina-suerte-quick-picks');
+                    if (inputQuickPicks) {
+                        inputQuickPicks.value = normalizarInputQuickPicksMaquinaSuerte();
+                    }
+                    actualizarAyudaQuickPicksMaquinaSuerte();
+                    manejarCambioBoletajeYRangos();
+                });
+            }
+            const inputQuickPicksMS = document.getElementById('maquina-suerte-quick-picks');
+            if (inputQuickPicksMS) {
+                inputQuickPicksMS.addEventListener('input', function() {
+                    const sanitizado = String(this.value || '').replace(/[^0-9,\s]/g, '');
+                    if (sanitizado !== this.value) {
+                        this.value = sanitizado;
+                    }
+                    actualizarAyudaQuickPicksMaquinaSuerte();
+                    manejarCambioBoletajeYRangos();
+                });
+                inputQuickPicksMS.addEventListener('blur', function() {
+                    this.value = normalizarInputQuickPicksMaquinaSuerte();
+                    actualizarAyudaQuickPicksMaquinaSuerte();
+                    manejarCambioBoletajeYRangos();
+                });
+            }
+            const toggleNotaDisponibilidad = document.getElementById('maquina-suerte-mostrar-nota-disponibilidad');
+            if (toggleNotaDisponibilidad) {
+                toggleNotaDisponibilidad.addEventListener('change', manejarCambioBoletajeYRangos);
+            }
+            inicializarCampoTiempoApartadoAdmin();
+            
+            setTimeout(() => {
+                cargarBonos();
+                cargarBonosCompra();
+                cargarLimiteMaquinaSuerte();
+            }, 500);
+
             
             // Esperar a que rifaplusConfig esté listo
             await esperarConfigLista();
@@ -10664,6 +11134,72 @@
             }
         }
 
+        /**
+         * Verifica si los rangos actuales exceden el total de boletos ingresado
+         */
+        function verificarCoherenciaBoletaje() {
+            const totalInput = document.getElementById('sorteo-total-boletos');
+            const warningDiv = document.getElementById('sorteo-total-boletos-warning');
+            const warningText = document.getElementById('sorteo-total-boletos-warning-text');
+            
+            if (!totalInput || !warningDiv) return;
+            
+            const total = parseInt(totalInput.value, 10);
+            if (isNaN(total) || total <= 0) {
+                warningDiv.style.display = 'none';
+                return;
+            }
+            
+            const rangos = obtenerRangosPublicosDesdeDOM();
+            const rangoExcedente = rangos.find(r => r.fin >= total);
+            
+            if (rangoExcedente) {
+                warningText.innerText = `El total ingresado (${total.toLocaleString()}) es menor al límite de tus rangos (Rango "${rangoExcedente.nombre}" termina en ${(rangoExcedente.fin).toLocaleString()}). Esto causará un error al guardar.`;
+                warningDiv.style.display = 'block';
+            } else {
+                warningDiv.style.display = 'none';
+            }
+        }
+
+        /**
+         * Ajusta automáticamente los rangos para que no excedan el total de boletos
+         */
+        function ajustarRangosAlTotal() {
+            const totalInput = document.getElementById('sorteo-total-boletos');
+            if (!totalInput) return;
+            
+            const total = parseInt(totalInput.value, 10);
+            if (isNaN(total) || total <= 0) return;
+            
+            const rangos = obtenerRangosPublicosDesdeDOM();
+            let cambios = false;
+            
+            const nuevosRangos = rangos.filter(r => r.inicio < total).map(r => {
+                if (r.fin >= total) {
+                    cambios = true;
+                    return { ...r, fin: total - 1 };
+                }
+                return r;
+            });
+            
+            if (cambios || nuevosRangos.length !== rangos.length) {
+                renderizarRangosPublicosEditor(nuevosRangos);
+                verificarCoherenciaBoletaje();
+                mostrarAlerta('✅ Rangos ajustados al nuevo total automáticamente', 'info');
+            }
+        }
+
+        function inicializarValidacionTotalBoletos() {
+            const input = document.getElementById('sorteo-total-boletos');
+            if (!input || input.dataset.validationReady === 'true') return;
+            
+            input.addEventListener('input', verificarCoherenciaBoletaje);
+            input.dataset.validationReady = 'true';
+        }
+
+        // Inicializar validación al cargar el script o cuando sea necesario
+        setTimeout(inicializarValidacionTotalBoletos, 1000);
+
         function inicializarCampoTiempoApartadoAdmin() {
             const input = document.getElementById('tiempo-apartado-horas');
             if (!input || input.dataset.tiempoApartadoReady === 'true') return;
@@ -11431,8 +11967,8 @@
             }
         }
 
-        async function guardarBoletajeYRangos() {
-            const btn = document.getElementById('btn-guardar-boletaje-rangos');
+        async function guardarBoletajeYRangos(opciones = {}) {
+            const btn = opciones.btn || document.getElementById('btn-guardar-boletaje-rangos');
             const originalHTML = btn?.innerHTML;
 
             try {
@@ -11647,11 +12183,13 @@
                 cargarResumenInventarioBoletos().catch((error) => {
                     console.warn('⚠️ No se pudo refrescar el resumen de inventario tras guardar boletaje:', error.message);
                 });
-                mostrarModalGuardadoExitoso({
-                    titulo: '¡Boletaje Guardado Correctamente!',
-                    subtitulo: 'El total de boletos, la búsqueda, el tiempo de apartado, la máquina de la suerte y los rangos ya quedaron actualizados.'
-                });
-                mostrarAlerta('✅ Boletaje, búsqueda, apartados, máquina y rangos guardados correctamente', 'success');
+                if (!opciones.silent) {
+                    mostrarModalGuardadoExitoso({
+                        titulo: '¡Boletaje Guardado Correctamente!',
+                        subtitulo: 'El total de boletos, la búsqueda, el tiempo de apartado, la máquina de la suerte y los rangos ya quedaron actualizados.'
+                    });
+                    mostrarAlerta('✅ Boletaje, búsqueda, apartados, máquina y rangos guardados correctamente', 'success');
+                }
             } catch (error) {
                 console.error('❌ Error guardando boletaje y rangos:', error);
                 mostrarAlerta(`❌ Error: ${error.message}`, 'error');
@@ -12216,8 +12754,8 @@
             return TIMEZONE_OPTIONS_SORTEO.find((item) => item.value === normalizado)?.label || 'Hora Centro Mexico';
         }
 
-        async function guardarFechasYHorarios() {
-            let btnGuardar = null;
+        async function guardarFechasYHorarios(opciones = {}) {
+            let btnGuardar = opciones.btn || null;
             let originalHTML = '';
             try {
                 // 1️⃣ VALIDAR CAMPOS REQUERIDOS
@@ -12358,8 +12896,10 @@
 	                    console.log('✅ Campos recargados exitosamente');
 	                    
 	                    // Mostrar modal de éxito
-	                    mostrarModalExitoFechas();
-	                    mostrarAlerta('✅ Fechas y horarios guardados correctamente', 'success');
+                        if (!opciones.silent) {
+	                        mostrarModalExitoFechas();
+	                        mostrarAlerta('✅ Fechas y horarios guardados correctamente', 'success');
+                        }
                     console.log('🎉 Fechas guardadas exitosamente');
                 } else {
                     mostrarAlerta('❌ Error al guardar fechas', 'error');
@@ -12408,10 +12948,14 @@
 
                 // Este botón global coordina los flujos reales de persistencia
                 // sin depender de campos legacy que ya no existen en la UI.
-                await guardarInfoGeneralSorteo();
-                await guardarBoletajeYRangos();
-                await guardarFechasYHorarios();
+                await guardarInfoGeneralSorteo({ silent: true, btn });
+                await guardarBoletajeYRangos({ silent: true, btn });
+                await guardarFechasYHorarios({ silent: true, btn });
 
+                mostrarModalGuardadoExitoso({
+                    titulo: '¡Configuración del Sorteo Guardada!',
+                    subtitulo: 'Toda la configuración principal (información, boletaje y fechas) ha sido actualizada exitosamente.'
+                });
                 mostrarAlerta('✅ Configuración principal del sorteo guardada correctamente', 'success');
             } catch (error) {
                 mostrarAlerta('Error al guardar sorteo: ' + error.message, 'error');
@@ -15583,8 +16127,8 @@
          * - Solo guarda si hay cambios reales
          * - El modal persiste incluso si la página se recarga automáticamente
          */
-        async function guardarInfoGeneralSorteo() {
-            const btnGuardar = document.getElementById('btn-guardar-info-sorteo');
+        async function guardarInfoGeneralSorteo(opciones = {}) {
+            const btnGuardar = opciones.btn || document.getElementById('btn-guardar-info-sorteo');
             const originalHTML = btnGuardar?.innerHTML;
 
             try {
@@ -15802,10 +16346,12 @@
 
                 // 9️⃣ MOSTRAR MODAL EXITOSAMENTE
                 console.log('🎉 Cambios guardados exitosamente');
-                mostrarModalExitoSorteo({
-                    titulo: '¡Sorteo Guardado Correctamente!',
-                    subtitulo: 'La información del sorteo, imágenes y galería han sido actualizados exitosamente.'
-                });
+                if (!opciones.silent) {
+                    mostrarModalExitoSorteo({
+                        titulo: '¡Sorteo Guardado Correctamente!',
+                        subtitulo: 'La información del sorteo, imágenes y galería han sido actualizados exitosamente.'
+                    });
+                }
 
             } catch (error) {
                 console.error('❌ Error guardando información del sorteo:', error);
@@ -16381,6 +16927,8 @@
                 const config = {
                     edicion: document.getElementById('sorteo-edicion').value || '',
                     nombre: document.getElementById('sorteo-nombre').value || '',
+                    slug: document.getElementById('sorteo-slug').value || '',
+                    dominio: document.getElementById('sorteo-dominio').value || '',
                     descripcion: document.getElementById('sorteo-descripcion').value || '',
                     estado: obtenerEstadoRifaFormulario(),
                     modalidadSorteo: document.getElementById('sorteo-modalidad-texto')?.value || '',
@@ -16412,6 +16960,8 @@
                         body: JSON.stringify({
                             rifa: {
                                 nombreSorteo: config.nombre,
+                                slug: config.slug,
+                                dominio: config.dominio,
                                 descripcion: config.descripcion,
                                 estado: config.estado,
                                 modalidadSorteo: config.modalidadSorteo,
@@ -16450,7 +17000,32 @@
             if (window.rifaplusConfig?.rifa?.descripcion) {
                 document.getElementById('sorteo-descripcion').value = window.rifaplusConfig.rifa.descripcion;
             }
+            if (window.rifaplusConfig?.rifaContext?.slug) {
+                document.getElementById('sorteo-slug').value = window.rifaplusConfig.rifaContext.slug;
+            }
+            if (window.rifaplusConfig?.rifaContext?.dominio) {
+                document.getElementById('sorteo-dominio').value = window.rifaplusConfig.rifaContext.dominio;
+            }
             aplicarEstadoRifaFormulario(window.rifaplusConfig?.rifa?.estado);
+
+            // ✨ AUTO-GENERACIÓN DE SLUG (Para facilitar al admin)
+            const inputNombre = document.getElementById('sorteo-nombre');
+            const inputSlug = document.getElementById('sorteo-slug');
+            
+            if (inputNombre && inputSlug) {
+                inputNombre.addEventListener('input', () => {
+                    // Solo auto-generar si el slug está vacío o es muy corto (asumimos que es nuevo)
+                    if (inputSlug.value.length < 3) {
+                        const slug = inputNombre.value
+                            .toLowerCase()
+                            .normalize('NFD').replace(/[\u0300-\u036f]/g, "") // Quitar acentos
+                            .replace(/[^a-z0-9]+/g, '-') // Reemplazar no-alfanuméricos por guiones
+                            .replace(/^-+|-+$/g, ''); // Limpiar guiones extremos
+                        inputSlug.value = slug;
+                    }
+                });
+            }
+
             aplicarEstadoPublicacionPrincipal(Boolean(window.rifaplusConfig?.rifa?.activa_publica), {
                 bloquear: normalizarPublicacionPrincipalAdminConfig(window.rifaplusConfig?.rifa?.activa_publica)
             });
@@ -16714,18 +17289,7 @@
             }
         }
 
-        // Asociar evento al botón de guardar
-        document.addEventListener('DOMContentLoaded', function() {
-            const btnGuardar = document.getElementById('btn-guardar-informacion-sorteo');
-            if (btnGuardar) {
-                btnGuardar.onclick = guardarInformacionSorteo;
-            }
-            
-            // Cargar información al inicializar
-            setTimeout(() => {
-                cargarInformacionSorteo();
-            }, 500);
-        });
+
         // ========================================================== //
         // BONOS                                                     //
         // ========================================================== //
@@ -17482,58 +18046,7 @@
             }
         }
 
-        // Inicializar eventos de bonos
-        document.addEventListener('DOMContentLoaded', function() {
-            const btnGuardar = document.getElementById('btn-guardar-bonos');
-            if (btnGuardar) {
-                btnGuardar.onclick = guardarBonos;
-            }
-            const btnGuardarBonosCompra = document.getElementById('btn-guardar-bonos-compra');
-            if (btnGuardarBonosCompra) {
-                btnGuardarBonosCompra.onclick = guardarBonosCompra;
-            }
-            const inputLimiteMaquinaSuerte = document.getElementById('maquina-suerte-limite');
-            if (inputLimiteMaquinaSuerte) {
-                inputLimiteMaquinaSuerte.addEventListener('input', actualizarAyudaLimiteMaquinaSuerte);
-                inputLimiteMaquinaSuerte.addEventListener('change', function() {
-                    this.value = obtenerLimiteMaquinaSuerteNormalizado(this.value, maquinaSuerteLimiteTemporal || 500);
-                    actualizarAyudaLimiteMaquinaSuerte();
-                    const inputQuickPicks = document.getElementById('maquina-suerte-quick-picks');
-                    if (inputQuickPicks) {
-                        inputQuickPicks.value = normalizarInputQuickPicksMaquinaSuerte();
-                    }
-                    actualizarAyudaQuickPicksMaquinaSuerte();
-                    manejarCambioBoletajeYRangos();
-                });
-            }
-            const inputQuickPicksMaquinaSuerte = document.getElementById('maquina-suerte-quick-picks');
-            if (inputQuickPicksMaquinaSuerte) {
-                inputQuickPicksMaquinaSuerte.addEventListener('input', function() {
-                    const sanitizado = String(this.value || '').replace(/[^0-9,\s]/g, '');
-                    if (sanitizado !== this.value) {
-                        this.value = sanitizado;
-                    }
-                    actualizarAyudaQuickPicksMaquinaSuerte();
-                    manejarCambioBoletajeYRangos();
-                });
-                inputQuickPicksMaquinaSuerte.addEventListener('blur', function() {
-                    this.value = normalizarInputQuickPicksMaquinaSuerte();
-                    actualizarAyudaQuickPicksMaquinaSuerte();
-                    manejarCambioBoletajeYRangos();
-                });
-            }
-            const toggleMostrarNotaDisponibilidadMaquina = document.getElementById('maquina-suerte-mostrar-nota-disponibilidad');
-            if (toggleMostrarNotaDisponibilidadMaquina) {
-                toggleMostrarNotaDisponibilidadMaquina.addEventListener('change', manejarCambioBoletajeYRangos);
-            }
-            inicializarCampoTiempoApartadoAdmin();
-            
-            setTimeout(() => {
-                cargarBonos();
-                cargarBonosCompra();
-                cargarLimiteMaquinaSuerte();
-            }, 500);
-        });
+
     </script>
 </body>
 </html>

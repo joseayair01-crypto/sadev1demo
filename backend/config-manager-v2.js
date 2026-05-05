@@ -292,22 +292,18 @@ class ConfigManagerV2 {
       if (!guardadoEnRifas) {
         throw new Error('RIFA_NO_ENCONTRADA_PARA_GUARDAR');
       }
+
+      // ✅ Asegurar que la instancia principal también se actualice si es la misma
+      const idActualizado = rifaId || this.defaultRifaId;
+      if (Number(idActualizado) === Number(this.defaultRifaId)) {
+          this.config = this._clonarConfig(config);
+      }
+
       return true;
 
     } catch (err) {
       console.error('⚠️  Error guardando en BD:', err.message);
-      console.log('   Guardando como backup en config.json...');
-
-      // 🔴 Fallback: Guardar en config.json
-      try {
-        this.guardarEnConfigJson(config);
-        console.log('⚠️  Configuración guardada en config.json (fallback)');
-        console.log('   Los cambios se sincronizarán con BD cuando se reconecte');
-        return false;
-      } catch (diskErr) {
-        console.error('❌ CRÍTICO: No se pudo guardar ni en BD ni en config.json:', diskErr.message);
-        throw diskErr;
-      }
+      return false;
     }
   }
 
@@ -324,11 +320,18 @@ class ConfigManagerV2 {
 
   /**
    * Obtener config completa
+   * ✅ MEJORA: Intenta cargar desde memoria, y si no está, el llamador debería saber que 
+   * posiblemente necesite un refresh (aunque aquí es síncrono).
    */
   getConfig(rifaId = null) {
-    if (rifaId && this.configs && this.configs.has(Number(rifaId))) {
-      return this.configs.get(Number(rifaId));
+    if (rifaId && this.configs) {
+      const idNum = Number(rifaId);
+      if (this.configs.has(idNum)) {
+        return this.configs.get(idNum);
+      }
     }
+    
+    // Si no hay id o no se encontró, devolver la predeterminada (S1)
     return this.config || this.getDefaultConfig();
   }
 

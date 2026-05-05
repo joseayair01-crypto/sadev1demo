@@ -4805,7 +4805,10 @@
         let isSearching = false; // Bandera para prevenir búsquedas concurrentes
         let searchRetryCount = 0; // Contador de reintentos
         const MAX_SEARCH_RETRIES = 2; // Máximo 2 reintentos
-        const CACHE_KEY_PREFIX = 'rifaplus_ordenes_cache_';
+        // ✅ MEJORA: Clave de cache aislada por rifa (slug)
+        const CACHE_KEY_PREFIX = (typeof construirClaveLocalRifaPlus === 'function' 
+            ? construirClaveLocalRifaPlus('rifaplus_ordenes_cache_') 
+            : 'rifaplus_ordenes_cache_');
         const CACHE_TTL = 5 * 60 * 1000; // 5 minutos de TTL
 
         function construirFirmaOrdenes(ordenes) {

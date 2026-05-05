@@ -227,6 +227,7 @@ const PRECIO_BOLETO_DEFAULT = configExpiracion.precioBoleto;
 
 // ⭐ CACHE GLOBAL EN SERVIDOR (en lugar de window.* que no existe en Node.js)
 const serverCache = {
+    publicConfigs: new Map(), // ✅ NUEVO: Mapa de caches por rifa (slug/id -> { payload, timestamp })
     boletosPublicosCached: null,
     boletosPublicosCachedTime: 0,
     boletosStatsCached: {},
@@ -243,7 +244,13 @@ const serverCache = {
     publicRequestFlights: new Map()
 };
 
-function limpiarCacheConfiguracionPublica() {
+function limpiarCacheConfiguracionPublica(rifaIdOrSlug = null) {
+    if (rifaIdOrSlug) {
+        serverCache.publicConfigs.delete(String(rifaIdOrSlug));
+    } else {
+        serverCache.publicConfigs.clear();
+    }
+    
     serverCache.publicConfigCached = null;
     serverCache.publicConfigCachedKey = '';
     serverCache.publicConfigCachedTime = 0;
@@ -494,6 +501,7 @@ app.use(async (req, res, next) => {
                 contexto = await rifaService.resolverContexto({
                     rifaId,
                     slug,
+                    hostname: req.headers.host || req.hostname,
                     fallbackActive: true
                 });
                 if (contexto) break;
@@ -1139,12 +1147,22 @@ let configManagerV2 = null; // Se inicializa en setImmediate
 function obtenerHeadersRifaRequest(req) {
     return {
         rifaId: req?.headers?.['x-rifaplus-rifa-id'] || req?.headers?.['x-rifa-id'] || req?.query?.rifa_id || null,
-        slug: req?.headers?.['x-rifaplus-rifa-slug'] || req?.query?.rifa || req?.query?.slug || null
+        slug: req?.headers?.['x-rifaplus-rifa-slug'] || req?.query?.rifa || req?.query?.slug || null,
+        hostname: req?.hostname || req?.headers?.host || null
     };
 }
 
-function obtenerContextoRifaActual() {
-    return requestRifaStorage.getStore() || null;
+function obtenerContextoRifaActual(rifaIdExplicit = null) {
+    const store = requestRifaStorage.getStore() || null;
+    
+    // Si se pide un ID específico y el contexto actual no coincide,
+    // o si no hay contexto, intentar resolverlo desde la instancia de RifaService
+    // (aunque esto último debería ser evitado en favor del middleware)
+    if (rifaIdExplicit && Number(store?.id) !== Number(rifaIdExplicit)) {
+        return null; 
+    }
+    
+    return store;
 }
 
 function obtenerRifaIdActual() {
@@ -1652,8 +1670,14 @@ async function persistirConfigActualizada(config, usuarioAdmin = 'SYSTEM') {
 
     if (rifaService?.enabled && Number.isInteger(rifaIdActual) && rifaIdActual > 0) {
         await rifaService.guardarConfiguracion(rifaIdActual, config, usuarioAdmin);
+        
+        // ✅ CRÍTICO: Sincronizar con ConfigManagerV2 inmediatamente para evitar datos obsoletos
+        if (configManagerV2) {
+            await configManagerV2.guardarEnBD(config, usuarioAdmin, rifaIdActual);
+        }
+
         sincronizarConfigLegacyEnMemoria(config);
-        limpiarCacheConfiguracionPublica();
+        limpiarCacheConfiguracionPublica(rifaIdActual);
         return true;
     }
 
@@ -1754,28 +1778,47 @@ function obtenerConfigActual(rifaId = null) {
         return configContextual;
     }
 
+    // Si tenemos un ID pero no configuración en BD, intentar construir una config mínima
+    // para esa rifa en lugar de caer en la Rifa 1.
+    if (rifaIdResuelto && contextoRifa) {
+        console.warn(`⚠️ Rifa ${rifaIdResuelto} (${contextoRifa.slug}) no tiene configuración en BD. Generando config mínima.`);
+        const fallbackConfig = obtenerConfigExpiracion();
+        return {
+            cliente: { nombre: contextoRifa.nombre || 'Mi Rifa' },
+            rifa: {
+                nombreSorteo: contextoRifa.nombre || 'Sorteo Especial',
+                totalBoletos: Number(fallbackConfig.totalBoletos) || 1000,
+                precioBoleto: Number(fallbackConfig.precioBoleto) || 50,
+                estado: contextoRifa.estado || 'borrador'
+            },
+            tecnica: { bankAccounts: [] }
+        };
+    }
+
     if (configManagerV2?.getConfig) {
         const configBD = configManagerV2.getConfig(rifaIdResuelto);
         if (configBD && typeof configBD === 'object') {
-            return clonarConfigSeguro(configBD);
+            // ⭐ DEFENSA: Si pedimos un ID específico y lo que devuelve el manager es la default (ID 1),
+            // ignoramos si no coinciden los IDs para evitar contaminación.
+            const idEnConfig = configBD.rifa_id || configBD.rifa?.id;
+            if (!rifaIdResuelto || !idEnConfig || Number(idEnConfig) === Number(rifaIdResuelto)) {
+                return clonarConfigSeguro(configBD);
+            }
         }
     }
 
-    if (configManager?.getAll) {
-        const configLegacy = configManager.getAll();
-        if (configLegacy && typeof configLegacy === 'object') {
-            return clonarConfigSeguro(configLegacy);
+    // ÚLTIMO RECURSO: config.json solo si no hay un ID solicitado (Home/Default)
+    if (!rifaIdResuelto) {
+        try {
+            const configPath = path.join(__dirname, 'config.json');
+            const raw = fs.readFileSync(configPath, 'utf8');
+            return JSON.parse(raw);
+        } catch (error) {
+            console.warn('⚠️ No se pudo leer configuración actual desde disco:', error.message);
         }
     }
-
-    try {
-        const configPath = path.join(__dirname, 'config.json');
-        const raw = fs.readFileSync(configPath, 'utf8');
-        return JSON.parse(raw);
-    } catch (error) {
-        console.warn('⚠️ No se pudo leer configuración actual desde disco:', error.message);
-        return {};
-    }
+    
+    return {};
 }
 
 function cargarConfigSorteo(rifaId = null) {
@@ -4666,9 +4709,13 @@ app.post('/api/admin/rifas/:id/archivar', verificarToken, async (req, res) => {
 app.get('/api/public/config', (req, res) => {
     try {
         const cacheKey = String(req.rifaContext?.slug || req.rifaContext?.id || 'default');
-        const cacheAge = Date.now() - serverCache.publicConfigCachedTime;
-        if (serverCache.publicConfigCached && serverCache.publicConfigCachedKey === cacheKey && cacheAge >= 0 && cacheAge < 10000) {
-            return res.json(serverCache.publicConfigCached);
+        const cached = serverCache.publicConfigs.get(cacheKey);
+        
+        if (cached) {
+            const cacheAge = Date.now() - cached.timestamp;
+            if (cacheAge >= 0 && cacheAge < 15000) { // 15 segundos de cache por rifa
+                return res.json(cached.payload);
+            }
         }
 
         const configActual = obtenerConfigActual(req.rifaContext?.id || null);
@@ -4706,9 +4753,11 @@ app.get('/api/public/config', (req, res) => {
             }
         };
 
-        serverCache.publicConfigCached = payload;
-        serverCache.publicConfigCachedKey = cacheKey;
-        serverCache.publicConfigCachedTime = Date.now();
+        // ✅ USAR CACHÉ POR RIFA (Map) en lugar de variable global compartida
+        serverCache.publicConfigs.set(cacheKey, {
+            payload,
+            timestamp: Date.now()
+        });
 
         res.json(payload);
     } catch (error) {
@@ -5465,6 +5514,8 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
 
             if (!config.rifa) config.rifa = {};
             if (req.body.rifa.nombreSorteo) config.rifa.nombreSorteo = req.body.rifa.nombreSorteo;
+            if (req.body.rifa.slug) config.rifa.slug = req.body.rifa.slug;
+            if (req.body.rifa.dominio) config.rifa.dominio = req.body.rifa.dominio;
             if (req.body.rifa.edicionNombre) config.rifa.edicionNombre = req.body.rifa.edicionNombre;
             if (req.body.rifa.estado) config.rifa.estado = req.body.rifa.estado;
             if (req.body.rifa.totalBoletos !== undefined) config.rifa.totalBoletos = parseInt(req.body.rifa.totalBoletos) || config.rifa.totalBoletos;
@@ -9760,6 +9811,7 @@ app.get('/api/public/ordenes-stats', async (req, res) => {
             data: {
                 total_ordenes: stats.total_ordenes,
                 total_boletos_vendidos: stats.total_boletos_vendidos,
+                total: totalBoletosRifa,
                 porcentaje_vendido: stats.porcentaje_vendido,
                 queryTime: Date.now() - startTime,
                 cached: false,
@@ -12549,10 +12601,14 @@ const clienteConfig = require('./cliente-config.js');
 app.get('/api/cliente', (req, res) => {
     try {
         const cacheKey = String(req.rifaContext?.slug || req.rifaContext?.id || 'default');
-        const cacheAge = Date.now() - serverCache.clienteConfigCachedTime;
-        if (serverCache.clienteConfigCached && serverCache.clienteConfigCachedKey === cacheKey && cacheAge >= 0 && cacheAge < 10000) {
-            setHttpCacheHeaders(res, 10, true);
-            return res.json(serverCache.clienteConfigCached);
+        const cached = serverCache.publicConfigs.get(`cliente:${cacheKey}`);
+        
+        if (cached) {
+            const cacheAge = Date.now() - cached.timestamp;
+            if (cacheAge >= 0 && cacheAge < 10000) { // 10 segundos de cache
+                setHttpCacheHeaders(res, 10, true);
+                return res.json(cached.payload);
+            }
         }
 
         const config = obtenerConfigActual(req.rifaContext?.id || null);
@@ -12562,19 +12618,20 @@ app.get('/api/cliente', (req, res) => {
         if (!config.rifa) config.rifa = {};
         if (!config.tecnica) config.tecnica = {};
 
-        // ✅ VALIDACIÓN: Campos críticos de rifa
+        // ✅ VALIDACIÓN: Campos críticos de rifa con fallbacks inteligentes
+        const fallbackConfig = obtenerConfigExpiracion();
+        
         if (!config.rifa.nombreSorteo) {
-            console.warn('⚠️  nombreSorteo vacío en configuración actual, usando fallback');
-            config.rifa.nombreSorteo = 'SORTEO EN VIVO';
+            config.rifa.nombreSorteo = String(fallbackConfig.nombreSorteo || 'SORTEO EN VIVO').trim();
         }
+        
         if (!config.rifa.totalBoletos || isNaN(config.rifa.totalBoletos) || config.rifa.totalBoletos <= 0) {
-            console.warn('⚠️  totalBoletos inválido en configuración actual, usando fallback');
-            config.rifa.totalBoletos = 250000;
+            config.rifa.totalBoletos = Number(fallbackConfig.totalBoletos) || 1000;
         }
+        
         const precioConfig = Number(config.rifa.precioBoleto);
         if (!Number.isFinite(precioConfig) || precioConfig < 0) {
-            console.warn('⚠️  precioBoleto inválido en configuración actual, usando fallback');
-            config.rifa.precioBoleto = Number(PRECIO_BOLETO_DEFAULT) || 0;
+            config.rifa.precioBoleto = Number(fallbackConfig.precioBoleto || PRECIO_BOLETO_DEFAULT) || 0;
         }
 
         // Combinar datos actuales con la estructura esperada por frontend
@@ -12593,9 +12650,11 @@ app.get('/api/cliente', (req, res) => {
             data: clienteData
         };
 
-        serverCache.clienteConfigCached = payload;
-        serverCache.clienteConfigCachedKey = cacheKey;
-        serverCache.clienteConfigCachedTime = Date.now();
+        // ✅ USAR CACHÉ POR RIFA
+        serverCache.publicConfigs.set(`cliente:${cacheKey}`, {
+            payload,
+            timestamp: Date.now()
+        });
 
         setHttpCacheHeaders(res, 10, true);
         res.json(payload);

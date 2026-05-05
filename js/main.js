@@ -1477,9 +1477,10 @@ async function actualizarBarraProgreso() {
                     return;
                 }
 
-                // Si el backend devuelve 0 pero tenemos caché > 0, sospechamos de error de aislamiento.
-                if (boletosVendidos === 0 && cachedData && cachedData.vendidos > 0) {
-                    console.warn('⚠️ Backend reportó 0 pero caché tiene data. Manteniendo caché y reintentando...');
+                // ✅ MEJORA: Solo sospechar si el contexto NO está confirmado
+                // Si el contexto está confirmado (data.context_resolved), el 0 es legítimo (rifa nueva).
+                if (boletosVendidos === 0 && !contextResolved && cachedData && cachedData.vendidos > 0) {
+                    console.warn('⚠️ Backend reportó 0 sin confirmar contexto pero caché tiene data. Reintentando...');
                     setTimeout(() => actualizarBarraProgreso(), 5000);
                     return;
                 }

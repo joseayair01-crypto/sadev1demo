@@ -218,7 +218,7 @@ function syncPersistirCachesDerivadas(snapshotData) {
 
     if (logo) {
         localStorage.setItem(key('cached_logo'), logo);
-        localStorage.setItem('rifaplus_cached_logo', logo);
+        // Eliminado: localStorage.setItem('rifaplus_cached_logo', logo); // Evitar contaminación global
     }
 
     if (Array.isArray(rifa.galeria?.imagenes)) {
@@ -261,7 +261,8 @@ function syncPersistirCachesDerivadas(snapshotData) {
 window.rifaplusConfig.persistirSnapshotPublicoLocal = function(configFuente = null) {
     try {
         const snapshot = syncConstruirSnapshotPublico(configFuente || this);
-        localStorage.setItem(this._PUBLIC_SNAPSHOT_KEY || 'rifaplus_public_snapshot_v1', JSON.stringify(snapshot));
+        const key = this.construirClaveLocal ? this.construirClaveLocal('rifaplus_public_snapshot_v1') : (this._PUBLIC_SNAPSHOT_KEY || 'rifaplus_public_snapshot_v1');
+        localStorage.setItem(key, JSON.stringify(snapshot));
         syncPersistirCachesDerivadas(snapshot.data);
         return snapshot;
     } catch (error) {

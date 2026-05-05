@@ -341,6 +341,13 @@
          * Contenedor del dashboard como flex layout
          */
         /* ========================================================== */
+        /* SECCIÓN 3: DASHBOARD Y CONTENEDOR PRINCIPAL                */
+        /* ========================================================== */
+
+        /**
+         * Contenedor del dashboard como flex layout
+         */
+        /* ========================================================== */
         /* SECCIÓN 4: HEADER Y NAVEGACIÓN SUPERIOR                    */
         /* ========================================================== */
 
@@ -613,9 +620,14 @@
         /**
          * Media query para dispositivos tablets/móviles
          */
-        @media (max-width: 1100px) {
+        @media (max-width: 480px) {
             .menu-toggle {
                 display: block;
+            }
+
+            .admin-header-content {
+                flex-direction: column;
+                gap: 1rem;
             }
 
             .nav-content {
@@ -1944,7 +1956,7 @@
             }
 
             .chart-container canvas {
-                height: 280px !important;
+                height: 220px !important;
                 max-height: none;
             }
 
@@ -2157,8 +2169,12 @@
             }
 
             .chart-container {
-                height: 300px;
-                min-height: 300px;
+                height: 380px;
+                min-height: 380px;
+            }
+
+            .chart-container canvas {
+                height: 280px !important;
             }
 
             .chart-filter-group {

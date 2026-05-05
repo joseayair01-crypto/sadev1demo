@@ -189,11 +189,17 @@ class RifaService {
     return this.db('rifas').where('slug', String(slug).trim()).first();
   }
 
+  async obtenerPorDominio(dominio) {
+    if (!this.enabled || !dominio) return null;
+    return this.db('rifas').where('dominio', String(dominio).trim().toLowerCase()).first();
+  }
+
   async resolverContexto(options = {}) {
     if (!this.enabled) return null;
 
     const rifaId = Number.parseInt(options.rifaId, 10);
     const slug = String(options.slug || '').trim();
+    const hostname = String(options.hostname || '').trim().toLowerCase();
 
     let rifa = null;
     if (Number.isInteger(rifaId) && rifaId > 0) {
@@ -204,9 +210,13 @@ class RifaService {
       rifa = await this.obtenerPorSlug(slug);
     }
 
-    // Si se proporcionó un ID o Slug explícito, NO debemos hacer fallback a la rifa activa
+    if (!rifa && hostname && !['localhost', '127.0.0.1'].includes(hostname)) {
+      rifa = await this.obtenerPorDominio(hostname);
+    }
+
+    // Si se proporcionó un ID, Slug o Hostname explícito, NO debemos hacer fallback a la rifa activa
     // por defecto si no se encontró lo solicitado, para evitar contaminación de datos.
-    const hasExplicitRequest = (Number.isInteger(rifaId) && rifaId > 0) || slug;
+    const hasExplicitRequest = (Number.isInteger(rifaId) && rifaId > 0) || slug || (hostname && !['localhost', '127.0.0.1'].includes(hostname));
 
     if (!rifa && !hasExplicitRequest && options.fallbackActive !== false) {
       rifa = await this.obtenerRifaActivaPublica();
@@ -219,6 +229,7 @@ class RifaService {
     return {
       id: Number(rifaNormalizada.id),
       slug: String(rifaNormalizada.slug || '').trim(),
+      dominio: rifaNormalizada.dominio ? String(rifaNormalizada.dominio).trim() : null,
       nombre: String(rifaNormalizada.nombre || '').trim(),
       estado: String(rifaNormalizada.estado || 'activa').trim(),
       configuracion: rifaNormalizada.configuracion,
@@ -257,6 +268,8 @@ class RifaService {
       .where('id', rifaId)
       .update({
         nombre: String(configNormalizada?.rifa?.nombreSorteo || configNormalizada?.rifa?.edicionNombre || rifa.nombre || 'Rifa').trim() || 'Rifa',
+        slug: String(configNormalizada?.rifa?.slug || rifa.slug).trim().toLowerCase(),
+        dominio: configNormalizada?.rifa?.dominio ? String(configNormalizada.rifa.dominio).trim().toLowerCase() : rifa.dominio,
         estado: estadoRifa,
         configuracion: configNormalizada,
         finalizada_at: fechaFinalizada,
@@ -268,6 +281,8 @@ class RifaService {
         .where('id', rifaId)
         .update({
           nombre: String(configNormalizada?.rifa?.nombreSorteo || configNormalizada?.rifa?.edicionNombre || rifa.nombre || 'Rifa').trim() || 'Rifa',
+          slug: String(configNormalizada?.rifa?.slug || rifa.slug).trim().toLowerCase(),
+          dominio: configNormalizada?.rifa?.dominio ? String(configNormalizada.rifa.dominio).trim().toLowerCase() : rifa.dominio,
           estado: estadoRifa,
           configuracion: configNormalizada,
           finalizada_at: fechaFinalizada,
