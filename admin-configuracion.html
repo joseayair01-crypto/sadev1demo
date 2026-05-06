@@ -10030,6 +10030,14 @@
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
+            // 🚀 SELECCIÓN DE TAB E INICIALIZACIÓN DE FOCO AL INSTANTE (Antes de llamadas de red)
+            // Esto asegura que la página se renderice de inmediato con la sección 'General' activa
+            // y las demás ocultas, eliminando cualquier tipo de flash visual o retraso.
+            const tabInicial = sessionStorage.getItem('adminConfiguracionTabActiva') || 'sorteo';
+            if (document.getElementById(`tab-${tabInicial}`)) {
+                cambiarTab(tabInicial);
+            }
+
             bloquearCambiosAccidentalesPorScrollEnNumeros();
             inicializarCampoTiempoApartadoAdmin();
             inicializarCampoAvisosExpiracionAdmin();
@@ -10134,7 +10142,6 @@
             await cargarInfoSorteoDelServidor();
             await inicializarPremios();
             await cargarConfiguracionPublicacion();
-            const tabGuardada = sessionStorage.getItem('adminConfiguracionTabActiva');
             
             await cargarFechasYHorarios();
             renderizarAlertasConfiguracion();
@@ -10468,11 +10475,6 @@
                 restaurarModalSorteoSiNecesario();
                 console.log('✅ Estado del sorteo inicializado');
             }, 200);
-
-            const tabInicial = tabGuardada || 'sorteo';
-            if (document.getElementById(`tab-${tabInicial}`)) {
-                cambiarTab(tabInicial);
-            }
 
             console.log('✅ admin-configuracion.html inicializado');
         });
