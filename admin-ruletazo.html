@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="rifaplus-api-base" content="">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' http://127.0.0.1:* http://localhost:*; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://fonts.googleapis.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' http://127.0.0.1:* http://localhost:* https: http://localhost:5001 http://127.0.0.1:5001 ws: wss: ws://localhost:5001 wss://localhost:5001 ws://127.0.0.1:5001 wss://127.0.0.1:5001; img-src 'self' data: https:;">
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self' http://127.0.0.1:* http://localhost:*; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://fonts.googleapis.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' http://127.0.0.1:* http://localhost:* https: http://localhost:5001 http://127.0.0.1:5001 ws: wss: ws://localhost:5001 wss://localhost:5001 ws://127.0.0.1:5001 wss://127.0.0.1:5001; img-src 'self' data: https:;">
     <title>Ruletazo</title>
     <link rel="icon" href="images/placeholder-logo.svg" sizes="32x32">
     <link rel="preload" as="image" href="images/placeholder-logo.svg" fetchpriority="high">
@@ -15,7 +17,7 @@
     <link rel="stylesheet" href="css/admin-ruletazo.css">
     <script>
         (function limpiarCacheYFechas() {
-            ['rifaplus_fecha_sorteo','rifaplus_timestamp_sorteo','rifaplus_fecha_cierre'].forEach(k => localStorage.removeItem(k));
+            ['rifaplus_fecha_sorteo', 'rifaplus_timestamp_sorteo', 'rifaplus_fecha_cierre'].forEach(k => localStorage.removeItem(k));
         })();
     </script>
     <script src="js/deploy-config.js"></script>
@@ -210,13 +212,15 @@
     </style>
     <link rel="stylesheet" href="css/admin-theme.css?v=20260321.01">
 </head>
+
 <body>
     <!-- ADMIN HEADER -->
     <div class="admin-header">
         <div class="admin-header-content">
             <div class="admin-header-left">
                 <div class="admin-logo-container">
-                    <img src="images/placeholder-logo.svg" alt="Logo del organizador" class="admin-logo-img" onerror="this.onerror=null;this.src='images/placeholder-logo.svg'">
+                    <img src="images/placeholder-logo.svg" alt="Logo del organizador" class="admin-logo-img"
+                        onerror="this.onerror=null;this.src='images/placeholder-logo.svg'">
                 </div>
                 <div class="admin-header-title">
                     <div class="admin-header-title-main">Panel Administrativo</div>
@@ -278,12 +282,15 @@
             <!-- STATS SECTION -->
             <style>
                 .stats-section[aria-busy="true"] .stat-value {
-                    background: linear-gradient(90deg,#eef2f7 0%,#f5f7fb 50%,#eef2f7 100%);
+                    background: linear-gradient(90deg, #eef2f7 0%, #f5f7fb 50%, #eef2f7 100%);
                     color: transparent;
                     border-radius: 6px;
                     min-height: 1.2rem;
                 }
-                .stats-section[aria-busy="true"] .stat-label { color: #98a0b0; }
+
+                .stats-section[aria-busy="true"] .stat-label {
+                    color: #98a0b0;
+                }
             </style>
             <div class="stats-section" id="statsSection" style="display: none;" aria-busy="true">
                 <div class="stat-card sorteo-name">
@@ -333,14 +340,17 @@
                                     <input type="radio" name="participants" value="all" class="participant-radio">
                                     <span class="option-label">
                                         <span class="option-title">Todos</span>
-                                        <span class="option-desc">Todos los números del rango (<span id="allCount">0</span> números)</span>
+                                        <span class="option-desc">Todos los números del rango (<span
+                                                id="allCount">0</span> números)</span>
                                     </span>
                                 </label>
                                 <label class="participant-option">
-                                    <input type="radio" name="participants" value="sold" class="participant-radio" checked>
+                                    <input type="radio" name="participants" value="sold" class="participant-radio"
+                                        checked>
                                     <span class="option-label">
                                         <span class="option-title">Vendidos</span>
-                                        <span class="option-desc">Solo números vendidos (<span id="soldCount">0</span> números)</span>
+                                        <span class="option-desc">Solo números vendidos (<span id="soldCount">0</span>
+                                            números)</span>
                                     </span>
                                 </label>
                             </div>
@@ -365,7 +375,8 @@
                         <button id="testSpinBtn" class="btn btn-outline" title="Prueba una animación">
                             <i class="fas fa-flask"></i> Probar Giro
                         </button>
-                        <button id="performDrawBtn" class="btn btn-success btn-lg" disabled title="Realiza un sorteo oficial">
+                        <button id="performDrawBtn" class="btn btn-success btn-lg" disabled
+                            title="Realiza un sorteo oficial">
                             <i class="fas fa-star"></i> SORTEAR NÚMERO
                         </button>
                         <button id="resetMachineBtn" class="btn btn-danger" title="Reinicia la máquina">
@@ -412,15 +423,16 @@
     <!-- MODAL DETALLES DE BOLETO -->
     <div id="ticketModal" class="modal">
         <div class="modal-content modal-lg">
-            <button class="modal-close" onclick="closeTicketModal()" style="position: absolute; top: 1rem; right: 1rem; z-index: 1001;">&times;</button>
+            <button class="modal-close" onclick="closeTicketModal()"
+                style="position: absolute; top: 1rem; right: 1rem; z-index: 1001;">&times;</button>
             <div class="modal-body" id="ticketModalBody">
                 <div class="spinner"><i class="fas fa-spinner fa-spin"></i> Cargando...</div>
             </div>
         </div>
     </div>
 
-        <!-- NOTIFICACIONES -->
-        <div id="notificationContainer" class="notification-container"></div>
+    <!-- NOTIFICACIONES -->
+    <div id="notificationContainer" class="notification-container"></div>
     </div>
     </div>
 
@@ -434,9 +446,10 @@
                 <h2>🏆 Selecciona qué tipo de ganador será</h2>
                 <button class="modal-close" id="closeModalGanador" aria-label="Cerrar">×</button>
             </div>
-            
+
             <div class="modal-body">
-                <div id="ganadesoresInfo" style="margin-bottom: 1.5rem; padding: 1rem; background: rgba(124, 58, 237, 0.1); border-radius: var(--radius-md);">
+                <div id="ganadesoresInfo"
+                    style="margin-bottom: 1.5rem; padding: 1rem; background: rgba(124, 58, 237, 0.1); border-radius: var(--radius-md);">
                     <p style="margin: 0; font-weight: 600; color: var(--text-dark);">
                         Boleto: <span id="ganadesoresNumero" style="color: var(--primary); font-size: 1.2rem;">-</span>
                     </p>
@@ -460,16 +473,18 @@
                 <h2>🏅 ¿En qué lugar quedó?</h2>
                 <button class="modal-close" id="closeModalLugar" aria-label="Cerrar">×</button>
             </div>
-            
+
             <div class="modal-body">
-                <div id="lugarInfo" style="margin-bottom: 1.5rem; padding: 1rem; background: rgba(124, 58, 237, 0.1); border-radius: var(--radius-md);">
+                <div id="lugarInfo"
+                    style="margin-bottom: 1.5rem; padding: 1rem; background: rgba(124, 58, 237, 0.1); border-radius: var(--radius-md);">
                     <p style="margin: 0; font-weight: 600; color: var(--text-dark);">
                         Boleto: <span id="lugarNumero" style="color: var(--primary); font-size: 1.2rem;">-</span>
                         | Tipo: <span id="lugarTipo" style="color: var(--primary); font-size: 1rem;">-</span>
                     </p>
                 </div>
 
-                <div id="lugaresDisponibles" class="lugares-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.75rem;">
+                <div id="lugaresDisponibles" class="lugares-grid"
+                    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.75rem;">
                     <!-- Se genera dinámicamente con JavaScript -->
                 </div>
             </div>
@@ -593,7 +608,7 @@
          * @param {String|Number} numero - Número del boleto ganador
          * @param {Function} callback - Función a ejecutar cuando se selecciona tipo
          */
-        window.abrirModalSeleccionarGanador = function(numero, datosCliente, callback) {
+        window.abrirModalSeleccionarGanador = function (numero, datosCliente, callback) {
             // Manejo de parámetros - si el segundo parámetro es función, es el callback (backwards compatibility)
             if (typeof datosCliente === 'function') {
                 callback = datosCliente;
@@ -763,7 +778,7 @@
                 9: 'no',
                 10: '°'
             };
-            
+
             if (num <= 10) {
                 return `${num}${sufijos[num] || 'o'} 🥇`;
             } else {
@@ -827,7 +842,7 @@
         /**
          * Cerrar modal de lugar
          */
-        window.cerrarModalSeleccionarLugar = function() {
+        window.cerrarModalSeleccionarLugar = function () {
             console.log('❌ Cerrando modal de lugar...');
             const modal = document.getElementById('modalSeleccionarLugar');
             if (modal) {
@@ -852,7 +867,7 @@
         }
 
         // Event listeners del modal
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             const closeBtn = document.getElementById('closeModalGanador');
             const cancelBtn = document.getElementById('btnCancelarGanador');
             const modal = document.getElementById('modalSeleccionarGanador');
@@ -866,7 +881,7 @@
             }
 
             if (modal) {
-                modal.addEventListener('click', function(e) {
+                modal.addEventListener('click', function (e) {
                     if (e.target === modal) {
                         cerrarModalSeleccionarGanador();
                     }
@@ -874,7 +889,7 @@
             }
 
             // Cerrar con ESC
-            document.addEventListener('keydown', function(e) {
+            document.addEventListener('keydown', function (e) {
                 if (e.key === 'Escape' && modal && modal.classList.contains('active')) {
                     cerrarModalSeleccionarGanador();
                 }
@@ -894,7 +909,7 @@
             }
 
             if (modalLugar) {
-                modalLugar.addEventListener('click', function(e) {
+                modalLugar.addEventListener('click', function (e) {
                     if (e.target === modalLugar) {
                         window.cerrarModalSeleccionarLugar();
                     }
@@ -902,7 +917,7 @@
             }
 
             // Cerrar modal de lugar con ESC
-            document.addEventListener('keydown', function(e) {
+            document.addEventListener('keydown', function (e) {
                 if (e.key === 'Escape' && modalLugar && modalLugar.classList.contains('active')) {
                     window.cerrarModalSeleccionarLugar();
                 }
@@ -911,4 +926,5 @@
     </script>
 
 </body>
+
 </html>
