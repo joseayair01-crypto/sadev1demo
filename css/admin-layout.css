@@ -509,7 +509,7 @@ body {
 .admin-main {
     margin-left: var(--sidebar-width);
     margin-top: 0;
-    padding-top: 5rem;
+    padding-top: calc(var(--header-offset) + 1.25rem);
     padding-right: 3rem;
     padding-bottom: 2rem;
     padding-left: 3rem;
@@ -742,7 +742,7 @@ body {
     .admin-main {
         margin-left: var(--sidebar-width) !important;
         width: calc(100% - var(--sidebar-width)) !important;
-        padding-top: 5rem;
+        padding-top: calc(var(--header-offset) + 1.25rem);
         padding-right: 2rem;
         padding-bottom: 2rem;
         padding-left: 2rem;
@@ -873,7 +873,7 @@ body {
     }
 
     .admin-main {
-        padding-top: 5rem;
+        padding-top: calc(var(--header-offset) + 1.25rem);
     }
 }
 
