@@ -886,6 +886,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ===================================
     // 🔥 SISTEMA REACTIVO: Escuchar cambios en el selector de rifas
     // ===================================
+    const selectorPromise = (typeof window.ADMIN_LAYOUT?.cargarSelectorRifas === 'function') 
+        ? window.ADMIN_LAYOUT.cargarSelectorRifas().catch(e => {
+            console.warn('Error selector:', e);
+            return null;
+        })
+        : (typeof window.adminLayout?.cargarSelectorRifas === 'function')
+            ? window.adminLayout.cargarSelectorRifas().catch(e => {
+                console.warn('Error selector:', e);
+                return null;
+            })
+            : Promise.resolve();
+
+    // Esperar a que el selector esté listo en el DOM para evitar la condición de carrera
+    await selectorPromise;
+
     const adminRifaSelect = document.getElementById('adminRifaSelect');
     if (adminRifaSelect) {
         console.log(`✅ Ruletazo: Event listener agregado a adminRifaSelect`);
@@ -908,67 +923,68 @@ document.addEventListener('DOMContentLoaded', async () => {
                 console.warn(`⚠️ Ruletazo: RifaId inválida en onChange: ${nuevaRifaId}`);
             }
         });
-        
-        // Cargar rifa inicial
-        console.log(`⏳ Ruletazo: Cargando rifa inicial...`);
-        await loadCurrentRifa();
-        
-        // Reactividad global: reaccionar a cambios de rifa activa desde admin-layout
-        window.addEventListener('rifaplus:admin-rifa-activa-cambiada', async (event) => {
-            try {
-                const nuevaRifa = event?.detail?.rifaId || localStorage.getItem('rifaplus_rifa_activa');
-                console.log(`🔔 Ruletazo: rifaplus:admin-rifa-activa-cambiada detectado -> ${nuevaRifa}`);
-
-                const statsEl = document.getElementById('statsSection');
-                const machineEl = document.getElementById('machineSection');
-
-                if (statsEl) {
-                    statsEl.style.transition = 'opacity 220ms ease';
-                    statsEl.style.opacity = '0.45';
-                    statsEl.style.pointerEvents = 'none';
-                }
-
-                if (machineEl) {
-                    machineEl.style.transition = 'opacity 220ms ease';
-                    machineEl.style.opacity = '0.45';
-                    machineEl.style.pointerEvents = 'none';
-                }
-
-                // Si no hay id (limpiado), limpiar UI
-                if (!nuevaRifa) {
-                    console.log('🔔 Ruletazo: rifa activa limpiada — ocultando stats');
-                    if (statsEl) statsEl.style.display = 'none';
-                    if (machineEl) machineEl.style.display = 'none';
-                    return;
-                }
-
-                // Asegurarse que el select refleje el valor
-                const select = document.getElementById('adminRifaSelect');
-                if (select && String(select.value) !== String(nuevaRifa)) {
-                    try { select.value = String(nuevaRifa); } catch (e) {}
-                }
-
-                // Recargar datos de la rifa seleccionada sin forzar reload de página
-                await loadCurrentRifa();
-
-                // Restaurar apariencia
-                if (statsEl) {
-                    statsEl.style.opacity = '1';
-                    statsEl.style.pointerEvents = '';
-                }
-                if (machineEl) {
-                    machineEl.style.opacity = '1';
-                    machineEl.style.pointerEvents = '';
-                }
-
-                console.log('🔔 Ruletazo: UI actualizada tras cambio de rifa activa');
-            } catch (e) {
-                console.warn('⚠️ Ruletazo: Error manejando cambio de rifa activa:', e?.message || e);
-            }
-        });
     } else {
-        console.warn(`⚠️ Ruletazo: No se encontró elemento adminRifaSelect`);
+        console.warn(`⚠️ Ruletazo: No se encontró elemento adminRifaSelect incluso tras esperar a su carga asíncrona`);
     }
+    
+    // Cargar rifa inicial de forma garantizada y asíncrona
+    console.log(`⏳ Ruletazo: Cargando rifa inicial...`);
+    await loadCurrentRifa();
+    
+    // Reactividad global: reaccionar a cambios de rifa activa desde admin-layout
+    window.addEventListener('rifaplus:admin-rifa-activa-cambiada', async (event) => {
+        try {
+            const nuevaRifa = event?.detail?.rifaId || localStorage.getItem('rifaplus_rifa_activa');
+            console.log(`🔔 Ruletazo: rifaplus:admin-rifa-activa-cambiada detectado -> ${nuevaRifa}`);
+
+            const statsEl = document.getElementById('statsSection');
+            const machineEl = document.getElementById('machineSection');
+
+            if (statsEl) {
+                statsEl.style.transition = 'opacity 220ms ease';
+                statsEl.style.opacity = '0.45';
+                statsEl.style.pointerEvents = 'none';
+            }
+
+            if (machineEl) {
+                machineEl.style.transition = 'opacity 220ms ease';
+                machineEl.style.opacity = '0.45';
+                machineEl.style.pointerEvents = 'none';
+            }
+
+            // Si no hay id (limpiado), limpiar UI
+            if (!nuevaRifa) {
+                console.log('🔔 Ruletazo: rifa activa limpiada — ocultando stats');
+                if (statsEl) statsEl.style.display = 'none';
+                if (machineEl) machineEl.style.display = 'none';
+                return;
+            }
+
+            // Asegurarse que el select refleje el valor
+            const select = document.getElementById('adminRifaSelect');
+            if (select && String(select.value) !== String(nuevaRifa)) {
+                try { select.value = String(nuevaRifa); } catch (e) {}
+            }
+
+            // Recargar datos de la rifa seleccionada sin forzar reload de página
+            await loadCurrentRifa();
+
+            // Restaurar apariencia
+            if (statsEl) {
+                statsEl.style.opacity = '1';
+                statsEl.style.pointerEvents = '';
+            }
+            if (machineEl) {
+                machineEl.style.opacity = '1';
+                machineEl.style.pointerEvents = '';
+            }
+
+            console.log('🔔 Ruletazo: UI actualizada tras cambio de rifa activa');
+        } catch (e) {
+            console.warn('⚠️ Ruletazo: Error manejando cambio de rifa activa:', e?.message || e);
+        }
+    });
+
 
     // Cerrar modal al hacer click fuera del contenido
     const ticketModal = document.getElementById('ticketModal');

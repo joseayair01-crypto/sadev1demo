@@ -2489,3 +2489,143 @@
         flex-direction: column;
     }
 }
+
+/* =========================================================
+   ADMIN RULETAZO - OPTIMIZACIONES PREMIUM DE RESPONSIVIDAD
+   ========================================================= */
+@media (max-width: 768px) {
+    /* --- Contenedor general --- */
+    .container {
+        padding: 1rem 0.5rem !important; /* Quita los espacios gigantescos a los lados */
+    }
+
+    /* --- Stats Section (5 Tarjetas Optimizadas) --- */
+    .stats-section {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 0.4rem !important;
+        margin-bottom: 1.25rem !important;
+    }
+
+    .stat-card {
+        padding: 0.65rem 0.8rem !important;
+        gap: 0.15rem !important;
+        border-radius: 0.5rem !important;
+        border-left-width: 3px !important;
+    }
+
+    /* El nombre del sorteo es un banner elegante a todo lo ancho */
+    .stat-card.sorteo-name {
+        grid-column: 1 / -1 !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        padding: 0.55rem 0.8rem !important;
+    }
+
+    .stat-card.sorteo-name .stat-label {
+        margin-bottom: 0 !important;
+    }
+
+    .stat-card.sorteo-name .stat-value {
+        font-size: 0.95rem !important;
+        text-align: right !important;
+        max-width: 70% !important;
+        word-break: break-word !important;
+    }
+
+    /* Reducción proporcional de textos de estadísticas */
+    .stat-label {
+        font-size: 0.65rem !important;
+        letter-spacing: 0.02em !important;
+    }
+
+    .stat-value {
+        font-size: 1.15rem !important;
+        line-height: 1.2 !important;
+    }
+
+    /* --- Secciones de Máquina e Historial --- */
+    .machine-section, 
+    .history-section {
+        padding: 1rem 0.85rem !important; /* Menor padding para dar espacio al contenido */
+        border-radius: 0.75rem !important;
+        margin-bottom: 1.25rem !important;
+        border-left-width: 3px !important;
+    }
+
+    .machine-header,
+    .history-header {
+        margin-bottom: 1.25rem !important;
+        padding-bottom: 0.85rem !important;
+    }
+
+    .machine-header-title,
+    .history-header-title {
+        font-size: 1.15rem !important;
+    }
+
+    .status-badge {
+        padding: 0.35rem 0.75rem !important;
+        font-size: 0.75rem !important;
+    }
+
+    /* --- Acordeón de Participantes --- */
+    .participants-section {
+        margin-bottom: 1rem !important;
+    }
+
+    .accordion-header {
+        padding: 0.85rem 1rem !important;
+        font-size: 0.9rem !important;
+    }
+
+    .participants-options {
+        padding: 1rem 0.75rem !important;
+        gap: 0.65rem !important;
+    }
+
+    .participant-option {
+        padding: 0.65rem 0.85rem !important;
+        border-radius: 0.4rem !important;
+    }
+
+    .participant-radio {
+        width: 18px !important;
+        height: 18px !important;
+        margin-right: 0.75rem !important;
+    }
+
+    .option-title {
+        font-size: 0.88rem !important;
+    }
+
+    .option-desc {
+        font-size: 0.78rem !important;
+    }
+
+    /* --- Tablero de Dígitos --- */
+    .digit-display {
+        padding: 1.25rem 0.75rem !important;
+        gap: 1.25rem !important;
+        margin-bottom: 1.25rem !important;
+    }
+
+    /* --- Controles --- */
+    .controls-panel {
+        gap: 0.65rem !important;
+        margin-top: 1rem !important;
+    }
+
+    .controls-panel .btn,
+    .button-group .btn {
+        padding: 0.6rem 1rem !important;
+        font-size: 0.85rem !important;
+        border-radius: 0.5rem !important;
+    }
+
+    .draw-info {
+        font-size: 0.9rem !important;
+        margin-top: 0.65rem !important;
+    }
+}
+

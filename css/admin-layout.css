@@ -1353,3 +1353,134 @@ body.admin-sidebar-open {
 .admin-sidebar::-webkit-scrollbar-thumb:hover {
     background: var(--color-primario);
 }
+
+/* ================================================================ */
+/* ENTORNO MÓVIL HORIZONTAL (LANDSCAPE) - OPTIMIZACIÓN DE PANTALLA  */
+/* ================================================================ */
+@media (max-height: 520px) and (max-width: 950px) {
+    /* Mantener cuerpo bloqueado y derivar el scroll a .admin-main (igual que en vertical para máxima estabilidad) */
+    html,
+    body {
+        height: var(--admin-viewport-height) !important;
+        min-height: var(--admin-viewport-height) !important;
+        overflow: hidden !important;
+    }
+
+    body:not(.admin-sidebar-open):not(.modal-scroll-locked) {
+        overflow: hidden !important;
+    }
+
+    /* Cabecera ultra-delgada de 52px en horizontal para maximizar espacio */
+    :root {
+        --header-height: 52px !important;
+        --header-offset: 52px !important;
+    }
+
+    .admin-header {
+        position: fixed !important; /* Fijo para estabilidad y compatibilidad nativa */
+        height: 52px !important;
+        min-height: 52px !important;
+        padding: 0 0.75rem !important;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05) !important;
+    }
+
+    .admin-header-content {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 0.5rem !important;
+        height: 100% !important;
+    }
+
+    /* Redimensionar logo al mínimo funcional */
+    .admin-logo-container {
+        width: 36px !important;
+        height: 36px !important;
+        border-radius: 0.4rem !important;
+    }
+
+    .admin-logo-container img {
+        max-height: 24px !important;
+    }
+
+    /* Ocultar títulos extensos */
+    .admin-header-title {
+        display: none !important;
+    }
+
+    /* Contenedor del selector compacto */
+    .admin-rifa-toolbar {
+        flex: 1 !important;
+        max-width: 280px !important;
+        margin: 0 !important;
+        padding: 0.15rem 0.35rem !important;
+        border-radius: 0.4rem !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+    }
+
+    .admin-rifa-toolbar__context {
+        display: none !important;
+    }
+
+    .admin-rifa-toolbar__select-wrap {
+        width: 100% !important;
+    }
+
+    .admin-rifa-toolbar__select {
+        min-height: 30px !important;
+        height: 30px !important;
+        padding: 0.15rem 0.45rem !important;
+        font-size: 0.76rem !important;
+        border-radius: 0.4rem !important;
+    }
+
+    /* Compactar perfil de usuario */
+    .admin-header .admin-user-info {
+        padding: 0.15rem 0.35rem !important;
+        gap: 0.3rem !important;
+        box-shadow: none !important;
+        border-color: rgba(148, 163, 184, 0.08) !important;
+    }
+
+    .admin-header .admin-user-avatar {
+        width: 26px !important;
+        height: 26px !important;
+        font-size: 0.8rem !important;
+    }
+
+    .admin-header .admin-user-details {
+        display: none !important;
+    }
+
+    /* Botón de barra lateral (Sidebar toggle) */
+    .admin-sidebar-toggle {
+        width: 32px !important;
+        height: 32px !important;
+    }
+
+    /* Restablecer .admin-main como el ÚNICO contenedor de scroll de forma fluida */
+    .admin-main {
+        padding-top: calc(var(--header-offset) + 0.5rem) !important;
+        height: calc(var(--admin-viewport-height) - var(--header-offset)) !important;
+        min-height: 0 !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .dashboard,
+    .dashboard.logged-in,
+    .page,
+    .page.active {
+        height: auto !important;
+        min-height: unset !important;
+        overflow: visible !important;
+    }
+}
+
+
