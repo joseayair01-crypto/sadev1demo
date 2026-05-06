@@ -10469,8 +10469,9 @@
                 console.log('✅ Estado del sorteo inicializado');
             }, 200);
 
-            if (tabGuardada && document.getElementById(`tab-${tabGuardada}`)) {
-                cambiarTab(tabGuardada);
+            const tabInicial = tabGuardada || 'sorteo';
+            if (document.getElementById(`tab-${tabInicial}`)) {
+                cambiarTab(tabInicial);
             }
 
             console.log('✅ admin-configuracion.html inicializado');
