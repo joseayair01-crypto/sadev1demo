@@ -4936,32 +4936,39 @@ function crearEfectoVoladoProfesional(origenElement, numeroDelBoleto, origen = '
             position: fixed;
             left: ${startX}px;
             top: ${startY}px;
-            width: ${lowPowerMode ? 50 : 62}px;
-            height: ${lowPowerMode ? 50 : 62}px;
+            width: ${lowPowerMode ? 46 : 62}px;
+            height: ${lowPowerMode ? 46 : 62}px;
             z-index: 9998;
             pointer-events: none;
             will-change: transform, opacity;
             opacity: 1;
             contain: layout style paint;
-            transform: translateZ(0);
-            filter: drop-shadow(0 12px 24px ${colorConAlpha(colorSeleccionado, lowPowerMode ? 0.3 : 0.42)});
+            transform: translate3d(0, 0, 0);
+            ${lowPowerMode 
+                ? `box-shadow: 0 8px 20px ${colorConAlpha(colorSeleccionado, 0.35)}; border-radius: 10px;`
+                : `filter: drop-shadow(0 12px 24px ${colorConAlpha(colorSeleccionado, 0.42)});`
+            }
         `;
 
-        const trail = document.createElement('div');
-        trail.className = 'ticket-fly-animation__trail';
-        trail.style.cssText = `
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            width: ${lowPowerMode ? 84 : 120}px;
-            height: ${lowPowerMode ? 12 : 16}px;
-            transform: translate(-72%, -50%);
-            border-radius: 999px;
-            background: linear-gradient(90deg, ${colorConAlpha(colorSeleccionado, 0)} 0%, ${colorConAlpha(colorSeleccionado, lowPowerMode ? 0.18 : 0.3)} 42%, ${colorConAlpha(colorSeleccionado, lowPowerMode ? 0.42 : 0.62)} 100%);
-            filter: blur(${lowPowerMode ? 4 : 5}px);
-            opacity: ${lowPowerMode ? 0.78 : 0.96};
-        `;
-        mainTicket.appendChild(trail);
+        // Solo crear estela/trail en dispositivos de escritorio para ahorrar renders costosos en móvil
+        let trail = null;
+        if (!lowPowerMode) {
+            trail = document.createElement('div');
+            trail.className = 'ticket-fly-animation__trail';
+            trail.style.cssText = `
+                position: absolute;
+                left: 50%;
+                top: 50%;
+                width: 120px;
+                height: 16px;
+                transform: translate(-72%, -50%);
+                border-radius: 999px;
+                background: linear-gradient(90deg, ${colorConAlpha(colorSeleccionado, 0)} 0%, ${colorConAlpha(colorSeleccionado, 0.3)} 42%, ${colorConAlpha(colorSeleccionado, 0.62)} 100%);
+                filter: blur(5px);
+                opacity: 0.96;
+            `;
+            mainTicket.appendChild(trail);
+        }
         
         // 🎫 Icono del boleto con efecto de destello (MEJORADO)
         const ticketIcon = document.createElement('div');
@@ -5007,29 +5014,27 @@ function crearEfectoVoladoProfesional(origenElement, numeroDelBoleto, origen = '
             mainTicket.appendChild(ticketLabel);
         }
         
-        // En móvil reducimos partículas para mejorar fps sin perder el efecto
-        const particleCount = lowPowerMode ? 6 : Math.min(14, Math.max(8, Math.floor(window.innerWidth / 120)));
+        // En móvil eliminamos partículas para asegurar 60fps estables en cualquier procesador
+        const particleCount = lowPowerMode ? 0 : Math.min(14, Math.max(8, Math.floor(window.innerWidth / 120)));
         for (let i = 0; i < particleCount; i++) {
             const particle = document.createElement('div');
             particle.className = 'ticket-fly-animation__particle';
             const angle = (i / particleCount) * Math.PI * 2;
-            const distance = lowPowerMode ? 32 : 52;
+            const distance = 52;
             const offsetX = Math.cos(angle) * distance;
             const offsetY = Math.sin(angle) * distance;
             
             particle.style.cssText = `
                 position: absolute;
-                width: ${lowPowerMode ? 8 : 12}px;
-                height: ${lowPowerMode ? 8 : 12}px;
+                width: 12px;
+                height: 12px;
                 background: ${colorSeleccionado};
                 border-radius: 50%;
                 left: 50%;
                 top: 50%;
                 transform: translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px));
-                opacity: ${lowPowerMode ? 0.82 : 1};
-                box-shadow: ${lowPowerMode
-                    ? `0 0 10px ${colorConAlpha(colorSeleccionado, 0.62)}`
-                    : `0 0 18px ${colorConAlpha(colorSeleccionado, 1)}, 0 0 34px ${colorConAlpha(colorSeleccionado, 0.64)}`};
+                opacity: 1;
+                box-shadow: 0 0 18px ${colorConAlpha(colorSeleccionado, 1)}, 0 0 34px ${colorConAlpha(colorSeleccionado, 0.64)};
             `;
             mainTicket.appendChild(particle);
         }
@@ -5037,41 +5042,49 @@ function crearEfectoVoladoProfesional(origenElement, numeroDelBoleto, origen = '
         // Agregar al DOM
         document.body.appendChild(mainTicket);
         
+        // 🚀 FORZAR REFLOW SINCRÓNICO (SOLUCIONA EL "AVECES NO SALE")
+        // Al consultar una propiedad de diseño como offsetWidth, forzamos al navegador a 
+        // procesar y registrar la posición de inicio (startX, startY) antes de que corra
+        // la transición CSS, eliminando cualquier omisión del renderizado.
+        void mainTicket.offsetWidth;
+        
         // 🚀 Calcular trayectoria hacia carrito (ROBUSTO)
         const deltaX = carritoRect.left - startX;
         const deltaY = carritoRect.top - startY;
         const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
         
         // Duración adaptiva pero SIEMPRE VISIBLE
-        let baseDuration = lowPowerMode ? 380 : 800;
-        if (origen === 'suerte') baseDuration = lowPowerMode ? 440 : 1100;
-        if (origen === 'fallback') baseDuration = lowPowerMode ? 420 : 950;
+        let baseDuration = lowPowerMode ? 320 : 800;
+        if (origen === 'suerte') baseDuration = lowPowerMode ? 380 : 1100;
+        if (origen === 'fallback') baseDuration = lowPowerMode ? 360 : 950;
         
         const duration = lowPowerMode
-            ? Math.max(320, Math.min(560, baseDuration + distance * 0.08))
+            ? Math.max(280, Math.min(480, baseDuration + distance * 0.08))
             : Math.max(720, Math.min(1400, baseDuration + distance * 0.18));
         
-        // ✨ Crear animación suave y CONFIABLE
+        // ✨ Crear animación suave y CONFIABLE acelerada por GPU
         requestAnimationFrame(() => {
             mainTicket.style.transition = `transform ${duration}ms cubic-bezier(0.16, 1, 0.3, 1), opacity ${duration}ms ease-out`;
-            mainTicket.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(${lowPowerMode ? 0.22 : 0.12}) rotate(${lowPowerMode ? 340 : 760}deg)`;
+            mainTicket.style.transform = `translate3d(${deltaX}px, ${deltaY}px, 0) scale(${lowPowerMode ? 0.28 : 0.12}) rotate(${lowPowerMode ? 140 : 760}deg)`;
             mainTicket.style.opacity = '0';
 
-            trail.style.transition = `transform ${duration}ms ease-out, opacity ${duration}ms ease-out`;
-            trail.style.transform = `translate(-110%, -50%) scaleX(${lowPowerMode ? 1.25 : 1.55})`;
-            trail.style.opacity = '0';
+            if (trail) {
+                trail.style.transition = `transform ${duration}ms ease-out, opacity ${duration}ms ease-out`;
+                trail.style.transform = `translate(-110%, -50%) scaleX(1.55)`;
+                trail.style.opacity = '0';
+            }
             
             // Animar partículas de forma más ligera
-            const particles = mainTicket.querySelectorAll('.ticket-fly-animation__particle');
-            particles.forEach((p, i) => {
-                p.style.transition = `transform ${duration}ms ease-out, opacity ${duration}ms ease-out`;
-                p.style.opacity = '0';
-                const angle = (i / particles.length) * Math.PI * 2;
-                const finalDistance = lowPowerMode
-                    ? (Math.random() * 70 + 70)
-                    : (Math.random() * 220 + 140);
-                p.style.transform = `translate(calc(-50% + ${Math.cos(angle) * finalDistance}px), calc(-50% + ${Math.sin(angle) * finalDistance}px)) scale(0)`;
-            });
+            if (!lowPowerMode) {
+                const particles = mainTicket.querySelectorAll('.ticket-fly-animation__particle');
+                particles.forEach((p, i) => {
+                    p.style.transition = `transform ${duration}ms ease-out, opacity ${duration}ms ease-out`;
+                    p.style.opacity = '0';
+                    const angle = (i / particles.length) * Math.PI * 2;
+                    const finalDistance = Math.random() * 220 + 140;
+                    p.style.transform = `translate(calc(-50% + ${Math.cos(angle) * finalDistance}px), calc(-50% + ${Math.sin(angle) * finalDistance}px)) scale(0)`;
+                });
+            }
         });
         
         // Limpiar elemento después de TODA la animación
