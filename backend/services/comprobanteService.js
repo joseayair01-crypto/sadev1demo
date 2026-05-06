@@ -213,44 +213,24 @@ async function validarOrden(numeroOrden, whatsappSanitizado, contexto = {}) {
  * @throws {Error} Si falla el upload
  */
 async function subirACloudinary(datos, nombreArchivo, mimetype) {
-    let bufferFinal = datos;
-    let mimeFinal = mimetype;
-
-    // Convertir HEIC → JPEG usando sips (nativo en macOS)
+    // 💡 NOTA DE DISEÑO (COMPATIBILIDAD RAILWAY/LINUX):
+    // Anteriormente, se intentaba convertir HEIC a JPEG de forma local utilizando la herramienta 'sips'.
+    // Sin embargo, 'sips' es una utilidad exclusiva de macOS. Al subir la aplicación a producción
+    // en los servidores Linux de Railway, la llamada a 'sips' fallaba y arrojaba un Error 500.
+    //
+    // Solución elegante: Subimos el archivo original directamente a Cloudinary.
+    // Cloudinary soporta HEIC de forma nativa. Gracias a que el servicio `cloudinaryUploadService.js`
+    // tiene configurado `format: 'jpg'` para los comprobantes, Cloudinary realizará de forma automática
+    // y transparente la conversión de HEIC/HEIF a JPG en sus servidores en la nube.
+    // Esto funciona al 100% tanto en local (macOS) como en producción (Railway/Linux) sin dependencias de SO.
     if (mimetype === 'image/heic' || mimetype === 'image/heif') {
-        try {
-            const fs = require('fs');
-            const path = require('path');
-            const tmpDir = '/tmp';
-            const inputPath = path.join(tmpDir, `heic-${Date.now()}.heic`);
-            const outputPath = path.join(tmpDir, `jpeg-${Date.now()}.jpg`);
-            
-            // Guardar HEIC temporal
-            fs.writeFileSync(inputPath, datos);
-            
-            // Convertir con sips (disponible en macOS)
-            execSync(`sips -s format jpeg "${inputPath}" --out "${outputPath}"`, { encoding: 'utf-8' });
-            
-            // Leer JPEG convertido
-            bufferFinal = fs.readFileSync(outputPath);
-            mimeFinal = 'image/jpeg';
-            nombreArchivo = nombreArchivo.replace(/\.(heic|heif)$/i, '.jpg');
-            
-            // Limpiar temporales
-            fs.unlinkSync(inputPath);
-            fs.unlinkSync(outputPath);
-            
-            console.log(`✅ HEIC convertido a JPEG: ${nombreArchivo} (${(bufferFinal.length / 1024).toFixed(1)}KB)`);
-        } catch (error) {
-            console.error(`❌ Error al convertir HEIC: ${error.message}`);
-            throw new Error(`No se pudo convertir HEIC a JPEG: ${error.message}`);
-        }
+        console.info(`[ComprobanteService] 🔄 Detectado formato HEIC/HEIF de Apple. Delegando conversión a JPG directamente en los servidores de Cloudinary.`);
     }
 
     const result = await subirBufferACloudinary({
-        buffer: bufferFinal,
+        buffer: datos,
         originalName: nombreArchivo,
-        mimetype: mimeFinal,
+        mimetype: mimetype,
         assetType: ASSET_TYPES.COMPROBANTE
     });
 
