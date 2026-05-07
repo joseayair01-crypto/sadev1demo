@@ -92,14 +92,16 @@
     </style>
     <script id="rifaplus-shell-early-init">
         (function() {
-            // ✅ MEJORA: Intentar obtener slug para cargar logo correcto de inmediato
+            // ✅ MEJORA: Evitar peticiones de red usando un logo vectorial en línea para cold starts
+            const defaultLogo = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 96'%3E%3Crect width='240' height='96' rx='20' fill='%230b2235'/%3E%3Ctext x='120' y='58' font-size='34' text-anchor='middle' fill='%23ffffff' font-family='Arial,sans-serif'%3ESaDev%3C/text%3E%3C/svg%3E";
+            
             const params = new URLSearchParams(window.location.search);
             const slug = params.get('rifa') || params.get('slug') || '';
             const buildKey = (base) => slug ? `rifaplus:${slug}:${base}` : base;
             
             const logoCache = localStorage.getItem(buildKey('cached_logo')) 
-                || (slug ? 'images/placeholder-logo.svg' : localStorage.getItem('rifaplus_cached_logo'))
-                || 'images/placeholder-logo.svg';
+                || (slug ? defaultLogo : localStorage.getItem('rifaplus_cached_logo'))
+                || defaultLogo;
                 
             const imageDelivery = window.RifaPlusImageDelivery;
             
@@ -113,11 +115,13 @@
             // 1. Inyectar URL del logo en CSS para uso instantáneo
             html.style.setProperty('--rifaplus-shell-logo-url', 'url("' + optimizedLogo + '")');
             
-            // 2. Preload de alta prioridad para el logo real optimizado
-            const link = document.createElement('link');
-            link.rel = 'preload'; link.as = 'image'; link.href = optimizedLogo;
-            link.setAttribute('fetchpriority', 'high');
-            document.head.appendChild(link);
+            // 2. Preload de alta prioridad si no es el logo en línea por defecto (evita warnings y peticiones innecesarias)
+            if (optimizedLogo && !optimizedLogo.startsWith('data:')) {
+                const link = document.createElement('link');
+                link.rel = 'preload'; link.as = 'image'; link.href = optimizedLogo;
+                link.setAttribute('fetchpriority', 'high');
+                document.head.appendChild(link);
+            }
 
             // 3. Activar shell si no es navegación interna
             const referrer = document.referrer;
@@ -341,7 +345,8 @@
             <div class="rifaplus-shell-logo-frame">
                 <script>
                     (function() {
-                        const logo = window.__RIFAPLUS_EARLY_LOGO__ || 'images/placeholder-logo.svg';
+                        const defaultLogo = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 96'%3E%3Crect width='240' height='96' rx='20' fill='%230b2235'/%3E%3Ctext x='120' y='58' font-size='34' text-anchor='middle' fill='%23ffffff' font-family='Arial,sans-serif'%3ESaDev%3C/text%3E%3C/svg%3E";
+                        const logo = window.__RIFAPLUS_EARLY_LOGO__ || defaultLogo;
                         document.write('<img id="rifaplusShellLogo" class="rifaplus-shell-logo" src="' + logo + '" alt="Cargando..." width="124" height="124">');
                     })();
                 </script>
@@ -359,13 +364,16 @@
                     </span>
                 </button>
             </div>
-
+ 
             <a href="#top" class="logo" data-logo-src id="logoLink">
                 <div class="logo-circle">
                     <script>
-                        document.write('<img src="' + (window.__RIFAPLUS_CACHED_LOGO__ || "images/placeholder-logo.svg") + '" alt="Logo del organizador" class="logo-image dynamic-logo" data-dynamic-logo="true" fetchpriority="high" loading="eager" decoding="sync" width="320" height="137">');
+                        (function() {
+                            const defaultLogo = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 96'%3E%3Crect width='240' height='96' rx='20' fill='%230b2235'/%3E%3Ctext x='120' y='58' font-size='34' text-anchor='middle' fill='%23ffffff' font-family='Arial,sans-serif'%3ESaDev%3C/text%3E%3C/svg%3E";
+                            document.write('<img src="' + (window.__RIFAPLUS_CACHED_LOGO__ || defaultLogo) + '" alt="Logo del organizador" class="logo-image dynamic-logo" data-dynamic-logo="true" fetchpriority="high" loading="eager" decoding="sync" width="320" height="137">');
+                        })();
                     </script>
-                    <noscript><img src="images/placeholder-logo.svg" alt="Logo del organizador"
+                    <noscript><img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 96'%3E%3Crect width='240' height='96' rx='20' fill='%230b2235'/%3E%3Ctext x='120' y='58' font-size='34' text-anchor='middle' fill='%23ffffff' font-family='Arial,sans-serif'%3ESaDev%3C/text%3E%3C/svg%3E" alt="Logo del organizador"
                             class="logo-image dynamic-logo" data-dynamic-logo="true" fetchpriority="high"
                             loading="eager" decoding="sync" width="320" height="137"></noscript>
                 </div>

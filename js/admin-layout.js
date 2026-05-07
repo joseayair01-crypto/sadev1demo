@@ -1430,7 +1430,7 @@ const ADMIN_LAYOUT = {
 
             if (toggleInner) {
                 toggleInner.style.transform = 'rotate(45deg)';
-                toggleInner.style.backgroundColor = 'var(--primary-light)';
+                toggleInner.style.backgroundColor = 'transparent';
             }
         };
 
@@ -1443,7 +1443,7 @@ const ADMIN_LAYOUT = {
 
             if (toggleInner) {
                 toggleInner.style.transform = 'rotate(0)';
-                toggleInner.style.backgroundColor = 'white';
+                toggleInner.style.backgroundColor = '';
             }
         };
         

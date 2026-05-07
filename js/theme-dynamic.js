@@ -18,13 +18,15 @@
         }
     }
 
-    if (!cachedLogo || cachedLogo === 'images/placeholder-logo.svg') {
+    const defaultLogo = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 96'%3E%3Crect width='240' height='96' rx='20' fill='%230b2235'/%3E%3Ctext x='120' y='58' font-size='34' text-anchor='middle' fill='%23ffffff' font-family='Arial,sans-serif'%3ESaDev%3C/text%3E%3C/svg%3E";
+
+    if (!cachedLogo || cachedLogo === 'images/placeholder-logo.svg' || cachedLogo === defaultLogo) {
         return;
     }
 
     if (window.rifaplusConfig?.cliente) {
         const logoActual = window.rifaplusConfig.cliente.logo || window.rifaplusConfig.cliente.logotipo || '';
-        if (!logoActual || logoActual === 'images/placeholder-logo.svg') {
+        if (!logoActual || logoActual === 'images/placeholder-logo.svg' || logoActual === defaultLogo) {
             window.rifaplusConfig.cliente.logo = cachedLogo;
             window.rifaplusConfig.cliente.logotipo = cachedLogo;
         }
@@ -250,55 +252,79 @@ function updateAllLogos(logoPath) {
         }
     }
 
-    // Actualizar imágenes con clase "dynamic-logo"
-    const dynamicLogos = document.querySelectorAll('img[data-dynamic-logo="true"], img.dynamic-logo');
-    dynamicLogos.forEach(img => {
-        const oldSrc = img.src;
-        if (imageDelivery?.aplicarImagenOptimizada) {
-            imageDelivery.aplicarImagenOptimizada(img, {
-                originalUrl: logoOriginal,
-                profile: 'logo',
-                widths: [160, 240, 320],
-                sizes: '(max-width: 768px) 160px, 280px',
-                fetchPriority: img.getAttribute('fetchpriority') || 'high',
-                decoding: img.getAttribute('decoding') || 'async',
-                loading: img.getAttribute('loading') || 'eager'
-            });
-        } else {
-            img.src = logoResuelto;
-        }
-        themeDynamicLog(`🖼️  Logo actualizado: ${oldSrc} → ${logoResuelto}`);
-    });
-
-    // Fallback: si hay imágenes con src hardcodeado a logos antiguos, reemplazarlas
-    const fallbackLogos = [
-        'images/placeholder-logo.svg',
-        'images/logo-anterior.png',
-        'images/logo.webp'
-    ];
-
-    fallbackLogos.forEach(oldLogo => {
-        const imgs = document.querySelectorAll(`img[src="${oldLogo}"]`);
-        imgs.forEach(img => {
-            if (img.getAttribute('data-dynamic-logo') !== 'false') { // Excluir si está marcado como estático
-                if (imageDelivery?.aplicarImagenOptimizada) {
-                    imageDelivery.aplicarImagenOptimizada(img, {
-                        originalUrl: logoOriginal,
-                        profile: 'logo',
-                        widths: [160, 240, 320],
-                        sizes: '(max-width: 768px) 160px, 280px',
-                        fetchPriority: img.getAttribute('fetchpriority') || 'high',
-                        decoding: img.getAttribute('decoding') || 'async',
-                        loading: img.getAttribute('loading') || 'eager'
-                    });
-                } else {
-                    img.src = logoResuelto;
-                }
-                img.setAttribute('data-dynamic-logo', 'true');
-                themeDynamicLog(`🖼️  Logo fallback actualizado: ${oldLogo} → ${logoResuelto}`);
+    const aplicarLogosEnDom = () => {
+        // Actualizar imágenes con clase "dynamic-logo"
+        const dynamicLogos = document.querySelectorAll('img[data-dynamic-logo="true"], img.dynamic-logo');
+        dynamicLogos.forEach(img => {
+            const oldSrc = img.src;
+            if (imageDelivery?.aplicarImagenOptimizada) {
+                imageDelivery.aplicarImagenOptimizada(img, {
+                    originalUrl: logoOriginal,
+                    profile: 'logo',
+                    widths: [160, 240, 320],
+                    sizes: '(max-width: 768px) 160px, 280px',
+                    fetchPriority: img.getAttribute('fetchpriority') || 'high',
+                    decoding: img.getAttribute('decoding') || 'async',
+                    loading: img.getAttribute('loading') || 'eager'
+                });
+            } else {
+                img.src = logoResuelto;
             }
+            themeDynamicLog(`🖼️  Logo actualizado: ${oldSrc} → ${logoResuelto}`);
         });
-    });
+
+        // Fallback: si hay imágenes con src hardcodeado a logos antiguos, reemplazarlas
+        const fallbackLogos = [
+            'images/placeholder-logo.svg',
+            'images/logo-anterior.png',
+            'images/logo.webp'
+        ];
+
+        fallbackLogos.forEach(oldLogo => {
+            const imgs = document.querySelectorAll(`img[src="${oldLogo}"]`);
+            imgs.forEach(img => {
+                if (img.getAttribute('data-dynamic-logo') !== 'false') { // Excluir si está marcado como estático
+                    if (imageDelivery?.aplicarImagenOptimizada) {
+                        imageDelivery.aplicarImagenOptimizada(img, {
+                            originalUrl: logoOriginal,
+                            profile: 'logo',
+                            widths: [160, 240, 320],
+                            sizes: '(max-width: 768px) 160px, 280px',
+                            fetchPriority: img.getAttribute('fetchpriority') || 'high',
+                            decoding: img.getAttribute('decoding') || 'async',
+                            loading: img.getAttribute('loading') || 'eager'
+                        });
+                    } else {
+                        img.src = logoResuelto;
+                    }
+                    img.setAttribute('data-dynamic-logo', 'true');
+                    themeDynamicLog(`🖼️  Logo fallback actualizado: ${oldLogo} → ${logoResuelto}`);
+                }
+            });
+        });
+
+        // ✅ MEJORA PREMIUM: Actualizar también la imagen del loader-shell si sigue en pantalla
+        const shellLogo = document.getElementById('rifaplusShellLogo');
+        if (shellLogo) {
+            shellLogo.src = logoResuelto;
+            shellLogo.style.opacity = '1';
+        }
+    };
+
+    // ✅ RENDIMIENTO CRÍTICO: Si el logo es una URL remota y no está cargado aún,
+    // pre-cargarlo en memoria para evitar el parpadeo blanco ("blank space/empty circle")
+    if (logoResuelto && !logoResuelto.startsWith('data:')) {
+        const preloader = new Image();
+        preloader.src = logoResuelto;
+        if (preloader.complete) {
+            aplicarLogosEnDom();
+        } else {
+            preloader.onload = aplicarLogosEnDom;
+            preloader.onerror = aplicarLogosEnDom; // Fallback ante error de red
+        }
+    } else {
+        aplicarLogosEnDom();
+    }
 }
 
 /**

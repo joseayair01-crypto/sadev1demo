@@ -551,24 +551,25 @@ body {
     transform: translateY(-50%);
     width: 40px;
     height: 40px;
-    background: var(--color-primario);
-    border: none;
+    background: #f8fafc;
+    border: 1px solid rgba(148, 163, 184, 0.24);
     border-radius: 0.375rem;
-    color: white;
+    color: #0f172a;
     cursor: pointer;
     align-items: center;
     justify-content: center;
     z-index: 10;
     transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
 }
 
 .admin-sidebar-toggle:hover {
-    background: var(--color-primario-oscuro);
+    background: #f1f5f9;
 }
 
 .admin-sidebar-toggle.is-active {
-    background: var(--color-primario-oscuro);
-    box-shadow: 0 12px 28px rgba(16, 24, 40, 0.22);
+    background: #e2e8f0;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
 }
 
 .hamburger {
@@ -581,13 +582,14 @@ body {
 }
 
 .admin-sidebar-toggle.hamburger {
-    background: var(--color-primario);
-    color: white;
-    box-shadow: 0 10px 24px rgba(16, 24, 40, 0.16);
+    background: #f8fafc !important;
+    border: 1px solid rgba(148, 163, 184, 0.24) !important;
+    color: #0f172a !important;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05) !important;
 }
 
 .admin-sidebar-toggle.hamburger:hover {
-    background: var(--color-primario-oscuro);
+    background: #f1f5f9 !important;
 }
 
 .hamburger-box {
@@ -597,16 +599,21 @@ body {
     position: relative;
 }
 
-.hamburger-inner,
-.hamburger-inner::before,
-.hamburger-inner::after {
+.admin-sidebar-toggle .hamburger-inner,
+.admin-sidebar-toggle .hamburger-inner::before,
+.admin-sidebar-toggle .hamburger-inner::after {
     width: 28px;
     height: 3px;
-    background-color: white;
+    background-color: #0f172a !important;
     border-radius: 999px;
     position: absolute;
     left: 0;
     transition: all 0.2s ease;
+}
+
+/* Ocultar la barra central de forma elegante al abrir el menú móvil */
+.admin-sidebar-toggle.is-active .hamburger-inner {
+    background-color: transparent !important;
 }
 
 .hamburger-inner {
@@ -1034,6 +1041,7 @@ body {
     .admin-logo-container {
         width: 52px;
         height: 52px;
+        margin-left: 8px;
     }
 
     .admin-rifa-toolbar {
@@ -1157,6 +1165,7 @@ body {
     .admin-logo-container {
         width: 48px;
         height: 48px;
+        margin-left: 8px;
     }
 
     .overlay-inner {
@@ -1239,6 +1248,7 @@ body {
     .admin-logo-container {
         width: 42px;
         height: 42px;
+        margin-left: 8px;
     }
     
     .admin-header-title-main {
@@ -1398,6 +1408,7 @@ body.admin-sidebar-open {
         width: 36px !important;
         height: 36px !important;
         border-radius: 0.4rem !important;
+        margin-left: 8px !important;
     }
 
     .admin-logo-container img {
