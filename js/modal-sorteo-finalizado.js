@@ -83,11 +83,13 @@ class ModalSorteoFinalizado {
             const estadoRifa = String(config?.rifa?.estado || '').trim().toLowerCase();
             const estado = estadoRifa || sorteoActivo.estado || 'activo';
             const ahora = Date.now();
-            const fechaReferencia = config?.rifa?.fechaSorteo || sorteoActivo.fechaCierre;
-            const fechaCierre = new Date(fechaReferencia).getTime();
+            // ✅ CRÍTICO: Usar el cálculo seguro y unificado con zona horaria de config.js para evitar cierres adelantados
+            const fechaCierre = (typeof config?.obtenerTimestampSorteo === 'function' && config.obtenerTimestampSorteo())
+                || (config?.rifa?.fechaSorteo ? new Date(config.rifa.fechaSorteo).getTime() : 0)
+                || (sorteoActivo?.fechaCierre ? new Date(sorteoActivo.fechaCierre).getTime() : 0);
             const tiempoRestante = fechaCierre - ahora;
 
-            if (!this.esEstadoTerminal(estadoRifa) && Number.isFinite(fechaCierre) && ahora < fechaCierre) {
+            if ((!this.esEstadoTerminal(estadoRifa) || estadoRifa === 'finalizado') && Number.isFinite(fechaCierre) && ahora < fechaCierre) {
                 if (config.sorteoActivo) {
                     config.sorteoActivo.estado = 'activo';
                     if (this.puedeAsignarPropiedad(config.sorteoActivo, 'fechaCierre')) {
@@ -96,9 +98,13 @@ class ModalSorteoFinalizado {
                     config.sorteoActivo.fechaCierreFormato = config?.rifa?.fechaSorteoFormato || config.sorteoActivo.fechaCierreFormato || '';
                 }
                 if (config.rifa) {
+                    config.rifa.estado = 'activo'; // ✅ Sincronizar estado en memoria del cliente
                     config.rifa.modalFinalizadoSnapshot = null;
                 }
                 config.permitirCompras = true;
+                
+                // ✅ Destruir modal en caso de que estuviera abierto o renderizado, para re-activar la experiencia de compra
+                this.destruirModal();
                 return;
             }
 
@@ -167,7 +173,9 @@ class ModalSorteoFinalizado {
             return;
         }
 
-        const fechaCierre = new Date(sorteoActivo?.fechaCierre || '').getTime();
+        // ✅ CRÍTICO: Usar el cálculo seguro y unificado con zona horaria de config.js para evitar desajustes de zona horaria
+        const fechaCierre = (typeof config?.obtenerTimestampSorteo === 'function' && config.obtenerTimestampSorteo())
+            || (sorteoActivo?.fechaCierre ? new Date(sorteoActivo.fechaCierre).getTime() : 0);
         const ahora = Date.now();
         let siguienteRevision = Number.isFinite(delayMs) ? delayMs : 1000;
 
@@ -268,6 +276,22 @@ class ModalSorteoFinalizado {
         } catch (error) {
             this.log(`❌ Error en mostrarModal: ${error.message}`, 'error');
             console.error(error);
+        }
+    }
+
+    /**
+     * Destruye de forma segura el modal si está en el DOM, restableciendo scroll y modo restringido
+     */
+    destruirModal() {
+        const overlay = document.getElementById('modalSorteoFinalizadoOverlay');
+        if (overlay && overlay.parentNode) {
+            overlay.parentNode.removeChild(overlay);
+        }
+        if (this.modalCreado) {
+            this.modalCreado = false;
+            this.desactivarModoRestringido();
+            window.rifaplusModalScrollLock?.sync?.();
+            this.log('🧹 Modal de sorteo finalizado destruido para reactivar la experiencia de compra', 'modal');
         }
     }
 
@@ -413,6 +437,14 @@ class ModalSorteoFinalizado {
         if (!overlay || !snapshot?.tema) return;
 
         const tema = snapshot.tema || {};
+
+        // ✅ MEJORA PREMIUM: Si el tema del snapshot no está marcado como personalizado, no sobreescribimos
+        // los colores de la página para que se hereden los colores del tema activo de la web pública de forma natural.
+        if (tema.personalizado !== true) {
+            this.log('🎨 Tema del snapshot no es personalizado o está desactivado; heredando colores de la web pública', 'render');
+            return;
+        }
+
         const colores = tema.colores || {};
 
         const asignaciones = {
@@ -771,12 +803,44 @@ class ModalSorteoFinalizado {
         try {
             this.log('🔍 Intentando obtener ganadores...', 'info');
 
-            // ✅ PRIORIDAD 1: Si GanadoresManager está disponible y tiene datos, USARLO
-            // Esto es CRÍTICO para rifas depuradas donde el snapshot no se cargó en config
-            if (window.GanadoresManager) {
+            const rifaEstado = String(config?.rifa?.estado || config?.sorteo?.estado || '').toLowerCase();
+            const esRifaDepurada = rifaEstado === 'depurada';
+            const esVistaAdmin = window.location.pathname.includes('/admin') || window.location.pathname.includes('admin-');
+
+            // --- ESCENARIO A: RIFAS DEPURADAS ---
+            if (esRifaDepurada) {
+                this.log('🧹 Detectada rifa depurada. Buscando snapshot o cache local...', 'info');
+                // 1️⃣ Prioridad 1: Usar snapshot
+                if (snapshot?.ganadores && await this.snapshotCorrespondeARifaActual(snapshot, config)) {
+                    this.log('ℹ️ Usando snapshot persistido de ganadores para rifa depurada', 'exito');
+                    return {
+                        sorteo: snapshot.ganadores.sorteo || [],
+                        presorteo: snapshot.ganadores.presorteo || [],
+                        ruletazos: snapshot.ganadores.ruletazos || []
+                    };
+                }
+                // 2️⃣ Prioridad 2: Usar GanadoresManager (local storage) como fallback
+                if (window.GanadoresManager) {
+                    const ganadoresLocal = window.GanadoresManager.cargarGanadores();
+                    if (ganadoresLocal && (ganadoresLocal.sorteo?.length > 0 || ganadoresLocal.presorteo?.length > 0 || ganadoresLocal.ruletazos?.length > 0)) {
+                        this.log('✅ Usando GanadoresManager local como fallback para rifa depurada', 'exito');
+                        return {
+                            sorteo: ganadoresLocal.sorteo || [],
+                            presorteo: ganadoresLocal.presorteo || [],
+                            ruletazos: ganadoresLocal.ruletazos || []
+                        };
+                    }
+                }
+                this.log('ℹ️ Rifa depurada sin ganadores; se mostrará estado pendiente', 'info');
+                return { sorteo: [], presorteo: [], ruletazos: [] };
+            }
+
+            // --- ESCENARIO B: VISTA DE ADMINISTRACIÓN ---
+            // En el panel de admin, siempre queremos dar prioridad a GanadoresManager local para que los cambios en vivo se reflejen de inmediato
+            if (esVistaAdmin && window.GanadoresManager) {
                 const ganadoresLocal = window.GanadoresManager.cargarGanadores();
                 if (ganadoresLocal && (ganadoresLocal.sorteo?.length > 0 || ganadoresLocal.presorteo?.length > 0 || ganadoresLocal.ruletazos?.length > 0)) {
-                    this.log('✅ Usando GanadoresManager como fuente de ganadores', 'exito');
+                    this.log('✅ [Admin] Usando GanadoresManager (local storage) prioritariamente', 'exito');
                     return {
                         sorteo: ganadoresLocal.sorteo || [],
                         presorteo: ganadoresLocal.presorteo || [],
@@ -785,63 +849,83 @@ class ModalSorteoFinalizado {
                 }
             }
 
-            // PRIORIDAD 2: Para rifas NO depuradas, intentar fuente de verdad: servidor
-            const rifaEstado = String(config?.rifa?.estado || config?.sorteo?.estado || '').toLowerCase();
-            const esRifaDepurada = rifaEstado === 'depurada';
-            
-            if (!esRifaDepurada) {
-                try {
-                    const apiBase = window.rifaplusConfig?.backend?.apiBase
-                        || window.rifaplusConfig?.obtenerApiBase?.()
-                        || window.location.origin;
-                    const resp = await fetch(`${apiBase}/api/ganadores?limit=500`);
-                    if (resp.ok) {
-                        const payload = await resp.json();
-                        const rows = payload && payload.data ? payload.data : [];
-                        if (Array.isArray(rows) && rows.length > 0) {
-                            this.log('✅ Ganadores obtenidos desde servidor', 'exito');
-                            // Mapear a estructura esperada
-                            const mapped = { sorteo: [], presorteo: [], ruletazos: [] };
-                            rows.forEach((r, idx) => {
-                                const tipoRaw = (r.tipo_ganador || '').toString().toLowerCase();
-                                let key = 'sorteo';
-                                if (tipoRaw.includes('presorte')) key = 'presorteo';
-                                else if (tipoRaw.includes('rulet')) key = 'ruletazos';
-                                mapped[key].push({
-                                    numero: String(r.numero_boleto || r.numero_orden || ''),
-                                    numero_boleto: r.numero_boleto,
-                                    numero_orden: r.numero_orden,
-                                    posicion: r.posicion || (idx + 1),
-                                    nombre_ganador: r.nombre_ganador || '',
-                                    nombre_cliente: r.nombre_cliente || '',
-                                    apellido_cliente: r.apellido_cliente || '',
-                                    ciudad: r.ciudad || '',
-                                    ciudad_cliente: r.ciudad_cliente || '',
-                                    estado_cliente: r.estado_cliente || '',
-                                    fecha_sorteo: r.fecha_sorteo || '',
-                                    created_at: r.created_at || ''
-                                });
-                            });
-                            Object.keys(mapped).forEach((key) => {
-                                mapped[key].sort((a, b) => (Number(a.posicion) || 999) - (Number(b.posicion) || 999));
-                            });
-
-                            return mapped;
-                        }
-                    }
-                } catch (e) {
-                    this.log('⚠️ Error al consultar /api/ganadores: ' + (e && e.message), 'warning');
+            // --- ESCENARIO C: RIFAS NORMALES (VISTA PÚBLICA) ---
+            // 1️⃣ Prioridad 1: Servidor (Fuente de verdad definitiva)
+            let serverSuccess = false;
+            let rows = [];
+            try {
+                const apiBase = window.rifaplusConfig?.backend?.apiBase
+                    || window.rifaplusConfig?.obtenerApiBase?.()
+                    || window.location.origin;
+                
+                // Asegurar paso de cabecera de Rifa ID para que no dependa solo del slug de la url
+                const headers = {};
+                const rifaIdContext = config?.rifaContext?.id || config?.rifa?.id || null;
+                if (rifaIdContext) {
+                    headers['X-Rifa-Id'] = String(rifaIdContext);
                 }
+
+                const resp = await fetch(`${apiBase}/api/ganadores?limit=500`, { headers });
+                if (resp.ok) {
+                    const payload = await resp.json();
+                    rows = payload && payload.data ? payload.data : [];
+                    serverSuccess = true;
+                    this.log(`✅ Servidor respondió correctamente con ${rows.length} ganadores`, 'exito');
+                }
+            } catch (e) {
+                this.log('⚠️ Error de red/servidor al consultar /api/ganadores: ' + (e && e.message), 'warning');
             }
 
-            // PRIORIDAD 3: Fallback al snapshot
+            if (serverSuccess) {
+                // Si el servidor contestó con éxito, ESTA es la lista real de ganadores (aunque sea vacía)
+                const mapped = { sorteo: [], presorteo: [], ruletazos: [] };
+                rows.forEach((r, idx) => {
+                    const tipoRaw = (r.tipo_ganador || '').toString().toLowerCase();
+                    let key = 'sorteo';
+                    if (tipoRaw.includes('presorte')) key = 'presorteo';
+                    else if (tipoRaw.includes('rulet')) key = 'ruletazos';
+                    mapped[key].push({
+                        numero: String(r.numero_boleto || r.numero_orden || ''),
+                        numero_boleto: r.numero_boleto,
+                        numero_orden: r.numero_orden,
+                        posicion: r.posicion || (idx + 1),
+                        nombre_ganador: r.nombre_ganador || '',
+                        nombre_cliente: r.nombre_cliente || '',
+                        apellido_cliente: r.apellido_cliente || '',
+                        ciudad: r.ciudad || '',
+                        ciudad_cliente: r.ciudad_cliente || '',
+                        estado_cliente: r.estado_cliente || '',
+                        fecha_sorteo: r.fecha_sorteo || '',
+                        created_at: r.created_at || ''
+                    });
+                });
+                Object.keys(mapped).forEach((key) => {
+                    mapped[key].sort((a, b) => (Number(a.posicion) || 999) - (Number(b.posicion) || 999));
+                });
+                return mapped;
+            }
+
+            // 2️⃣ Prioridad 2: Fallback al snapshot si el servidor no contestó o falló
             if (snapshot?.ganadores && await this.snapshotCorrespondeARifaActual(snapshot, config)) {
-                this.log('ℹ️ Usando snapshot persistido de ganadores', 'info');
+                this.log('ℹ️ Servidor inaccesible. Usando snapshot persistido como fallback', 'info');
                 return {
                     sorteo: snapshot.ganadores.sorteo || [],
                     presorteo: snapshot.ganadores.presorteo || [],
                     ruletazos: snapshot.ganadores.ruletazos || []
                 };
+            }
+
+            // 3️⃣ Prioridad 3: Fallback a GanadoresManager local si todo lo demás falla
+            if (window.GanadoresManager) {
+                const ganadoresLocal = window.GanadoresManager.cargarGanadores();
+                if (ganadoresLocal && (ganadoresLocal.sorteo?.length > 0 || ganadoresLocal.presorteo?.length > 0 || ganadoresLocal.ruletazos?.length > 0)) {
+                    this.log('✅ Servidor y snapshot no disponibles. Usando GanadoresManager local como último recurso', 'exito');
+                    return {
+                        sorteo: ganadoresLocal.sorteo || [],
+                        presorteo: ganadoresLocal.presorteo || [],
+                        ruletazos: ganadoresLocal.ruletazos || []
+                    };
+                }
             }
 
             this.log('ℹ️ Sin ganadores oficiales para la rifa actual; se mostrará estado pendiente', 'info');

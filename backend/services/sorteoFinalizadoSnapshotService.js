@@ -34,10 +34,20 @@ class SorteoFinalizadoSnapshotService {
   }
 
   static esRifaFinalizada(rifa = {}) {
+    const fechaSorteo = this._texto(rifa.fechaSorteo);
+    if (fechaSorteo) {
+      const fecha = new Date(fechaSorteo);
+      if (!Number.isNaN(fecha.getTime())) {
+        // 🛡️ Si la fecha de cierre está en el futuro, jamás puede considerarse finalizada
+        if (Date.now() < fecha.getTime()) {
+          return false;
+        }
+      }
+    }
+
     const estado = this._texto(rifa.estado).toLowerCase() || 'activo';
     if (estado === 'finalizado') return true;
 
-    const fechaSorteo = this._texto(rifa.fechaSorteo);
     if (!fechaSorteo) return false;
 
     const fecha = new Date(fechaSorteo);

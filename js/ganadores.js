@@ -550,15 +550,19 @@ window.GanadoresManager = GanadoresManager;
 
 // Log de inicialización y diagnóstico
 (function() {
-    const conteo = GanadoresManager.contar();
-    const datos = GanadoresManager.cargarGanadores();
-    console.log('✅ GanadoresManager inicializado');
-    console.log(`   Ganadores cargados: ${conteo.sorteo + conteo.presorteo + conteo.ruletazos} total (${conteo.sorteo} sorteo, ${conteo.presorteo} presorteo, ${conteo.ruletazos} ruletazos)`);
+    const esPaginaAdmin = window.location.pathname.includes('/admin') || window.location.pathname.includes('admin-');
+    if (esPaginaAdmin) {
+        const conteo = GanadoresManager.contar();
+        console.log('✅ GanadoresManager inicializado (Admin)');
+        console.log(`   Ganadores cargados: ${conteo.sorteo + conteo.presorteo + conteo.ruletazos} total (${conteo.sorteo} sorteo, ${conteo.presorteo} presorteo, ${conteo.ruletazos} ruletazos)`);
+    } else {
+        console.log('✅ GanadoresManager inicializado (Público)');
+    }
 })();
 
 // Escuchar cambios de ganadores desde otras pestañas
 window.addEventListener('storage', function(e) {
-    if (e.key === GanadoresManager.STORAGE_KEY) {
+    if (e.key === GanadoresManager.obtenerStorageKey()) {
         // Los ganadores cambiaron en otra pestaña
         window.dispatchEvent(new CustomEvent('ganadesoresActualizados', { detail: GanadoresManager.cargarGanadores() }));
     }

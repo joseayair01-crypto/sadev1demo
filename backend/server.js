@@ -5712,6 +5712,22 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
                             horaSorteo: config.rifa.horaSorteo,
                             fechaSorteoFormato: config.rifa.fechaSorteoFormato
                         });
+
+                        // 🔄 REACTIVACIÓN AUTOMÁTICA PROFESIONAL:
+                        // Si la nueva fecha de sorteo está en el futuro y el estado actual de la rifa es "finalizado",
+                        // reactivamos el sorteo de forma automática eliminando el snapshot del modal finalizado.
+                        const tsCierre = fechaProcesada.fecha.getTime();
+                        const ahora = Date.now();
+                        if (tsCierre > ahora && config.rifa.estado === 'finalizado') {
+                            console.log('🔄 [PATCH /api/admin/config] La nueva fecha está en el futuro. Reactivando rifa automáticamente...');
+                            config.rifa.estado = 'activo';
+                            config.rifa.modalFinalizadoSnapshot = null;
+                            if (config.sorteoActivo) {
+                                config.sorteoActivo.estado = 'activo';
+                                config.sorteoActivo.fechaCierre = config.rifa.fechaSorteo;
+                                config.sorteoActivo.fechaCierreFormato = config.rifa.fechaSorteoFormato;
+                            }
+                        }
                     }
                 } catch (e) {
                     console.error('⚠️ Error procesando fechaSorteo:', e.message);
@@ -12045,6 +12061,17 @@ app.post('/api/admin/declarar-ganador', verificarToken, async (req, res) => {
             console.warn(`⚠️  Error enviando push de resultados para rifa ${rifaIdActual || 'N/A'}:`, pushError.message);
         }
 
+        // Sincronizar instantáneamente el snapshot si la rifa ya está en un estado finalizado
+        try {
+            const configActual = obtenerConfigActual(rifaIdActual);
+            await asegurarSnapshotModalFinalizado(configActual, {
+                usuarioAdmin: req.usuario?.username || 'SYSTEM',
+                refrescarGanadores: true
+            });
+        } catch (snapshotError) {
+            console.error('⚠️ Error actualizando snapshot en declarar-ganador:', snapshotError.message);
+        }
+
         return res.json({ success: true, message: 'Ganador declarado y guardado', ganador: creado, pushCampaign });
     } catch (error) {
         console.error('POST /api/admin/declarar-ganador error:', error);
@@ -12074,6 +12101,17 @@ app.delete('/api/admin/ganadores/:numero', verificarToken, async (req, res) => {
 
         if (!eliminado) {
             return res.status(404).json({ success: false, message: 'Ganador no encontrado' });
+        }
+
+        // Sincronizar instantáneamente el snapshot si la rifa ya está en un estado finalizado
+        try {
+            const configActual = obtenerConfigActual(rifaIdActual);
+            await asegurarSnapshotModalFinalizado(configActual, {
+                usuarioAdmin: req.usuario?.username || 'SYSTEM',
+                refrescarGanadores: true
+            });
+        } catch (snapshotError) {
+            console.error('⚠️ Error actualizando snapshot en eliminar-ganador:', snapshotError.message);
         }
 
         return res.json({ success: true, message: 'Ganador eliminado correctamente' });

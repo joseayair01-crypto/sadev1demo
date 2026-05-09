@@ -89,7 +89,7 @@
         },
         {
           "emoji": "💵",
-          "accion": "ninguna",
+          "accion": "whatsapp",
           "titulo": "$10,000 pesos adicionales ",
           "descripcion": "Si resultas ganador y eres miembro de nuestro canal oficial de whatsapp eres acreedor a este bono"
         }
@@ -151,7 +151,7 @@
       ],
       "enabled": false
     },
-    "horaSorteo": "21:15",
+    "horaSorteo": "14:00",
     "bonosCompra": {
       "items": [
         {
@@ -168,7 +168,7 @@
       "enabled": true
     },
     "descripcion": "Sorteo de lujo este 30 de mayo, también tenemos presorteo el 30 de abril y 10 ruletazos. No pierdas la oportunidad de participar por solo 6 pesitos y con excelentes promociones si compras más boletos.",
-    "fechaSorteo": "2026-05-30T21:15:00",
+    "fechaSorteo": "2026-05-10T14:00:00",
     "publicacion": {
       "bonos": true,
       "ruletazo": true,
@@ -348,7 +348,7 @@
         "descripcion": "Las promociones, bonos y beneficios aplican según las condiciones publicadas. Cualquier cambio relevante o aviso oficial se dará a conocer en la plataforma y redes oficiales.\n\n"
       }
     ],
-    "fechaSorteoFormato": "30 de Mayo del 2026",
+    "fechaSorteoFormato": "10 de Mayo del 2026",
     "promocionPorTiempo": {
       "enabled": false,
       "fechaFin": null,
@@ -364,7 +364,161 @@
     "tiempoApartadoHoras": 2,
     "fechaPresorteoFormato": "30 de Abril del 2026",
     "informacionSorteoIntro": "Consulta aquí la información más importante del sorteo antes de participar. Al comprar, aceptas estas condiciones.",
-    "modalFinalizadoSnapshot": null,
+    "modalFinalizadoSnapshot": {
+      "meta": {
+        "huellaRifa": "b384d845218fc63823be20a85d480f7d6c86e59c"
+      },
+      "rifa": {
+        "nombreSorteo": "Cybertruck por solo 50 pesos",
+        "sistemaPremios": {
+          "sorteo": [
+            {
+              "icono": "🥇",
+              "nombre": "Primer Lugar",
+              "premio": "Cybertruck negra 2025",
+              "posicion": 1,
+              "descripcion": "Cybertruck 2025, se lleva a domicilio incluimos instalación de cargador u opción a efectivo"
+            }
+          ],
+          "enabled": true,
+          "mensaje": "Múltiples oportunidades de ganar premios extraordinarios",
+          "presorteo": [
+            {
+              "icono": "💵",
+              "nombre": "Presorteo",
+              "premio": "$50,000 pesos",
+              "posicion": 1,
+              "descripcion": "Participan todos los boletos comprados hasta la fecha del presorteo."
+            }
+          ],
+          "ruletazos": [
+            {
+              "icono": "🎰",
+              "nombre": "Ruletazo 1",
+              "premio": "$1,000 Pesos c/u",
+              "posicion": 1,
+              "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
+            },
+            {
+              "icono": "🎰",
+              "nombre": "Ruletazo 2",
+              "premio": "$1,000 Pesos c/u",
+              "posicion": 2,
+              "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
+            },
+            {
+              "icono": "🎰",
+              "nombre": "Ruletazo 3",
+              "premio": "$1,000 Pesos c/u",
+              "posicion": 3,
+              "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
+            },
+            {
+              "icono": "🎰",
+              "nombre": "Ruletazo 4",
+              "premio": "$1,000 Pesos c/u",
+              "posicion": 4,
+              "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
+            },
+            {
+              "icono": "🎰",
+              "nombre": "Ruletazo 5",
+              "premio": "$1,000 Pesos c/u",
+              "posicion": 5,
+              "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
+            },
+            {
+              "icono": "🎰",
+              "nombre": "Ruletazo 6",
+              "premio": "$1,000 Pesos c/u",
+              "posicion": 6,
+              "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
+            },
+            {
+              "icono": "🎰",
+              "nombre": "Ruletazo 7",
+              "premio": "$1,000 Pesos c/u",
+              "posicion": 7,
+              "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
+            },
+            {
+              "icono": "🎰",
+              "nombre": "Ruletazo 8",
+              "premio": "$1,000 Pesos c/u",
+              "posicion": 8,
+              "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
+            },
+            {
+              "icono": "🎰",
+              "nombre": "Ruletazo 9",
+              "premio": "$1,000 Pesos c/u",
+              "posicion": 9,
+              "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
+            },
+            {
+              "icono": "🎰",
+              "nombre": "Ruletazo 10",
+              "premio": "$1,000 Pesos c/u",
+              "posicion": 10,
+              "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
+            }
+          ]
+        }
+      },
+      "tema": {
+        "preset": "dorado",
+        "colores": {
+          "danger": "#dc2626",
+          "bgLight": "#f7efe0",
+          "bgWhite": "#f7efe0",
+          "primary": "#d4a017",
+          "success": "#16a34a",
+          "textDark": "#0f172a",
+          "secondary": "#3f2d14",
+          "textLight": "#707276",
+          "colorFondo": "#f7efe0",
+          "colorTexto": "#0f172a",
+          "borderColor": "#d2ccc3",
+          "primaryDark": "#a57d12",
+          "colorAccento": "#3f2d14",
+          "primaryLight": "#f1e1bc",
+          "colorPrimario": "#d4a017",
+          "colorSecundario": "#3f2d14",
+          "colorSuperficie": "#f7efe0",
+          "colorTextoSecundario": "#707276"
+        },
+        "colorFondo": "#f7efe0",
+        "colorTexto": "#0f172a",
+        "colorAcento": "#3f2d14",
+        "colorPrimario": "#d4a017",
+        "personalizado": false,
+        "colorSuperficie": "#f7efe0"
+      },
+      "sorteo": {
+        "estado": "finalizado",
+        "nombre": "Cybertruck por solo 50 pesos",
+        "documentos": {
+          "actaURL": null,
+          "videoURL": null,
+          "certificado": "Verificado por notario público"
+        },
+        "fechaCierre": "2026-05-09T14:00:00",
+        "fechaCierreFormato": "9 de Mayo del 2026",
+        "mensajeAgradecimiento": "¡Agradecemos tu participación en nuestro sorteo! Tu confianza es lo más importante para nosotros."
+      },
+      "cliente": {
+        "logo": "https://res.cloudinary.com/dhwvxom01/image/upload/v1776190701/rifaplus/sorteos/logo-1776190700974-Fondo-de-5aqzh-eliminado-628fc6075b2a.webp",
+        "nombre": "Sorteos SaDev",
+        "logotipo": "https://res.cloudinary.com/dhwvxom01/image/upload/v1776190701/rifaplus/sorteos/logo-1776190700974-Fondo-de-5aqzh-eliminado-628fc6075b2a.webp"
+      },
+      "version": 1,
+      "ganadores": {
+        "sorteo": [],
+        "presorteo": [],
+        "ruletazos": []
+      },
+      "capturedAt": "2026-05-09T19:44:58.974Z"
+    },
     "pushOrderWarningMinutes": [
       30
     ],
@@ -580,7 +734,7 @@
       "ruletazo": [],
       "principal": []
     },
-    "fechaCierre": null,
-    "fechaCierreFormato": ""
+    "fechaCierre": "2026-05-10T14:00:00",
+    "fechaCierreFormato": "10 de Mayo del 2026"
   }
 }

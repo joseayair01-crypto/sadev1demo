@@ -1219,6 +1219,15 @@ const ADMIN_LAYOUT = {
         }
 
         if (!token) {
+            if (esPaginaLogin) {
+                const loginScreen = document.getElementById('loginScreen');
+                const dashboardEl = document.getElementById('dashboard');
+                if (loginScreen) loginScreen.style.display = 'flex';
+                if (dashboardEl) {
+                    dashboardEl.classList.remove('active');
+                    dashboardEl.style.display = 'none';
+                }
+            }
             this.finalizarChequeoVisual();
             return false;
         }
@@ -1247,6 +1256,14 @@ const ADMIN_LAYOUT = {
                 this.finalizarChequeoVisual();
                 window.location.href = 'admin-dashboard.html';
                 return false;
+            } else {
+                const loginScreen = document.getElementById('loginScreen');
+                const dashboardEl = document.getElementById('dashboard');
+                if (loginScreen) loginScreen.style.display = 'flex';
+                if (dashboardEl) {
+                    dashboardEl.classList.remove('active');
+                    dashboardEl.style.display = 'none';
+                }
             }
 
             return false;
