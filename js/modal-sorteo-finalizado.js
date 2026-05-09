@@ -225,7 +225,7 @@ class ModalSorteoFinalizado {
             this.log('Creando modal...', 'modal');
 
             const config = window.rifaplusConfig;
-            const { snapshot, configModal, sorteoModal } = this.resolverContextoModal(config);
+            const { snapshot, configModal, sorteoModal } = await this.resolverContextoModal(config);
 
             // Obtener ganadores (usa GanadoresManager, servidor, o snapshot en ese orden)
             const ganadoresReales = await this.obtenerGanadoresReales(snapshot);
@@ -271,16 +271,36 @@ class ModalSorteoFinalizado {
         }
     }
 
-    obtenerSnapshotFinalizado(config) {
+    async obtenerSnapshotFinalizado(config) {
         const estado = config?.rifa?.estado || config?.sorteoActivo?.estado || 'activo';
         let snapshot = config?.rifa?.modalFinalizadoSnapshot;
         
         // ✅ CRÍTICO: Para rifas DEPURADAS, si no hay snapshot en config, obtenerlo del backend
         if (estado === 'depurada' && (!snapshot || typeof snapshot !== 'object')) {
             this.log('⚠️ Rifa depurada sin snapshot en config, obteniendo del backend...', 'warning');
-            // El snapshot debería estar en config.sorteoActivo.snapshot_final o similar
-            // Fallback: usar ganadores de localStorage si están disponibles
-            if (window.GanadoresManager) {
+            
+            const apiBase = config?.backend?.apiBase
+                || (typeof config?.obtenerApiBase === 'function' ? config.obtenerApiBase() : '')
+                || window.location.origin;
+            const slug = config?.rifa?.slug || (typeof config?.obtenerSlugRifaActual === 'function' ? config.obtenerSlugRifaActual() : '') || '';
+            
+            if (slug) {
+                try {
+                    const resp = await fetch(`${apiBase}/api/public/rifas-pasadas/${slug}`);
+                    if (resp.ok) {
+                        const resJson = await resp.json();
+                        if (resJson?.success && resJson?.data?.snapshot) {
+                            snapshot = resJson.data.snapshot;
+                            this.log('✅ Snapshot obtenido exitosamente desde el backend público para rifa depurada', 'exito');
+                        }
+                    }
+                } catch (e) {
+                    this.log('⚠️ Error obteniendo snapshot desde el backend: ' + e.message, 'warning');
+                }
+            }
+
+            // Fallback secundario: usar ganadores de localStorage si están disponibles
+            if (!snapshot && window.GanadoresManager) {
                 const ganadoresLocales = window.GanadoresManager.cargarGanadores();
                 if (ganadoresLocales && (ganadoresLocales.sorteo?.length > 0 || ganadoresLocales.presorteo?.length > 0 || ganadoresLocales.ruletazos?.length > 0)) {
                     this.log('✅ Usando ganadores de localStorage como fallback para rifa depurada', 'exito');
@@ -294,28 +314,67 @@ class ModalSorteoFinalizado {
         
         if (!this.esEstadoTerminal(estado)) return null;
         if (!snapshot || typeof snapshot !== 'object') return null;
-        return this.snapshotCorrespondeARifaActual(snapshot, config) ? snapshot : null;
+        return await this.snapshotCorrespondeARifaActual(snapshot, config) ? snapshot : null;
     }
 
-    crearHuellaRifaActual(config = {}) {
+    async crearHuellaRifaActual(config = {}) {
         const rifa = config?.rifa || {};
-        return JSON.stringify({
+        const payload = {
             edicionNombre: String(rifa.edicionNombre || '').trim(),
             nombreSorteo: String(rifa.nombreSorteo || '').trim(),
             fechaSorteo: String(rifa.fechaSorteo || '').trim(),
             totalBoletos: Number(rifa.totalBoletos) || 0,
             precioBoleto: Number(rifa.precioBoleto) || 0
-        });
+        };
+        const text = JSON.stringify(payload);
+        
+        try {
+            // Calcular hash SHA-1 usando Web Crypto API nativa de forma robusta y compatible
+            const encoder = new TextEncoder();
+            const data = encoder.encode(text);
+            const hashBuffer = await window.crypto.subtle.digest('SHA-1', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            return hashHex;
+        } catch (error) {
+            console.error('Error calculando SHA-1 en frontend:', error);
+            return text; // Fallback defensivo si subtle crypto no está disponible
+        }
     }
 
-    snapshotCorrespondeARifaActual(snapshot, config = {}) {
+    async snapshotCorrespondeARifaActual(snapshot, config = {}) {
         const huellaSnapshot = String(snapshot?.meta?.huellaRifa || '').trim();
         if (!huellaSnapshot) return false;
-        return huellaSnapshot === this.crearHuellaRifaActual(config);
+        
+        // Generar la huella esperada tanto en formato hash SHA-1 como en formato plano (fallback)
+        const hashEsperado = await this.crearHuellaRifaActual(config);
+        
+        // Comparación flexible: soporta hash SHA-1 o JSON plano para retrocompatibilidad total
+        if (huellaSnapshot === hashEsperado) return true;
+        
+        const payloadPlano = {
+            edicionNombre: String(config?.rifa?.edicionNombre || '').trim(),
+            nombreSorteo: String(config?.rifa?.nombreSorteo || '').trim(),
+            fechaSorteo: String(config?.rifa?.fechaSorteo || '').trim(),
+            totalBoletos: Number(config?.rifa?.totalBoletos) || 0,
+            precioBoleto: Number(config?.rifa?.precioBoleto) || 0
+        };
+        const stringPlano = JSON.stringify(payloadPlano);
+        if (huellaSnapshot === stringPlano) return true;
+
+        // Fallback defensivo final: si la huella no coincide pero el ID de la rifa coincide plenamente,
+        // confiamos en el contexto para no dejar vacía la pantalla bajo ninguna circunstancia.
+        const snapshotId = Number(snapshot?.id || snapshot?.rifa_id);
+        const configId = Number(config?.rifa_id || config?.rifa?.id);
+        if (snapshotId && configId && snapshotId === configId) {
+            return true;
+        }
+
+        return false;
     }
 
-    resolverContextoModal(config) {
-        const snapshot = this.obtenerSnapshotFinalizado(config);
+    async resolverContextoModal(config) {
+        const snapshot = await this.obtenerSnapshotFinalizado(config);
         if (!snapshot) {
             return {
                 snapshot: null,
@@ -776,7 +835,7 @@ class ModalSorteoFinalizado {
             }
 
             // PRIORIDAD 3: Fallback al snapshot
-            if (snapshot?.ganadores && this.snapshotCorrespondeARifaActual(snapshot, config)) {
+            if (snapshot?.ganadores && await this.snapshotCorrespondeARifaActual(snapshot, config)) {
                 this.log('ℹ️ Usando snapshot persistido de ganadores', 'info');
                 return {
                     sorteo: snapshot.ganadores.sorteo || [],
