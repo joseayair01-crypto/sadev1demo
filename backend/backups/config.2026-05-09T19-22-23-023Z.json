@@ -85,7 +85,7 @@
           "emoji": "📱",
           "accion": "ninguna",
           "titulo": "Iphone 17 Pro Max",
-          "descripcion": "Si resultas ganador, adquiriste 100 boletos o mas y pagaste en la primera hora de creación de la orden te llevas este bono adicional, los boletos son acumulables"
+          "descripcion": "Si resultas ganador, adquiriste 200 boletos o mas y pagaste en la primera hora de creación de la orden te llevas este bono adicional, los boletos son acumulables"
         },
         {
           "emoji": "💵",
@@ -96,7 +96,7 @@
       ],
       "enabled": true
     },
-    "estado": "activo",
+    "estado": "borrador",
     "rangos": [
       {
         "fin": 99999,
@@ -111,6 +111,12 @@
           "url": "https://res.cloudinary.com/dhwvxom01/image/upload/v1776293575/rifaplus/sorteos/gallery-1776293575735-BzKnr-ba24dacb7116.webp",
           "titulo": "Imagen 2",
           "publicId": "rifaplus/sorteos/gallery-1776293575735-BzKnr-ba24dacb7116",
+          "descripcion": ""
+        },
+        {
+          "url": "https://res.cloudinary.com/dhwvxom01/image/upload/v1778000984/rifaplus/sorteos/gallery-1778000983545-3d0Ju-111cc210b0f4.webp",
+          "titulo": "Imagen 2",
+          "publicId": "rifaplus/sorteos/gallery-1778000983545-3d0Ju-111cc210b0f4",
           "descripcion": ""
         }
       ]
@@ -145,13 +151,13 @@
       ],
       "enabled": false
     },
-    "horaSorteo": "21:15",
+    "horaSorteo": "09:15",
     "bonosCompra": {
       "items": [
         {
           "emoji": "📱",
           "titulo": "Iphone 17 Pro Max",
-          "descripcion": "Recuerda que para acceder a este bono debes comprar 100 o mas boletos."
+          "descripcion": "Recuerda que para acceder a este bono debes comprar 200 o mas boletos."
         },
         {
           "emoji": "💵",
@@ -161,8 +167,8 @@
       ],
       "enabled": true
     },
-    "descripcion": "Sorteo de lujo este 30 de mayo, también tenemos presorteo el 30 de abril y 10 ruletazos. No pierdas la oportunidad de participar por solo 6 pesitos y con excelentes promociones si compras más boletos.",
-    "fechaSorteo": "2026-05-30T21:15:00",
+    "descripcion": "Super evento, este 30 de mayo llevatela o te la llevamos por solo 6 pesos el boleto, no te quedes sin participar!!",
+    "fechaSorteo": "2026-05-30T09:15:00",
     "publicacion": {
       "bonos": true,
       "ruletazo": true,
@@ -175,19 +181,14 @@
       "logoVerificadoHeader": true
     },
     "zonaHoraria": "Hora Centro Mexico",
-    "nombreSorteo": "Cybertruck por solo 50 pesos",
-    "precioBoleto": 50,
+    "nombreSorteo": "NP300 estaquitas lista para el trabajo 🔥🚛🛻",
+    "precioBoleto": 6,
     "totalBoletos": 100000,
-    "edicionNombre": "Edicion -Demo",
-    "horaPresorteo": "21:15",
+    "edicionNombre": "Edicion No. 3 - Sorteo demo",
+    "horaPresorteo": "",
     "maquinaSuerte": {
-      "quickPicks": [
-        5,
-        10,
-        20,
-        50
-      ],
-      "limiteBoletos": 100,
+      "quickPicks": [],
+      "limiteBoletos": 200,
       "mostrarNotaDisponibilidad": false
     },
     "oportunidades": {
@@ -202,100 +203,21 @@
         "inicio": 0
       }
     },
-    "fechaPresorteo": "2026-04-30T21:15:00",
+    "fechaPresorteo": null,
     "sistemaPremios": {
       "sorteo": [
         {
           "icono": "🥇",
           "nombre": "Primer Lugar",
-          "premio": "Cybertruck negra 2025",
+          "premio": "NP 300 estaquitas",
           "posicion": 1,
-          "descripcion": "Cybertruck 2025, se lleva a domicilio incluimos instalación de cargador u opción a efectivo"
+          "descripcion": "Camioneta completamente nueva"
         }
       ],
       "enabled": true,
       "mensaje": "Múltiples oportunidades de ganar premios extraordinarios",
-      "presorteo": [
-        {
-          "icono": "💵",
-          "nombre": "Presorteo",
-          "premio": "$50,000 pesos",
-          "posicion": 1,
-          "descripcion": "Participan todos los boletos comprados hasta la fecha del presorteo."
-        }
-      ],
-      "ruletazos": [
-        {
-          "icono": "🎰",
-          "nombre": "Ruletazo 1",
-          "premio": "$1,000 Pesos c/u",
-          "posicion": 1,
-          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
-        },
-        {
-          "icono": "🎰",
-          "nombre": "Ruletazo 2",
-          "premio": "$1,000 Pesos c/u",
-          "posicion": 2,
-          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
-        },
-        {
-          "icono": "🎰",
-          "nombre": "Ruletazo 3",
-          "premio": "$1,000 Pesos c/u",
-          "posicion": 3,
-          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
-        },
-        {
-          "icono": "🎰",
-          "nombre": "Ruletazo 4",
-          "premio": "$1,000 Pesos c/u",
-          "posicion": 4,
-          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
-        },
-        {
-          "icono": "🎰",
-          "nombre": "Ruletazo 5",
-          "premio": "$1,000 Pesos c/u",
-          "posicion": 5,
-          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
-        },
-        {
-          "icono": "🎰",
-          "nombre": "Ruletazo 6",
-          "premio": "$1,000 Pesos c/u",
-          "posicion": 6,
-          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
-        },
-        {
-          "icono": "🎰",
-          "nombre": "Ruletazo 7",
-          "premio": "$1,000 Pesos c/u",
-          "posicion": 7,
-          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
-        },
-        {
-          "icono": "🎰",
-          "nombre": "Ruletazo 8",
-          "premio": "$1,000 Pesos c/u",
-          "posicion": 8,
-          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
-        },
-        {
-          "icono": "🎰",
-          "nombre": "Ruletazo 9",
-          "premio": "$1,000 Pesos c/u",
-          "posicion": 9,
-          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
-        },
-        {
-          "icono": "🎰",
-          "nombre": "Ruletazo 10",
-          "premio": "$1,000 Pesos c/u",
-          "posicion": 10,
-          "descripcion": "Serán 5 ruletazos el día del presorteo y 5 el día del sorteo en las transmisiones de FB"
-        }
-      ]
+      "presorteo": [],
+      "ruletazos": []
     },
     "busquedaBoletos": {
       "modoAvanzado": true
@@ -354,8 +276,8 @@
       "porcentaje": 100,
       "fechaInicio": "2026-03-31T19:03"
     },
-    "tiempoApartadoHoras": 2,
-    "fechaPresorteoFormato": "30 de Abril del 2026",
+    "tiempoApartadoHoras": 5,
+    "fechaPresorteoFormato": "",
     "informacionSorteoIntro": "Consulta aquí la información más importante del sorteo antes de participar. Al comprar, aceptas estas condiciones.",
     "modalFinalizadoSnapshot": null,
     "pushOrderWarningMinutes": [
@@ -449,7 +371,7 @@
       "canalWhatsappNombre": "Sorteos SaDev",
       "grupoWhatsappNombre": ""
     },
-    "imagenPrincipal": "https://res.cloudinary.com/dhwvxom01/image/upload/v1776293588/rifaplus/sorteos/principal-1776293588032-dPPHS-178e475754e5.webp",
+    "imagenPrincipal": "https://res.cloudinary.com/dhwvxom01/image/upload/v1778000967/rifaplus/sorteos/principal-1778000966702-3d0Ju-02245df87bd0.webp",
     "mensajesWhatsapp": {
       "ganador": "",
       "rechazo": "",
@@ -497,6 +419,16 @@
         "nombreBanco": "Oxxo - BBVA",
         "paymentType": "efectivo",
         "accountNumber": "0123521864532846253",
+        "numero_referencia": ""
+      },
+      {
+        "id": 5,
+        "phone": "",
+        "accountType": "Tarjeta",
+        "beneficiary": "Ayair López",
+        "nombreBanco": "Banco Azteca",
+        "paymentType": "transferencia",
+        "accountNumber": "3451 7777 7777 7777",
         "numero_referencia": ""
       }
     ]

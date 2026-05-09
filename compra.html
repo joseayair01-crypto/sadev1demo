@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="rifaplus-api-base" content="http://localhost:5001">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' http://127.0.0.1:* http://localhost:* http://localhost:5001; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://fonts.googleapis.com http://localhost:5001 http://127.0.0.1:5001; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' http://127.0.0.1:* http://localhost:* https: http://localhost:5001 http://127.0.0.1:5001 ws: wss: ws://localhost:5001 wss://localhost:5001 ws://127.0.0.1:5001 wss://127.0.0.1:5001; img-src 'self' data: https:;">
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self' http://127.0.0.1:* http://localhost:* http://localhost:5001; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://fonts.googleapis.com http://localhost:5001 http://127.0.0.1:5001; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' http://127.0.0.1:* http://localhost:* https: http://localhost:5001 http://127.0.0.1:5001 ws: wss: ws://localhost:5001 wss://localhost:5001 ws://127.0.0.1:5001 wss://127.0.0.1:5001; img-src 'self' data: https:;">
     <!-- METADATOS DINÁMICOS - Cloudflare Functions y js/meta-inyector los actualizan desde la configuración actual -->
     <title>Compra tus boletos</title>
     <meta name="description" content="Selecciona tus boletos y participa en el sorteo activo.">
@@ -29,66 +31,148 @@
             --primary-rgb: 11, 34, 56;
         }
 
-        html.rifaplus-shell-boot body > :not(.rifaplus-shell-overlay) { visibility: hidden; }
-        body.rifaplus-shell-active { overflow: hidden; }
-        body.rifaplus-shell-active > :not(.rifaplus-shell-overlay) { visibility: hidden; }
+        html.rifaplus-shell-boot body> :not(.rifaplus-shell-overlay) {
+            visibility: hidden;
+        }
+
+        body.rifaplus-shell-active {
+            overflow: hidden;
+        }
+
+        body.rifaplus-shell-active> :not(.rifaplus-shell-overlay) {
+            visibility: hidden;
+        }
 
         .rifaplus-shell-overlay {
-            position: fixed; inset: 0; z-index: 10000;
-            display: flex; align-items: center; justify-content: center;
+            position: fixed;
+            inset: 0;
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             padding: 1.5rem;
             background: radial-gradient(circle at top, rgba(var(--secondary-rgb), 0.12), transparent 28%),
-                        linear-gradient(180deg, rgba(6, 20, 33, 0.98) 0%, rgba(10, 30, 49, 1) 100%);
-            opacity: 0; visibility: hidden; transition: opacity 320ms ease, visibility 320ms ease;
-            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+                linear-gradient(180deg, rgba(6, 20, 33, 0.98) 0%, rgba(10, 30, 49, 1) 100%);
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 320ms ease, visibility 320ms ease;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
         }
 
         html.rifaplus-shell-boot .rifaplus-shell-overlay,
-        .rifaplus-shell-overlay.is-visible { opacity: 1; visibility: visible; }
-        .rifaplus-shell-overlay.is-leaving { opacity: 0; visibility: hidden; }
-        .rifaplus-shell-overlay[hidden] { display: none; }
+        .rifaplus-shell-overlay.is-visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .rifaplus-shell-overlay.is-leaving {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        .rifaplus-shell-overlay[hidden] {
+            display: none;
+        }
 
         .rifaplus-shell-card {
-            width: min(100%, 440px); text-align: center; color: #f8fbfe;
+            width: min(100%, 440px);
+            text-align: center;
+            color: #f8fbfe;
             animation: rifaplusShellFadeIn 0.5s ease-out forwards;
         }
 
         .rifaplus-shell-logo-frame {
-            position: relative; width: 124px; height: 124px; margin: 0 auto 1.5rem;
-            display: flex; align-items: center; justify-content: center;
-            border-radius: 34px; background: rgba(255, 255, 255, 0.04);
+            position: relative;
+            width: 124px;
+            height: 124px;
+            margin: 0 auto 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 34px;
+            background: rgba(255, 255, 255, 0.04);
             border: 1px solid rgba(111, 231, 223, 0.15);
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
             animation: rifaplusShellFloat 2s ease-in-out infinite;
         }
 
         .rifaplus-shell-logo-frame::after {
-            content: ''; position: absolute; inset: -8px; border-radius: inherit;
+            content: '';
+            position: absolute;
+            inset: -8px;
+            border-radius: inherit;
             border: 2px solid rgba(154, 244, 238, 0.1);
             border-top-color: rgba(63, 224, 210, 0.8);
             animation: rifaplusShellSpin 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
         }
 
         .rifaplus-shell-logo {
-            width: 82%; height: 82%; object-fit: contain;
+            width: 82%;
+            height: 82%;
+            object-fit: contain;
             filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.2));
             transition: opacity 0.3s ease;
         }
 
         .rifaplus-shell-copy {
-            margin: 1.2rem auto 0; font-size: 1.05rem; font-weight: 500;
-            color: rgba(240, 248, 252, 0.95); letter-spacing: -0.01em;
+            margin: 1.2rem auto 0;
+            font-size: 1.05rem;
+            font-weight: 500;
+            color: rgba(240, 248, 252, 0.95);
+            letter-spacing: -0.01em;
             animation: rifaplusShellPulse 2s infinite;
         }
 
-        @keyframes rifaplusShellFadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes rifaplusShellFloat { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-8px) scale(1.02); } }
-        @keyframes rifaplusShellSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        @keyframes rifaplusShellPulse { 0%, 100% { opacity: 0.8; } 50% { opacity: 1; } }
+        @keyframes rifaplusShellFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes rifaplusShellFloat {
+
+            0%,
+            100% {
+                transform: translateY(0) scale(1);
+            }
+
+            50% {
+                transform: translateY(-8px) scale(1.02);
+            }
+        }
+
+        @keyframes rifaplusShellSpin {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes rifaplusShellPulse {
+
+            0%,
+            100% {
+                opacity: 0.8;
+            }
+
+            50% {
+                opacity: 1;
+            }
+        }
     </style>
     <script src="js/image-delivery.js"></script>
     <script>
-        (function() {
+        (function () {
             const imageDelivery = window.RifaPlusImageDelivery;
             const fallbackLogo = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 96'%3E%3Crect width='240' height='96' rx='20' fill='%230b2235'/%3E%3Ctext x='120' y='58' font-size='28' text-anchor='middle' fill='%23ffffff' font-family='Arial,sans-serif'%3ESorteo%3C/text%3E%3C/svg%3E";
             let configLocal = {};
@@ -100,7 +184,7 @@
                     if (slug) {
                         try {
                             sessionStorage.setItem('rifaplus_session_slug_v1', slug);
-                        } catch (error) {}
+                        } catch (error) { }
                         return slug;
                     }
 
@@ -108,7 +192,7 @@
                     const filename = pathname.split('/').pop() || '';
                     const esHome = pathname === '/' || filename === 'index.html' || filename === '';
                     if (esHome) {
-                        try { sessionStorage.removeItem('rifaplus_session_slug_v1'); } catch (error) {}
+                        try { sessionStorage.removeItem('rifaplus_session_slug_v1'); } catch (error) { }
                         return '';
                     }
 
@@ -149,7 +233,7 @@
                         if (valor !== undefined) {
                             return valor !== false;
                         }
-                    } catch (error) {}
+                    } catch (error) { }
                 }
 
                 for (const clave of clavesConfig) {
@@ -162,7 +246,7 @@
                         if (valor !== undefined) {
                             return valor !== false;
                         }
-                    } catch (error) {}
+                    } catch (error) { }
                 }
 
                 return true;
@@ -317,7 +401,7 @@
                 precioVisible: precioVisibleInicial
             };
 
-            window.__RIFAPLUS_COMPRA_HERO__ = (function() {
+            window.__RIFAPLUS_COMPRA_HERO__ = (function () {
                 const subtitulo = 'Elige tus boletos y participa ahora';
                 const heroSorteoKey = construirClaveLocalCompra('compra_hero_sorteo');
                 const nombreSorteo = heroUtils.resolverNombreSorteo(
@@ -356,28 +440,28 @@
         })();
     </script>
     <script id="rifaplus-shell-early-init">
-        (function() {
+        (function () {
             // ✅ MEJORA: Evitar peticiones de red usando un logo vectorial en línea para cold starts
             const defaultLogo = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 96'%3E%3Crect width='240' height='96' rx='20' fill='%230b2235'/%3E%3Ctext x='120' y='58' font-size='34' text-anchor='middle' fill='%23ffffff' font-family='Arial,sans-serif'%3ESaDev%3C/text%3E%3C/svg%3E";
-            
+
             const params = new URLSearchParams(window.location.search);
             const slug = String(params.get('rifa') || params.get('slug') || '').trim();
             const sessionSlug = sessionStorage.getItem('rifaplus_session_slug_v1');
             const currentSlug = slug || sessionSlug || '';
-            
+
             const key = (suffix) => currentSlug ? `rifaplus:${currentSlug}:${suffix}` : suffix;
             const rawLogo = localStorage.getItem(key('cached_logo')) || localStorage.getItem('rifaplus_cached_logo') || defaultLogo;
-            
+
             const imageDelivery = window.RifaPlusImageDelivery;
             const optimizedLogo = (imageDelivery && typeof imageDelivery.resolverUrlImagen === 'function')
                 ? imageDelivery.resolverUrlImagen(rawLogo, 'logo')
                 : rawLogo;
 
             const html = document.documentElement;
-            
+
             // 1. Inyectar URL del logo en CSS para uso instantáneo
             html.style.setProperty('--rifaplus-shell-logo-url', 'url("' + optimizedLogo + '")');
-            
+
             // 2. Preload de alta prioridad si no es el logo en línea por defecto (evita warnings y peticiones innecesarias)
             if (optimizedLogo && !optimizedLogo.startsWith('data:')) {
                 const link = document.createElement('link');
@@ -390,25 +474,38 @@
             const referrer = document.referrer;
             const isInternal = referrer && new URL(referrer).origin === window.location.origin;
             const contextChanged = slug && sessionSlug && slug !== sessionSlug;
-            
+
             if (!isInternal || contextChanged) {
                 html.classList.add('rifaplus-shell-boot');
             }
-            
+
             window.__RIFAPLUS_EARLY_LOGO__ = optimizedLogo;
             window.__RIFAPLUS_CACHED_LOGO__ = optimizedLogo;
         })();
     </script>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" media="print" data-deferred-style="true">
-    <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"></noscript>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" data-deferred-style="true">
-    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap"
+        media="print" data-deferred-style="true">
+    <noscript>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap"
+            rel="stylesheet">
+    </noscript>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        media="print" data-deferred-style="true">
+    <noscript>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    </noscript>
     <link rel="stylesheet" href="css/modal-contacto.css" media="print" data-deferred-style="true">
-    <noscript><link rel="stylesheet" href="css/modal-contacto.css"></noscript>
+    <noscript>
+        <link rel="stylesheet" href="css/modal-contacto.css">
+    </noscript>
     <link rel="stylesheet" href="css/orden-formal.css" media="print" data-deferred-style="true">
-    <noscript><link rel="stylesheet" href="css/orden-formal.css"></noscript>
+    <noscript>
+        <link rel="stylesheet" href="css/orden-formal.css">
+    </noscript>
     <link rel="stylesheet" href="css/modal-orden-confirmada.css" media="print" data-deferred-style="true">
-    <noscript><link rel="stylesheet" href="css/modal-orden-confirmada.css"></noscript>
+    <noscript>
+        <link rel="stylesheet" href="css/modal-orden-confirmada.css">
+    </noscript>
     <script>
         (function activarEstilosDiferidos() {
             const estilos = document.querySelectorAll('link[data-deferred-style="true"]');
@@ -433,7 +530,7 @@
     <script defer src="js/meta-pixel.js"></script>
     <script>
         // Limpieza de caché de localStorage - elimina datos obsoletos
-        (function() {
+        (function () {
             const keysABorrar = [
                 'rifaplus_fecha_sorteo',
                 'rifaplus_timestamp_sorteo',
@@ -478,11 +575,11 @@
                 document.head.appendChild(script);
             }
 
-            const idle = window.requestIdleCallback || function(cb) {
+            const idle = window.requestIdleCallback || function (cb) {
                 return setTimeout(cb, 1000);
             };
 
-            window.addEventListener('load', function() {
+            window.addEventListener('load', function () {
                 idle(loadAnimator, { timeout: 1800 });
             }, { once: true });
         })();
@@ -490,12 +587,13 @@
 
     <script defer src="js/modal-conflicto-boletos.js?v=20260219"></script>
 </head>
+
 <body id="compra-page" data-rifaplus-socket="true" data-rifaplus-live-state="true" data-rifaplus-warm-range="true">
     <div class="rifaplus-shell-overlay" id="rifaplusPublicShell" role="status" aria-live="polite">
         <div class="rifaplus-shell-card">
             <div class="rifaplus-shell-logo-frame">
                 <script>
-                    (function() {
+                    (function () {
                         const defaultLogo = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 96'%3E%3Crect width='240' height='96' rx='20' fill='%230b2235'/%3E%3Ctext x='120' y='58' font-size='34' text-anchor='middle' fill='%23ffffff' font-family='Arial,sans-serif'%3ESaDev%3C/text%3E%3C/svg%3E";
                         const logo = window.__RIFAPLUS_EARLY_LOGO__ || defaultLogo;
                         document.write('<img id="rifaplusShellLogo" class="rifaplus-shell-logo" src="' + logo + '" alt="Cargando..." width="124" height="124">');
@@ -519,12 +617,15 @@
             <a href="index.html#top" class="logo" data-logo-src id="logoLink">
                 <div class="logo-circle">
                     <script>
-                        (function() {
+                        (function () {
                             const defaultLogo = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 96'%3E%3Crect width='240' height='96' rx='20' fill='%230b2235'/%3E%3Ctext x='120' y='58' font-size='34' text-anchor='middle' fill='%23ffffff' font-family='Arial,sans-serif'%3ESaDev%3C/text%3E%3C/svg%3E";
                             document.write('<img src="' + (window.__RIFAPLUS_CACHED_LOGO__ || defaultLogo) + '" alt="Logo del organizador" class="logo-image dynamic-logo" data-dynamic-logo="true" fetchpriority="high" loading="eager" decoding="sync" width="320" height="137">');
                         })();
                     </script>
-                    <noscript><img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 96'%3E%3Crect width='240' height='96' rx='20' fill='%230b2235'/%3E%3Ctext x='120' y='58' font-size='34' text-anchor='middle' fill='%23ffffff' font-family='Arial,sans-serif'%3ESaDev%3C/text%3E%3C/svg%3E" alt="Logo del organizador" class="logo-image dynamic-logo" data-dynamic-logo="true" fetchpriority="high" loading="eager" decoding="sync" width="320" height="137"></noscript>
+                    <noscript><img
+                            src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 96'%3E%3Crect width='240' height='96' rx='20' fill='%230b2235'/%3E%3Ctext x='120' y='58' font-size='34' text-anchor='middle' fill='%23ffffff' font-family='Arial,sans-serif'%3ESaDev%3C/text%3E%3C/svg%3E"
+                            alt="Logo del organizador" class="logo-image dynamic-logo" data-dynamic-logo="true"
+                            fetchpriority="high" loading="eager" decoding="sync" width="320" height="137"></noscript>
                 </div>
                 <span class="logo-verified-badge" aria-hidden="true">✓</span>
             </a>
@@ -562,8 +663,12 @@
     <section class="compra-hero compra-hero--purple">
         <div class="container">
             <div class="compra-hero-inner">
-                <h1 class="compra-hero-title" id="compraHeroTitle"><script>document.write((window.__RIFAPLUS_COMPRA_HERO__ && window.__RIFAPLUS_COMPRA_HERO__.titulo) || 'Estás a un paso de ser el próximo ganador');</script></h1>
-                <p class="compra-hero-sub" id="compraHeroSub"><script>document.write((window.__RIFAPLUS_COMPRA_HERO__ && window.__RIFAPLUS_COMPRA_HERO__.subtitulo) || 'Elige tus boletos y participa ahora');</script></p>
+                <h1 class="compra-hero-title" id="compraHeroTitle">
+                    <script>document.write((window.__RIFAPLUS_COMPRA_HERO__ && window.__RIFAPLUS_COMPRA_HERO__.titulo) || 'Estás a un paso de ser el próximo ganador');</script>
+                </h1>
+                <p class="compra-hero-sub" id="compraHeroSub">
+                    <script>document.write((window.__RIFAPLUS_COMPRA_HERO__ && window.__RIFAPLUS_COMPRA_HERO__.subtitulo) || 'Elige tus boletos y participa ahora');</script>
+                </p>
                 <div class="compra-hero-cta">
                     <a href="#numerosGrid" class="btn btn-seleccionar">
                         <span class="cta-icon" aria-hidden="true"><i class="fas fa-ticket-alt"></i></span>
@@ -590,12 +695,15 @@
                 </div>
                 <!-- PRECIO NORMAL (cuando no hay promoción) -->
                 <div id="precioNormalCompra" class="precio-normal-mode">
-                    <div class="precio-super-badge" id="precioSuperBadgeCompra" style="display: none;">Super promocion</div>
+                    <div class="precio-super-badge" id="precioSuperBadgeCompra" style="display: none;">Super promocion
+                    </div>
                     <p class="precio-kicker">Precio por boleto</p>
-                    <div class="precio-big"><span id="precioDinamico"><script>document.write((function(){const precio=Number(window.__RIFAPLUS_COMPRA_PRICE_SNAPSHOT__?.precioVisible);return Number.isFinite(precio)&&precio>0?`$${precio.toFixed(2)}`:'';})());</script></span></div>
+                    <div class="precio-big"><span id="precioDinamico">
+                            <script>document.write((function () { const precio = Number(window.__RIFAPLUS_COMPRA_PRICE_SNAPSHOT__?.precioVisible); return Number.isFinite(precio) && precio > 0 ? `$${precio.toFixed(2)}` : ''; })());</script>
+                        </span></div>
                     <p class="precio-caption">Tu entrada directa al sorteo</p>
                 </div>
-                
+
                 <!-- PRECIO CON OFERTA (cuando hay promoción) -->
                 <div id="precioOfertaCompra" class="precio-oferta-mode" style="display: none;">
                     <div class="oferta-topline">
@@ -604,13 +712,13 @@
                         </div>
                         <p class="precio-kicker">Promoción activa</p>
                     </div>
-                    
+
                     <!-- Precio normal tachado -->
                     <div class="oferta-precio-normal">
                         <h4>Precio Regular</h4>
                         <div class="precio-tachado" id="precioNormalOfertaCompra">$20</div>
                     </div>
-                    
+
                     <!-- Precio de oferta resaltado -->
                     <div class="oferta-precio-destacado">
                         <h3>Precio Especial</h3>
@@ -619,23 +727,25 @@
                     <p class="precio-caption">Aprovecha este precio antes de que termine</p>
                 </div>
             </div>
-            
+
             <!-- VIGENCIA DE LA OFERTA - Fuera de la card -->
             <div class="oferta-vigencia" id="ofertaVigenciaCompra" style="display: none;">
                 <span class="vigencia-icon" aria-hidden="true"><i class="fas fa-clock"></i></span>
                 <span class="vigencia-text" id="vigenciaOfertaCompra">Vigencia hasta: 15/03/2026 a las 23:59</span>
             </div>
-            
+
             <div class="promociones-panel" id="promocionesPanel" style="display: none;">
                 <div class="promociones-header" id="promocionesHeader">
                     <h3 class="promociones-title">Promociones</h3>
                 </div>
 
                 <div class="promociones-sections">
-                    <section class="promociones-block promociones-block--oportunidades" id="oportunidadesBlock" style="display: none;">
+                    <section class="promociones-block promociones-block--oportunidades" id="oportunidadesBlock"
+                        style="display: none;">
                         <div class="promociones-block-header">
                             <h4 class="promociones-block-title">Oportunidades extra</h4>
-                            <p class="promociones-block-sub" id="oportunidadesSubText">Cada boleto multiplica tus posibilidades de ganar.</p>
+                            <p class="promociones-block-sub" id="oportunidadesSubText">Cada boleto multiplica tus
+                                posibilidades de ganar.</p>
                         </div>
                         <div class="promos-cards" id="oportunidadesCards">
                             <!-- Se carga dinámicamente desde config.js -->
@@ -645,7 +755,8 @@
                     <section class="promociones-block" id="descuentosBlock" style="display: none;">
                         <div class="promociones-block-header">
                             <h4 class="promociones-block-title">Ahorra al comprar más</h4>
-                            <p class="promociones-block-sub" id="descuentosSubText">Llévate más boletos por un mejor precio.</p>
+                            <p class="promociones-block-sub" id="descuentosSubText">Llévate más boletos por un mejor
+                                precio.</p>
                         </div>
                         <div class="promos-cards" id="promosCards">
                             <!-- Se carga dinámicamente desde config.js -->
@@ -657,7 +768,8 @@
     </section>
 
     <!-- SECCIÓN DE BONOS DE COMPRA -->
-    <section class="bonificaciones-section bonos-compra-section perf-defer-mobile perf-defer-mobile--compact" id="bonosCompraSection" style="display: none;">
+    <section class="bonificaciones-section bonos-compra-section perf-defer-mobile perf-defer-mobile--compact"
+        id="bonosCompraSection" style="display: none;">
         <div class="container">
             <h3 class="bonificaciones-title">Bonos disponibles</h3>
             <div class="bonificaciones-cards bonos-compra-cards" id="bonosCompraCards">
@@ -681,10 +793,13 @@
                         <div class="maquina-quick-picks" id="maquinaQuickPicks" aria-label="Cantidades rápidas"></div>
                         <div class="number-selector">
                             <button type="button" class="number-btn" id="disminuirCantidad">-</button>
-                            <input type="number" id="cantidadNumeros" placeholder="0" min="0" max="500" step="1" inputmode="numeric" class="number-input">
+                            <input type="number" id="cantidadNumeros" placeholder="0" min="0" max="500" step="1"
+                                inputmode="numeric" class="number-input">
                             <button type="button" class="number-btn" id="aumentarCantidad">+</button>
                         </div>
-                        <small id="maquinaLimiteHint" class="form-helper" style="display:block; margin-top:0.5rem;">Puedes generar hasta 500 boletos por ronda.</small>
+                        <small id="maquinaLimiteHint" class="form-helper"
+                            style="display:block; margin-top:0.5rem;">Puedes generar hasta 500 boletos por
+                            ronda.</small>
                     </div>
 
                     <div class="total-section">
@@ -692,13 +807,16 @@
                         <div class="total-amount" id="totalMaquina">$0.00</div>
                     </div>
 
-                    <div id="maquinaStatus" class="maquina-status" style="margin-top:8px; font-size:0.9rem; color:var(--muted); display:none;">Cargando configuración de la rifa...</div>
+                    <div id="maquinaStatus" class="maquina-status"
+                        style="margin-top:8px; font-size:0.9rem; color:var(--muted); display:none;">Cargando
+                        configuración de la rifa...</div>
 
                     <button class="btn btn-primary btn-generar" id="btnGenerarNumeros" disabled>
                         GENERAR NÚMEROS
                     </button>
-                    <div class="availability-note" id="availabilityNote" style="visibility:hidden; opacity:0;">Cargando disponibilidad...</div>
-                    
+                    <div class="availability-note" id="availabilityNote" style="visibility:hidden; opacity:0;">Cargando
+                        disponibilidad...</div>
+
                 </div>
 
                 <div class="maquina-resultado" id="maquinaResultado" style="display:none;">
@@ -736,34 +854,23 @@
                         </div>
                     </div>
 
-                    <label for="busquedaBoleto" class="busqueda-label" id="busquedaLabelPrincipal">Buscar boleto por número:</label>
+                    <label for="busquedaBoleto" class="busqueda-label" id="busquedaLabelPrincipal">Buscar boleto por
+                        número:</label>
                     <div class="busqueda-wrapper" id="busquedaWrapperPrincipal">
                         <span class="busqueda-input-icon" aria-hidden="true"><i class="fas fa-search"></i></span>
-                        <input 
-                            type="text"
-                            inputmode="numeric"
-                            pattern="[0-9]*"
-                            id="busquedaBoleto" 
-                            class="busqueda-input" 
-                            placeholder="Ej. 42" 
-                            aria-label="Buscar boleto por número"
-                        >
-                        <input 
-                            type="text"
-                            inputmode="numeric"
-                            pattern="[0-9]*"
-                            id="busquedaBoletoFin"
-                            class="busqueda-input busqueda-input-secundario"
-                            placeholder="Hasta"
-                            aria-label="Fin del rango de búsqueda"
-                            hidden
-                        >
+                        <input type="text" inputmode="numeric" pattern="[0-9]*" id="busquedaBoleto"
+                            class="busqueda-input" placeholder="Ej. 42" aria-label="Buscar boleto por número">
+                        <input type="text" inputmode="numeric" pattern="[0-9]*" id="busquedaBoletoFin"
+                            class="busqueda-input busqueda-input-secundario" placeholder="Hasta"
+                            aria-label="Fin del rango de búsqueda" hidden>
                         <button type="button" id="btnBuscarBoleto" class="btn btn-search">
                             Buscar
                         </button>
                     </div>
-                    <p class="busqueda-helper-text" id="busquedaHelperText">Escribe un número exacto para ir directo a ese boleto.</p>
-                    <p class="busqueda-rango">Rango de boletos: <span id="rangoInicio">0</span> - <span id="rangoTotal">999</span></p>
+                    <p class="busqueda-helper-text" id="busquedaHelperText">Escribe un número exacto para ir directo a
+                        ese boleto.</p>
+                    <p class="busqueda-rango">Rango de boletos: <span id="rangoInicio">0</span> - <span
+                            id="rangoTotal">999</span></p>
                     <p class="busqueda-feedback" id="busquedaFeedback" aria-live="polite"></p>
                 </div>
                 <div class="busqueda-resultados" id="busquedaResultados" style="display: none;">
@@ -800,7 +907,8 @@
                     <input type="checkbox" id="filtroDisponibles" class="switch-input">
                     <span class="switch-copy">
                         <span class="switch-label" id="filtroDisponiblesLabel">Mostrando disponibles</span>
-                        <span class="switch-help" id="filtroDisponiblesHelp">Recomendado: muestra solo boletos que puedes elegir ahora.</span>
+                        <span class="switch-help" id="filtroDisponiblesHelp">Recomendado: muestra solo boletos que
+                            puedes elegir ahora.</span>
                     </span>
                     <span class="switch-slider"></span>
                 </label>
@@ -831,8 +939,13 @@
             </div>
             <style>
                 @keyframes spin {
-                    0% { transform: translate(-50%, -50%) rotate(0deg); }
-                    100% { transform: translate(-50%, -50%) rotate(360deg); }
+                    0% {
+                        transform: translate(-50%, -50%) rotate(0deg);
+                    }
+
+                    100% {
+                        transform: translate(-50%, -50%) rotate(360deg);
+                    }
                 }
             </style>
         </div>
@@ -844,7 +957,9 @@
             <!-- 📱 BOLETERA DIGITAL CTA - LÍNEA DISCRETA -->
             <div class="footer-boletera-cta">
                 <div class="boletera-content">
-                    ¿Necesitas una boletera digital? <a href="https://wa.me/524591153960?text=Hola%2C%20me%20interesa%20conocer%20m%C3%A1s%20sobre%20las%20boleteras%20digitales" class="btn-boletera-whatsapp" target="_blank" rel="noopener noreferrer">Consulta aquí</a>
+                    ¿Necesitas una boletera digital? <a
+                        href="https://wa.me/524591153960?text=Hola%2C%20me%20interesa%20conocer%20m%C3%A1s%20sobre%20las%20boleteras%20digitales"
+                        class="btn-boletera-whatsapp" target="_blank" rel="noopener noreferrer">Consulta aquí</a>
                 </div>
             </div>
 
@@ -852,7 +967,9 @@
                 <!-- Columna izquierda: Logo y nombre -->
                 <div class="footer-logo-section">
                     <div class="footer-logo-box">
-                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 96'%3E%3Crect width='240' height='96' rx='20' fill='%230b2235'/%3E%3Ctext x='120' y='58' font-size='28' text-anchor='middle' fill='%23ffffff' font-family='Arial,sans-serif'%3ESorteo%3C/text%3E%3C/svg%3E" alt="Logo del organizador" class="footer-logo-img dynamic-logo" data-dynamic-logo="true" width="200" height="100">
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 96'%3E%3Crect width='240' height='96' rx='20' fill='%230b2235'/%3E%3Ctext x='120' y='58' font-size='28' text-anchor='middle' fill='%23ffffff' font-family='Arial,sans-serif'%3ESorteo%3C/text%3E%3C/svg%3E"
+                            alt="Logo del organizador" class="footer-logo-img dynamic-logo" data-dynamic-logo="true"
+                            width="200" height="100">
                     </div>
                     <h3 id="footerNombre" class="footer-client-name">SORTEO</h3>
                     <p id="footerEslogan" class="footer-eslogan">Rifas 100% Transparentes y Seguras</p>
@@ -866,8 +983,10 @@
                         <!-- Se carga dinámicamente desde config.js -->
                     </div>
                     <div class="footer-contact-details">
-                        <p><i class="fas fa-envelope"></i> <a id="footerEmail" href="mailto:contacto@mirifa.com">contacto@mirifa.com</a></p>
-                        <p><i class="fas fa-phone"></i> <a id="footerTelefono" href="tel:+525512345678">+52 55-1234-5678</a></p>
+                        <p><i class="fas fa-envelope"></i> <a id="footerEmail"
+                                href="mailto:contacto@mirifa.com">contacto@mirifa.com</a></p>
+                        <p><i class="fas fa-phone"></i> <a id="footerTelefono" href="tel:+525512345678">+52
+                                55-1234-5678</a></p>
                     </div>
                 </div>
             </div>
@@ -883,7 +1002,7 @@
     </footer>
 
     <!-- MODALES -->
-    
+
     <!-- MODAL FORMULARIO DE CONTACTO -->
     <div class="modal modal-overlay" id="modalContacto">
         <div class="modal-content modal-contacto">
@@ -914,7 +1033,8 @@
 
                     <div class="form-group">
                         <label for="clienteWhatsapp">Número WhatsApp (10 números) *</label>
-                        <input type="text" id="clienteWhatsapp" name="whatsapp" required maxlength="10" inputmode="numeric" pattern="[0-9]*">
+                        <input type="text" id="clienteWhatsapp" name="whatsapp" required maxlength="10"
+                            inputmode="numeric" pattern="[0-9]*">
                         <span class="form-error" id="errorWhatsapp"></span>
                     </div>
 
@@ -964,7 +1084,8 @@
             </div>
             <div class="modal-footer modal-footer-contacto">
                 <button class="btn btn-outline" id="btnCancelarContacto">Cancelar</button>
-                <button class="btn btn-continuar" id="btnContinuarContacto">Apartar boletos <span aria-hidden="true">→</span></button>
+                <button class="btn btn-continuar" id="btnContinuarContacto">Apartar boletos <span
+                        aria-hidden="true">→</span></button>
             </div>
         </div>
     </div>
@@ -974,15 +1095,17 @@
         <div class="modal-carrito">
             <div class="modal-carrito-header">
                 <div class="modal-carrito-heading">
-                    <h2><span>Tu Carrito</span><span class="modal-carrito-title-icon" aria-hidden="true"><i class="fas fa-shopping-cart"></i></span></h2>
+                    <h2><span>Tu Carrito</span><span class="modal-carrito-title-icon" aria-hidden="true"><i
+                                class="fas fa-shopping-cart"></i></span></h2>
                 </div>
                 <button class="modal-carrito-close" id="closeCarrito" aria-label="Cerrar carrito">×</button>
             </div>
-            
+
             <div class="modal-carrito-body">
                 <div class="carrito-vacio" id="carritoVacio">
                     <div class="carrito-vacio-content">
-                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 96'%3E%3Crect width='240' height='96' rx='20' fill='%230b2235'/%3E%3Ctext x='120' y='58' font-size='28' text-anchor='middle' fill='%23ffffff' font-family='Arial,sans-serif'%3ESorteo%3C/text%3E%3C/svg%3E" alt="Logo del organizador" class="carrito-logo dynamic-logo" data-dynamic-logo="true">
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 96'%3E%3Crect width='240' height='96' rx='20' fill='%230b2235'/%3E%3Ctext x='120' y='58' font-size='28' text-anchor='middle' fill='%23ffffff' font-family='Arial,sans-serif'%3ESorteo%3C/text%3E%3C/svg%3E"
+                            alt="Logo del organizador" class="carrito-logo dynamic-logo" data-dynamic-logo="true">
                         <p class="carrito-vacio-titulo">Tu carrito está vacío</p>
                         <p class="carrito-vacio-subtitulo">¡Comienza a seleccionar tus boletos favoritos!</p>
                         <button class="btn btn-primary btn-carrito-comprar" id="btnIrAComprar">
@@ -1006,7 +1129,8 @@
                             <span>Cantidad de boletos:</span>
                             <strong id="carritoResumenCantidad">0</strong>
                         </div>
-                        <button class="btn btn-danger btn-sm" id="btnLimpiarCarrito" title="Eliminar todos los boletos" aria-label="Eliminar todos los boletos del carrito">
+                        <button class="btn btn-danger btn-sm" id="btnLimpiarCarrito" title="Eliminar todos los boletos"
+                            aria-label="Eliminar todos los boletos del carrito">
                             Limpiar carrito
                         </button>
                     </div>
@@ -1018,7 +1142,8 @@
                         <span>Descuento:</span>
                         <div class="descuento-promo-wrap">
                             <strong id="carritoResumenDescuento">$0</strong>
-                            <span id="descuentoPromoLabel" class="descuento-promo-label" style="display: none;">PROMO</span>
+                            <span id="descuentoPromoLabel" class="descuento-promo-label"
+                                style="display: none;">PROMO</span>
                         </div>
                     </div>
                     <div class="carrito-resumen-total">
@@ -1029,7 +1154,8 @@
 
                 <div class="carrito-acciones carrito-acciones-bottom">
                     <button class="btn btn-outline" id="btnSeguirComprando">Seguir comprando</button>
-                    <button class="btn btn-primary btn-lg" id="btnProcederCarrito" disabled>Proceder al pago <span aria-hidden="true">→</span></button>
+                    <button class="btn btn-primary btn-lg" id="btnProcederCarrito" disabled>Proceder al pago <span
+                            aria-hidden="true">→</span></button>
                 </div>
             </div>
         </div>
@@ -1041,21 +1167,24 @@
             <div class="modal-header modal-header-center">
                 <div class="modal-cuentas-heading">
                     <h2>Elige tu forma de pago</h2>
-                    <p class="modal-cuentas-sub">Selecciona la cuenta o tienda donde realizarás tu pago para continuar.</p>
+                    <p class="modal-cuentas-sub">Selecciona la cuenta o tienda donde realizarás tu pago para continuar.
+                    </p>
                 </div>
                 <button class="modal-close" id="closeModalSeleccionCuenta" aria-label="Cerrar">×</button>
             </div>
             <div class="modal-body-cuentas">
                 <!-- Sección Transferencias -->
                 <div class="payment-method-section">
-                    <h3 class="payment-section-title"><span class="payment-section-icon" aria-hidden="true"><i class="fas fa-building-columns"></i></span><span>Transferencia bancaria</span></h3>
+                    <h3 class="payment-section-title"><span class="payment-section-icon" aria-hidden="true"><i
+                                class="fas fa-building-columns"></i></span><span>Transferencia bancaria</span></h3>
                     <p class="payment-method-subtitle">Desde tu app o banca en línea.</p>
                     <div id="transferenciasLista" class="cuentas-stack-list"></div>
                 </div>
 
                 <!-- Sección Efectivo -->
                 <div class="payment-method-section">
-                    <h3 class="payment-section-title"><span class="payment-section-icon" aria-hidden="true"><i class="fas fa-money-bill-wave"></i></span><span>Depósito en efectivo</span></h3>
+                    <h3 class="payment-section-title"><span class="payment-section-icon" aria-hidden="true"><i
+                                class="fas fa-money-bill-wave"></i></span><span>Depósito en efectivo</span></h3>
                     <p class="payment-method-subtitle">En tienda o ventanilla.</p>
                     <div id="efectivoLista" class="cuentas-stack-list"></div>
                 </div>
@@ -1064,17 +1193,26 @@
     </div>
 
     <!-- MODAL LOADING -->
-    <div id="modalLoadingOrden" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999; align-items: center; justify-content: center; flex-direction: column;">
-        <div style="background: white; padding: 40px; border-radius: 12px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
-            <div style="width: 60px; height: 60px; border: 4px solid #f0f0f0; border-top: 4px solid var(--secondary); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px;" id="spinnerOrden"></div>
+    <div id="modalLoadingOrden"
+        style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999; align-items: center; justify-content: center; flex-direction: column;">
+        <div
+            style="background: white; padding: 40px; border-radius: 12px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+            <div style="width: 60px; height: 60px; border: 4px solid #f0f0f0; border-top: 4px solid var(--secondary); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px;"
+                id="spinnerOrden"></div>
             <h3 style="margin: 0 0 10px 0; color: #333; font-size: 18px;">⏳ Apartando tu orden...</h3>
-            <p style="margin: 5px 0 15px 0; color: #666; font-size: 14px;">Por favor espera, esto puede tomar algunos segundos</p>
+            <p style="margin: 5px 0 15px 0; color: #666; font-size: 14px;">Por favor espera, esto puede tomar algunos
+                segundos</p>
             <p id="tiempoTranscurrido" style="margin: 0; color: #999; font-size: 12px;">Tiempo: 0s</p>
         </div>
         <style>
             @keyframes spin {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
+                0% {
+                    transform: rotate(0deg);
+                }
+
+                100% {
+                    transform: rotate(360deg);
+                }
             }
         </style>
     </div>
@@ -1084,7 +1222,8 @@
         <div class="orden-formal-container">
             <div class="orden-formal-header">
                 <h2>Orden de Pago</h2>
-                <p style="font-size: 0.9rem; opacity: 0.9; margin-bottom: 8px;">Revise el resumen de su orden y los datos para realizar su pago.</p>
+                <p style="font-size: 0.9rem; opacity: 0.9; margin-bottom: 8px;">Revise el resumen de su orden y los
+                    datos para realizar su pago.</p>
                 <p>Puede descargarla o capturarla antes de hacer clic en "Apartar boletos".</p>
             </div>
             <div class="orden-formal-content">
@@ -1119,9 +1258,9 @@
             try {
                 const urlParams = new URLSearchParams(window.location.search);
                 const rifaSlug = urlParams.get('rifa');
-                
+
                 if (!rifaSlug) return;
-                
+
                 const enlaces = document.querySelectorAll('a.nav-link, a.overlay-link, .btn-flotante-comprobante');
                 enlaces.forEach(enlace => {
                     const href = enlace.getAttribute('href');
@@ -1130,7 +1269,7 @@
                         enlace.setAttribute('href', `${href}${separator}rifa=${encodeURIComponent(rifaSlug)}`);
                     }
                 });
-                
+
                 console.log(`[Rifa Preservation] ✅ Parámetro rifa=${rifaSlug} preservado en ${enlaces.length} enlaces`);
             } catch (error) {
                 console.warn('[Rifa Preservation] Error:', error);
@@ -1145,4 +1284,5 @@
     </a>
 
 </body>
+
 </html>

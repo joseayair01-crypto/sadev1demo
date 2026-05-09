@@ -984,6 +984,53 @@ async function generarNumerosVerificadosEnServidor(cantidad) {
         .filter((numero) => Number.isInteger(numero) && !excludeNumbers.includes(numero));
 }
 
+var optimizedTicketsGlobal = [];
+
+async function cargarBoletosOptimizadoEnBackground(endpoint, opciones = {}) {
+    try {
+        const { force = false, reason = 'normal' } = opciones;
+        
+        logCompraDebug(`[compra] Cargando boletos optimizados en background (${reason})`);
+
+        const fetchUrl = new URL(`${endpoint}/api/public/boletos/optimizado`);
+        const activeSlug = obtenerSlugRifaActualCompra();
+        if (activeSlug) {
+            fetchUrl.searchParams.set('rifa', activeSlug);
+        }
+
+        const respuesta = await fetch(fetchUrl.toString(), {
+            cache: 'no-store'
+        });
+
+        if (!respuesta.ok) {
+            throw new Error(`Error en endpoint optimizado: ${respuesta.status}`);
+        }
+
+        const json = await respuesta.json();
+        if (json && json.success && Array.isArray(json.data)) {
+            optimizedTicketsGlobal = json.data;
+            window.rifaplusOptimizedTickets = json.data;
+            logCompraDebug(`[compra] Se cargaron exitosamente ${optimizedTicketsGlobal.length} boletos optimizados`);
+
+            // Marcar datos como cargados para el sistema de disponibilidad de la UI
+            window.rifaplusBoletosLoaded = true;
+            window.rifaplusBoletosLoading = false;
+            
+            if (typeof controlarEstadoBotonesLoQuiero === 'function') {
+                controlarEstadoBotonesLoQuiero();
+            }
+
+            mostrarEstadoCargaGrid(false);
+            return true;
+        }
+        return false;
+    } catch (error) {
+        console.warn('⚠️ Error en cargarBoletosOptimizadoEnBackground:', error.message);
+        window.rifaplusBoletosLoaded = false;
+        return false;
+    }
+}
+
 async function cargarEstadoRangoVisibleEnBackground(endpoint, inicio, fin, opciones = {}) {
     const { force = false, reason = 'normal' } = opciones;
     const rangoInicio = parseInt(inicio, 10);
@@ -1412,16 +1459,22 @@ async function cargarBoletosPublicos() {
  */
 async function cargarDatosCompletosEnBackground(endpoint, rango = null, opciones = {}) {
     try {
-        const rangoObjetivo = rango || infiniteScrollState.rangoActual || obtenerRangoVisibleInicial();
+        const isOptimizado = window.rifaplusConfig?.rifa?.modoOptimizado === true || window.rifaplusConfig?.rifa?.modoOptimizado === 'true';
         const { force = false, reason = 'background' } = opciones;
-        logCompraDebug(`[compra] Cargando rango en background ${rangoObjetivo.inicio}-${rangoObjetivo.fin} (${reason})`);
 
-        const exito = await cargarEstadoRangoVisibleEnBackground(
-            endpoint,
-            rangoObjetivo.inicio,
-            rangoObjetivo.fin,
-            { force, reason }
-        );
+        let exito = false;
+        if (isOptimizado) {
+            exito = await cargarBoletosOptimizadoEnBackground(endpoint, { force, reason });
+        } else {
+            const rangoObjetivo = rango || infiniteScrollState.rangoActual || obtenerRangoVisibleInicial();
+            logCompraDebug(`[compra] Cargando rango en background ${rangoObjetivo.inicio}-${rangoObjetivo.fin} (${reason})`);
+            exito = await cargarEstadoRangoVisibleEnBackground(
+                endpoint,
+                rangoObjetivo.inicio,
+                rangoObjetivo.fin,
+                { force, reason }
+            );
+        }
 
         if (exito) {
             // Indicar que los datos de disponibilidad ya se cargaron
@@ -2834,6 +2887,23 @@ function generarBotonesRango() {
     
     // Limpiar botones previos
     rangoBoxes.innerHTML = '';
+
+    const isOptimizado = window.rifaplusConfig?.rifa?.modoOptimizado === true || window.rifaplusConfig?.rifa?.modoOptimizado === 'true';
+
+    // Ocultar filtro de boletos en modo optimizado ya que todos los mostrados están disponibles
+    const filtroContainer = document.querySelector('.filtro-boletos');
+    if (filtroContainer) {
+        filtroContainer.style.display = isOptimizado ? 'none' : '';
+    }
+
+    if (isOptimizado) {
+        rangoBoxes.style.display = 'none';
+        if (instruccionRango) {
+            instruccionRango.style.display = 'none';
+        }
+        logCompraDebug('[compra] Modo Optimizado activo: se oculta el selector de rangos.');
+        return true;
+    }
     
     // SOLO usar rangos de config.js (sin fallback)
     const rangos = (window.rifaplusConfig?.rifa?.rangos || []).filter(rango =>
@@ -2914,6 +2984,15 @@ function inicializarRangoDefault() {
     if (!Number.isFinite(totalBoletosConfig) || totalBoletosConfig <= 0) {
         console.warn('[Máquina] totalBoletos no disponible aún, postponiendo inicialización de rango');
         return false;
+    }
+
+    const isOptimizado = window.rifaplusConfig?.rifa?.modoOptimizado === true || window.rifaplusConfig?.rifa?.modoOptimizado === 'true';
+
+    if (isOptimizado) {
+        void renderRange(0, 0, {
+            reason: 'rango-inicial'
+        });
+        return true;
     }
 
     // Usar SIEMPRE el primer rango de config.js
@@ -3000,7 +3079,10 @@ async function renderRange(inicio, fin, opciones = {}) {
     const endpoint = obtenerApiBaseCompra();
     const container = document.querySelector('.boletos-container-scrolleable');
     const renderRequestId = ++infiniteScrollState.renderRequestId;
-    const estadoYaDisponible = rifaplusEstadoRangoActual.cargado &&
+
+    const isOptimizado = window.rifaplusConfig?.rifa?.modoOptimizado === true || window.rifaplusConfig?.rifa?.modoOptimizado === 'true';
+
+    const estadoYaDisponible = !isOptimizado && rifaplusEstadoRangoActual.cargado &&
         rifaplusEstadoRangoActual.inicio === rangoNormalizado.inicio &&
         rifaplusEstadoRangoActual.fin === rangoNormalizado.fin &&
         rifaplusEstadoRangoActual.endpoint === endpoint;
@@ -3008,8 +3090,8 @@ async function renderRange(inicio, fin, opciones = {}) {
     infiniteScrollState.lastRenderTime = Date.now();
     infiniteScrollState.rangoActual = { ...rangoNormalizado };
     infiniteScrollState.boletosCargados = 0;
-    infiniteScrollState.cursorNumero = rangoNormalizado.inicio;
-    infiniteScrollState.modoDisponibles = filtroDisponiblesActivo && !estaVistaBusquedaActiva();
+    infiniteScrollState.cursorNumero = isOptimizado ? 0 : rangoNormalizado.inicio;
+    infiniteScrollState.modoDisponibles = isOptimizado ? false : (filtroDisponiblesActivo && !estaVistaBusquedaActiva());
     infiniteScrollState.hasMore = true;
     infiniteScrollState.isLoading = false;
 
@@ -3027,12 +3109,17 @@ async function renderRange(inicio, fin, opciones = {}) {
     }
 
     try {
-        const exito = await cargarEstadoRangoVisibleEnBackground(
-            endpoint,
-            rangoNormalizado.inicio,
-            rangoNormalizado.fin,
-            { reason }
-        );
+        let exito = false;
+        if (isOptimizado) {
+            exito = await cargarBoletosOptimizadoEnBackground(endpoint, { reason });
+        } else {
+            exito = await cargarEstadoRangoVisibleEnBackground(
+                endpoint,
+                rangoNormalizado.inicio,
+                rangoNormalizado.fin,
+                { reason }
+            );
+        }
 
         if (renderRequestId !== infiniteScrollState.renderRequestId) {
             return;
@@ -3042,7 +3129,7 @@ async function renderRange(inicio, fin, opciones = {}) {
             infiniteScrollState.hasMore = false;
             grid.innerHTML = `
                 <div class="resultados-vacio resultados-vacio--grid" data-grid-empty-error="true">
-                    No pudimos cargar la disponibilidad de este rango. Intenta nuevamente en unos segundos.
+                    No pudimos cargar la disponibilidad en este momento. Intenta nuevamente en unos segundos.
                 </div>
             `;
             return;
@@ -3068,7 +3155,7 @@ async function renderRange(inicio, fin, opciones = {}) {
         infiniteScrollState.hasMore = false;
         grid.innerHTML = `
             <div class="resultados-vacio resultados-vacio--grid" data-grid-empty-error="true">
-                No pudimos preparar este rango en este momento.
+                No pudimos preparar la cuadrícula en este momento.
             </div>
         `;
         console.error('❌ Error renderizando rango:', error);
@@ -3088,11 +3175,16 @@ function infiniteScrollLoadMore(opciones = {}) {
     infiniteScrollState.isLoading = true;
     grid.style.pointerEvents = 'none';
 
-    const { inicio, fin } = infiniteScrollState.rangoActual;
-    const mostrarSoloDisponibles = infiniteScrollState.modoDisponibles === true;
+    const isOptimizado = window.rifaplusConfig?.rifa?.modoOptimizado === true || window.rifaplusConfig?.rifa?.modoOptimizado === 'true';
+
+    const { inicio, fin } = isOptimizado 
+        ? { inicio: 0, fin: Math.max(0, (window.rifaplusOptimizedTickets || []).length - 1) } 
+        : infiniteScrollState.rangoActual;
+        
+    const mostrarSoloDisponibles = isOptimizado ? false : (infiniteScrollState.modoDisponibles === true);
     let cursor = Number.isInteger(infiniteScrollState.cursorNumero) ? infiniteScrollState.cursorNumero : inicio;
 
-    if (cursor > fin) {
+    if (cursor > fin || (isOptimizado && (!window.rifaplusOptimizedTickets || window.rifaplusOptimizedTickets.length === 0))) {
         infiniteScrollState.hasMore = false;
         infiniteScrollState.isLoading = false;
         grid.style.pointerEvents = 'auto';
@@ -3108,7 +3200,8 @@ function infiniteScrollLoadMore(opciones = {}) {
     let revisados = 0;
 
     while (cursor <= fin && htmlParts.length < infiniteScrollState.BOLETOS_POR_CARGA && revisados < maxRevision) {
-        const markup = construirMarkupBotonGrid(cursor, soldSet, reservedSet, {
+        const ticketNumber = isOptimizado ? window.rifaplusOptimizedTickets[cursor] : cursor;
+        const markup = construirMarkupBotonGrid(ticketNumber, soldSet, reservedSet, {
             mostrarSoloDisponibles
         });
 
@@ -3130,7 +3223,7 @@ function infiniteScrollLoadMore(opciones = {}) {
     infiniteScrollState.isLoading = false;
     grid.style.pointerEvents = 'auto';
 
-    if (filtroDisponiblesActivo && !mostrarSoloDisponibles) {
+    if (!isOptimizado && filtroDisponiblesActivo && !mostrarSoloDisponibles) {
         aplicarFiltroDisponibles(true, { persistir: false });
     }
 

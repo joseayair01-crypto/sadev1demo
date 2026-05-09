@@ -1104,14 +1104,28 @@
 
                 const whatsappUrl = normalizarUrlExterna(obtenerClientePublico()?.redesSociales?.canalWhatsapp);
                 const esBonoWhatsappPrimario = esBonoCanalWhatsappPrimario(bono);
-                const mostrarBotonCanalWhatsapp = Boolean(whatsappUrl) && esBonoWhatsappPrimario;
+                
+                // Determinar la acción del botón de forma retrocompatible
+                let accionBoton = bono.accion || 'ninguna';
+                if (!bono.accion && esBonoWhatsappPrimario) {
+                    accionBoton = 'whatsapp';
+                }
 
-                if (mostrarBotonCanalWhatsapp) {
+                if (accionBoton === 'whatsapp' && whatsappUrl) {
                     contenido += `
                         <div class="bono-accion">
                             <a href="${whatsappUrl}" target="_blank" rel="noopener noreferrer" class="bono-btn-whatsapp bono-btn-whatsapp--compact">
                                 <i class="fab fa-whatsapp"></i>
                                 Unirse
+                            </a>
+                        </div>
+                    `;
+                } else if (accionBoton === 'ver_redes') {
+                    contenido += `
+                        <div class="bono-accion">
+                            <a href="#contacto" class="bono-btn-redes bono-btn-redes--compact" onclick="event.preventDefault(); document.getElementById('contacto')?.scrollIntoView({ behavior: 'smooth' });">
+                                <i class="fas fa-share-alt"></i>
+                                Ver redes
                             </a>
                         </div>
                     `;

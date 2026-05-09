@@ -86,7 +86,8 @@ const PUBLIC_READ_RATE_LIMIT_PATHS = new Set([
     '/api/public/config',
     '/api/public/ordenes-stats',
     '/api/public/boletos',
-    '/api/public/boletos/stats'
+    '/api/public/boletos/stats',
+    '/api/public/boletos/optimizado'
 ]);
 
 const limiterPushPublico = rateLimit({
@@ -5956,6 +5957,11 @@ app.patch('/api/admin/config', verificarToken, async (req, res) => {
                 });
             }
 
+            if (req.body.rifa.modoOptimizado !== undefined) {
+                config.rifa.modoOptimizado = req.body.rifa.modoOptimizado === true || req.body.rifa.modoOptimizado === 'true';
+                console.log('[PATCH /api/admin/config] ⚙️ Modo Optimizado actualizado:', config.rifa.modoOptimizado);
+            }
+
             // ⏰ AGREGAR SOPORTE PARA TIEMPO DE APARTADO
             if (req.body.rifa.tiempoApartadoHoras !== undefined) {
                 const tiempoAnterior = config.rifa.tiempoApartadoHoras;
@@ -10031,6 +10037,74 @@ app.get('/api/public/boletos/stats', async (req, res) => {
                 queryTime: 0,
                 error: error.message
             }
+        });
+    }
+});
+
+app.get('/api/public/boletos/optimizado', async (req, res) => {
+    const startTime = Date.now();
+    const rifaContext = req.rifaContext || {};
+    const rifaIdActual = Number.parseInt(rifaContext.id, 10) || null;
+
+    try {
+        if (!rifaIdActual) {
+            return res.status(400).json({
+                success: false,
+                message: 'No se pudo identificar el contexto del sorteo'
+            });
+        }
+
+        const configContextual = rifaContext.configuracion || obtenerConfigActual(rifaIdActual) || {};
+        const isOptimizado = configContextual?.rifa?.modoOptimizado === true || configContextual?.rifa?.modoOptimizado === 'true';
+
+        if (!isOptimizado) {
+            return res.status(400).json({
+                success: false,
+                message: 'El Modo Optimizado no está activo para este sorteo'
+            });
+        }
+
+        const totalBoletos = Number(configContextual?.rifa?.totalBoletos) || 1000000;
+
+        let inicioVisible = 0;
+        let finVisible = totalBoletos - 1;
+
+        const oportunidades = configContextual?.rifa?.oportunidades || {};
+        if (oportunidades.enabled && oportunidades.rango_visible) {
+            const rango = oportunidades.rango_visible;
+            if (rango && typeof rango === 'object' && rango.inicio !== undefined && rango.fin !== undefined) {
+                inicioVisible = Number(rango.inicio);
+                finVisible = Number(rango.fin);
+            }
+        }
+
+        const boletosRows = await db('boletos_estado')
+            .where('rifa_id', rifaIdActual)
+            .where('estado', 'disponible')
+            .whereNull('numero_orden')
+            .whereBetween('numero', [inicioVisible, finVisible])
+            .orderByRaw('RANDOM()')
+            .limit(5000)
+            .select('numero');
+
+        const numerosDisponibles = boletosRows.map(row => Number(row.numero)).sort((a, b) => a - b);
+        const queryTime = Date.now() - startTime;
+
+        setHttpCacheHeaders(res, 2, true);
+
+        return res.json({
+            success: true,
+            data: numerosDisponibles,
+            count: numerosDisponibles.length,
+            queryTimeMs: queryTime
+        });
+
+    } catch (error) {
+        console.error('GET /api/public/boletos/optimizado error:', error.message);
+        return res.status(500).json({
+            success: false,
+            message: 'Error al obtener boletos optimizados',
+            error: error.message
         });
     }
 });

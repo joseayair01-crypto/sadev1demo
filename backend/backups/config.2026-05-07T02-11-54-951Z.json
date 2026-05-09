@@ -101,7 +101,7 @@
       {
         "fin": 99999,
         "inicio": 0,
-        "nombre": "Rango 1"
+        "nombre": "Sorteo Completo"
       }
     ],
     "galeria": {
@@ -114,9 +114,9 @@
           "descripcion": ""
         },
         {
-          "url": "https://res.cloudinary.com/dhwvxom01/image/upload/v1777945603/rifaplus/sorteos/gallery-1777945602236-dPPHS-b02bcfa1eda2.webp",
+          "url": "https://res.cloudinary.com/dhwvxom01/image/upload/v1778070992/rifaplus/sorteos/gallery-1778070991510-Gemini_Generated_Image_avwyxpavwyxpavwy-aa478b064e4c.webp",
           "titulo": "Imagen 2",
-          "publicId": "rifaplus/sorteos/gallery-1777945602236-dPPHS-b02bcfa1eda2",
+          "publicId": "rifaplus/sorteos/gallery-1778070991510-Gemini_Generated_Image_avwyxpavwyxpavwy-aa478b064e4c",
           "descripcion": ""
         }
       ]
@@ -532,8 +532,8 @@
         "marketingRecencyDays": 120
       },
       "nuevaRifa": {
-        "body": "{organizerName} ya abrió {rifaNombre}. Entra ahora y aparta tus boletos.",
-        "title": "Nuevo sorteo disponible",
+        "body": "Vete a la verga verte a la verga vete a la verga",
+        "title": "Dile a mauricio que me la chupe",
         "enabled": true,
         "customUrl": "",
         "useCustomUrl": false,
