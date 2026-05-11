@@ -474,14 +474,14 @@ app.use((req, res, next) => {
 });
 
 // Parsear JSON y form data
-app.use(bodyParser.json({ limit: '50mb' }));
-app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
+app.use(bodyParser.json({ limit: '10mb' }));
+app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
 
 // Parsear archivos de formularios (FormData con archivos)
 app.use(fileUpload({
-    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB max para imágenes
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max para imágenes (blindaje de memoria RAM)
     abortOnLimit: true,
-    responseOnLimit: 'El archivo es demasiado grande. Máximo 50MB.'
+    responseOnLimit: 'El archivo es demasiado grande. El límite máximo permitido es de 10MB.'
 }));
 
 app.use(async (req, res, next) => {

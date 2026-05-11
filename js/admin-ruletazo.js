@@ -1,7 +1,39 @@
 /**
- * ADMIN RULETAZO - LÓGICA PRINCIPAL
- * Sistema de máquina de ruleta para sorteos administrativos
+ * Realiza peticiones HTTP autenticadas al backend de forma segura y robusta.
+ * Si ADMIN_LAYOUT está disponible, delega la llamada a este para un manejo
+ * global de autenticación (como redirecciones automáticas en caso de token expirado/403).
  */
+async function fetchAutenticadoRuletazo(url, options = {}) {
+    if (window.ADMIN_LAYOUT?.fetchAutenticado) {
+        return window.ADMIN_LAYOUT.fetchAutenticado(url, options);
+    }
+
+    // Fallback defensivo si ADMIN_LAYOUT no está cargado aún o no está disponible
+    const finalOptions = { ...options };
+    const headers = new Headers(finalOptions.headers || {});
+    
+    if (!headers.has('Content-Type')) {
+        headers.set('Content-Type', 'application/json');
+    }
+    
+    if (!headers.has('Authorization')) {
+        const token = localStorage.getItem('rifaplus_admin_token') || localStorage.getItem('admin_token') || '';
+        if (token) {
+            headers.set('Authorization', `Bearer ${token}`);
+        }
+    }
+    
+    finalOptions.headers = headers;
+    const response = await fetch(url, finalOptions);
+    
+    // Si la respuesta es 401 o 403 y existe ADMIN_LAYOUT, forzar el logout para evitar loops/pantallas congeladas
+    if ((response.status === 401 || response.status === 403) && window.ADMIN_LAYOUT?.logout) {
+        console.warn(`[Ruletazo] Error ${response.status} detectado. Redireccionando a login...`);
+        window.ADMIN_LAYOUT.logout(true);
+    }
+    
+    return response;
+}
 
 class RuletazoMachine {
     constructor() {
@@ -1047,11 +1079,8 @@ async function loadCurrentRifa() {
 
         const token = localStorage.getItem('rifaplus_admin_token') || localStorage.getItem('admin_token');
         
-        // 🚀 LANZAR TODO EN PARALELO
         const [rifasRes, boletosRes] = await Promise.all([
-            fetch(`${machine.apiBase}/api/admin/rifas?incluirDepuradas=true`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            }).catch(e => ({ ok: false, error: e })),
+            fetchAutenticadoRuletazo(`${machine.apiBase}/api/admin/rifas?incluirDepuradas=true`).catch(e => ({ ok: false, error: e })),
             
             fetch(`${machine.apiBase}/api/public/boletos?rifa_id=${rifaIdSeleccionada}`, {
                 headers: { 'X-Rifa-Id': String(rifaIdSeleccionada) }
@@ -1808,13 +1837,8 @@ async function viewTicketDetails(ticketNumber) {
         const apiBase = (window.rifaplusConfig?.backend?.apiBase)
             || window.rifaplusConfig?.obtenerApiBase?.()
             || window.location.origin;
-        const token = localStorage.getItem('rifaplus_admin_token') || localStorage.getItem('admin_token') || '';
-        const resOrdenes = await fetch(`${apiBase}/api/ordenes?limit=1000`, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
+        const resOrdenes = await fetchAutenticadoRuletazo(`${apiBase}/api/ordenes?limit=1000`, {
+            method: 'GET'
         });
         
         if (!resOrdenes.ok) {
@@ -1896,13 +1920,8 @@ async function markAsWinner(ticketNumber) {
         const apiBase = (window.rifaplusConfig?.backend?.apiBase)
             || window.rifaplusConfig?.obtenerApiBase?.()
             || window.location.origin;
-        const token = localStorage.getItem('rifaplus_admin_token') || localStorage.getItem('admin_token') || '';
-        const response = await fetch(`${apiBase}/api/admin/boleto/${ticketNumber}/ganador`, {
+        const response = await fetchAutenticadoRuletazo(`${apiBase}/api/admin/boleto/${ticketNumber}/ganador`, {
             method: 'PATCH',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
             body: JSON.stringify({ ganador: true })
         });
         
@@ -2010,7 +2029,6 @@ window.declararGanadorBackend = async function(numero, tipoGanador, lugarGanado)
     const apiBase = (window.rifaplusConfig?.backend?.apiBase)
         || window.rifaplusConfig?.obtenerApiBase?.()
         || window.location.origin;
-    const token = localStorage.getItem('rifaplus_admin_token') || localStorage.getItem('admin_token') || '';
 
     // ⚠️ CRÍTICO: Obtener rifa seleccionada para aislamiento multirifa
     // Intentar 1: localStorage (más confiable)
@@ -2040,14 +2058,14 @@ window.declararGanadorBackend = async function(numero, tipoGanador, lugarGanado)
 
     console.log(`🎡 [Ruletazo] Declarando ganador #${numero} como ${tipoGanador} en rifa_id=${rifaIdSeleccionada}`);
 
-    const response = await fetch(`${apiBase}/api/admin/declarar-ganador`, {
+    const headers = {};
+    if (rifaIdSeleccionada) {
+        headers['X-Rifa-Id'] = String(rifaIdSeleccionada);
+    }
+
+    const response = await fetchAutenticadoRuletazo(`${apiBase}/api/admin/declarar-ganador`, {
         method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            // ⚠️ ENVIAR HEADER X-Rifa-Id PARA AISLAMIENTO
-            'X-Rifa-Id': String(rifaIdSeleccionada)
-        },
+        headers,
         body: JSON.stringify({
             numero: Number(numero),
             tipo_ganador: tipoGanador,
@@ -2070,7 +2088,6 @@ window.eliminarGanadorBackend = async function(numero, tipoGanador = null) {
         const apiBase = (window.rifaplusConfig?.backend?.apiBase)
             || window.rifaplusConfig?.obtenerApiBase?.()
             || window.location.origin;
-        const token = localStorage.getItem('rifaplus_admin_token') || localStorage.getItem('admin_token') || '';
 
         // ⚠️ CRÍTICO: Obtener rifa seleccionada para aislamiento multirifa
         let rifaIdSeleccionada = null;
@@ -2086,15 +2103,12 @@ window.eliminarGanadorBackend = async function(numero, tipoGanador = null) {
             // localStorage no disponible
         }
 
-        const headers = {
-            'Authorization': `Bearer ${token}`
-        };
-        
+        const headers = {};
         if (rifaIdSeleccionada) {
             headers['X-Rifa-Id'] = String(rifaIdSeleccionada);
         }
 
-        const response = await fetch(`${apiBase}/api/admin/ganadores/${encodeURIComponent(numero)}`, {
+        const response = await fetchAutenticadoRuletazo(`${apiBase}/api/admin/ganadores/${encodeURIComponent(numero)}`, {
             method: 'DELETE',
             headers
         });
