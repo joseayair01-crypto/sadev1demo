@@ -2481,7 +2481,9 @@
 
         @media (min-width: 769px) {
             .orden-card {
-                max-width: 100%;
+                max-width: 680px;
+                margin-left: auto;
+                margin-right: auto;
             }
 
             .orden-imagen-principal {
@@ -2767,6 +2769,37 @@
 
             .orden-acciones .btn {
                 width: 100%;
+            }
+
+            /* 🖥️ OPTIMIZACIÓN DE TARJETAS Y OPORTUNIDADES PARA TABLETS (IPAD MINI / PANTALLAS MEDIANAS) */
+            .orden-card {
+                max-width: 650px;
+                margin-left: auto;
+                margin-right: auto;
+                box-shadow: 0 16px 36px rgba(var(--primary-rgb), 0.08);
+            }
+
+            .orden-card--ticket .orden-ticket-grid,
+            .orden-card--ticket .orden-oportunidades-lista {
+                grid-template-columns: repeat(auto-fill, minmax(104px, max-content));
+                gap: 0.45rem;
+                justify-content: start;
+            }
+
+            .orden-card--ticket .ticket-item {
+                min-width: 104px;
+                max-width: 124px;
+                min-height: 52px;
+                font-size: 0.72rem;
+                padding: 0.25rem 0.5rem;
+            }
+
+            .ticket-item--oportunidad .ticket-numero {
+                font-size: 0.85rem;
+            }
+
+            .ticket-item--oportunidad .ticket-numero-grande {
+                font-size: 0.88rem;
             }
         }
 
