@@ -94,8 +94,12 @@ class RifaArchiveService {
       let totalOportunidades = 0;
       do {
         deletedOportunidades = await this.db('orden_oportunidades')
-          .where('rifa_id', rifaId)
-          .limit(5000)
+          .whereIn('id', (qb) => {
+            qb.select('id')
+              .from('orden_oportunidades')
+              .where('rifa_id', rifaId)
+              .limit(5000);
+          })
           .del();
         totalOportunidades += deletedOportunidades;
         if (deletedOportunidades > 0) {
@@ -110,8 +114,12 @@ class RifaArchiveService {
       let totalBoletos = 0;
       do {
         deletedBoletos = await this.db('boletos_estado')
-          .where('rifa_id', rifaId)
-          .limit(5000)
+          .whereIn('id', (qb) => {
+            qb.select('id')
+              .from('boletos_estado')
+              .where('rifa_id', rifaId)
+              .limit(5000);
+          })
           .del();
         totalBoletos += deletedBoletos;
         if (deletedBoletos > 0) {
@@ -125,8 +133,12 @@ class RifaArchiveService {
       let totalOrdenes = 0;
       do {
         deletedOrdenes = await this.db('ordenes')
-          .where('rifa_id', rifaId)
-          .limit(2000)
+          .whereIn('id', (qb) => {
+            qb.select('id')
+              .from('ordenes')
+              .where('rifa_id', rifaId)
+              .limit(2000);
+          })
           .del();
         totalOrdenes += deletedOrdenes;
         if (deletedOrdenes > 0) {
