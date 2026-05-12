@@ -564,7 +564,7 @@
 /* Responsive */
 @media (max-width: 768px) {
     .modal-contacto {
-        max-width: 95vw;
+        max-width: min(480px, 95vw);
         max-height: 90vh;
     }
     

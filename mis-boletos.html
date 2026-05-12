@@ -1193,6 +1193,7 @@
             padding: 0.35rem 0.7rem 0.45rem;
             background: transparent;
             display: block;
+            max-height: 220px; /* Evita que crezca desproporcionadamente en tablets */
         }
 
         .orden-imagen-principal-fecha {
@@ -1486,10 +1487,12 @@
 
         .orden-card.orden-card--ticket {
             position: relative;
-            border: 1px solid rgba(var(--primary-rgb), 0.12);
+            border: 1.5px solid rgba(var(--primary-rgb), 0.22); /* Borde más nítido y de mayor contraste */
             border-radius: 1.15rem;
-            background: linear-gradient(180deg, #fffefe 0%, #fff7fa 100%);
-            box-shadow: 0 22px 44px rgba(var(--primary-rgb), 0.12);
+            background: linear-gradient(180deg, #ffffff 0%, #fffbfd 100%);
+            box-shadow: 
+                0 4px 10px rgba(var(--primary-rgb), 0.05),
+                0 22px 50px rgba(var(--primary-rgb), 0.15); /* Sombra 3D multicapa con tono de marca */
             overflow: hidden;
         }
 
@@ -1501,8 +1504,8 @@
             width: 22px;
             height: 22px;
             border-radius: 50%;
-            background: #fbf7fa;
-            border: 1px solid rgba(var(--primary-rgb), 0.12);
+            background: #fffbfd;
+            border: 1.5px solid rgba(var(--primary-rgb), 0.22); /* Cohesión de borde en las muescas */
             z-index: 2;
         }
 
@@ -2730,7 +2733,8 @@
             }
 
             .orden-imagen-principal {
-                min-height: 220px;
+                min-height: 180px;
+                max-height: 220px;
             }
 
             .orden-imagen-principal-titulo {
