@@ -247,6 +247,17 @@ class ModalSorteoFinalizado {
             const config = window.rifaplusConfig;
             const { snapshot, configModal, sorteoModal } = await this.resolverContextoModal(config);
 
+            // Determinar si la rifa está depurada
+            const urlRifa = this.obtenerSlugDeUrl();
+            const rifaEstado = String(
+                snapshot?.estado || 
+                snapshot?.rifa?.estado || 
+                configModal?.rifa?.estado || 
+                sorteoModal?.estado || 
+                (urlRifa ? 'depurada' : '')
+            ).toLowerCase();
+            this.esDepurada = rifaEstado === 'depurada';
+
             // Obtener ganadores (usa GanadoresManager, servidor, o snapshot en ese orden)
             const ganadoresReales = await this.obtenerGanadoresReales(snapshot);
 
@@ -642,11 +653,18 @@ class ModalSorteoFinalizado {
                     ${this.generarSeccionRedes(config)}
 
                     <!-- BOTONES DE ACCIÓN -->
-                            <div class="sorteo-acciones">
-                                <a id="btnVerMisBoletos" class="btn btn-verificar" href="mis-boletos-restringido.html">
-                                    <span>VERIFICAR MIS BOLETOS</span>
-                                    <span class="btn-verificar-arrow" aria-hidden="true">→</span>
-                                </a>
+                    <div class="sorteo-acciones">
+                        ${this.esDepurada ? `
+                            <a id="btnVerMisBoletos" class="btn btn-verificar" href="index.html">
+                                <span>IR AL SORTEO DISPONIBLE</span>
+                                <span class="btn-verificar-arrow" aria-hidden="true">→</span>
+                            </a>
+                        ` : `
+                            <a id="btnVerMisBoletos" class="btn btn-verificar" href="mis-boletos-restringido.html">
+                                <span>VERIFICAR MIS BOLETOS</span>
+                                <span class="btn-verificar-arrow" aria-hidden="true">→</span>
+                            </a>
+                        `}
                         ${sorteo.documentos.actaURL ? `
                             <a href="${sorteo.documentos.actaURL}" download class="btn btn-descargar">
                                 <i class="fas fa-download"></i> Descargar Acta
@@ -1089,6 +1107,10 @@ class ModalSorteoFinalizado {
 
                 if (btnVerMisBoletos) {
                     btnVerMisBoletos.addEventListener('click', (e) => {
+                        if (this.esDepurada) {
+                            // En rifas depuradas, permitir navegación nativa a index.html
+                            return;
+                        }
                         e.preventDefault();
                         e.stopPropagation();
                         this.navegarAMisBoletosRestringido();
@@ -1098,6 +1120,10 @@ class ModalSorteoFinalizado {
                 overlay.addEventListener('click', (e) => {
                     const btn = e.target.closest && e.target.closest('#btnVerMisBoletos');
                     if (btn) {
+                        if (this.esDepurada) {
+                            // En rifas depuradas, permitir navegación nativa a index.html
+                            return;
+                        }
                         e.preventDefault();
                         e.stopPropagation();
                         this.navegarAMisBoletosRestringido();
