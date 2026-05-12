@@ -14,53 +14,25 @@ const GanadoresManager = {
     STORAGE_KEY_BASE: 'rifaplus_ganadores',
     SERVER_CACHE_KEY: 'rifaplus_ganadores_server_cache',
 
-    /**
-     * 🔐 Obtiene y valida el ID de la rifa seleccionada con máxima robustez
-     */
-    obtenerRifaIdSeleccionada() {
-        let rifaId = null;
-        const selectElement = document.getElementById('adminRifaSelect');
-        
-        // 1️⃣ Fuente más confiable: el selector DOM
-        if (selectElement?.value) {
-            rifaId = String(selectElement.value).trim();
-            if (rifaId && /^\d+$/.test(rifaId)) {
-                return Number.parseInt(rifaId, 10);
-            }
-        }
-        
-        // 2️⃣ Fuente secundaria: adminLayout API
-        if (window.adminLayout?.getActiveRifaId || window.ADMIN_LAYOUT?.getActiveRifaId) {
-            try {
-                const layoutObj = window.adminLayout || window.ADMIN_LAYOUT;
-                rifaId = layoutObj.getActiveRifaId?.();
-                if (rifaId && /^\d+$/.test(String(rifaId))) {
-                    return Number.parseInt(String(rifaId), 10);
-                }
-            } catch (e) {
-                // ignorar errores
-            }
-        }
-        
-        // 3️⃣ Fuente de último recurso: localStorage
-        if (!rifaId) {
-            rifaId = localStorage.getItem('rifaplus_rifa_activa');
-            if (rifaId && /^\d+$/.test(String(rifaId))) {
-                return Number.parseInt(String(rifaId), 10);
-            }
-        }
-        
-        // 4️⃣ Fallback final
-        return 1;
-    },
 
     /**
      * 🔑 Obtener la clave de storage específica para la rifa actual
      */
     obtenerStorageKey() {
+        const esPaginaAdmin = window.location.pathname.includes('/admin') || window.location.pathname.includes('admin-') || document.getElementById('adminRifaSelect') !== null;
+        
+        if (esPaginaAdmin) {
+            const rifaId = this.obtenerRifaIdSeleccionada();
+            if (rifaId && rifaId > 0) {
+                return `rifaplus:rifa_id_${rifaId}:${this.STORAGE_KEY_BASE}`;
+            }
+        }
+
+        // Para el público o fallback, usamos la clave por slug
         if (typeof window.rifaplusConfig?.construirClaveLocal === 'function') {
             return window.rifaplusConfig.construirClaveLocal(this.STORAGE_KEY_BASE);
         }
+        
         // Fallback robusto por slug
         const slug = window.rifaplusConfig?.obtenerSlugRifaActual?.() || 'global';
         return `rifaplus:${slug}:${this.STORAGE_KEY_BASE}`;
@@ -304,7 +276,7 @@ const GanadoresManager = {
 
     async refrescarDesdeServidor() {
         const rows = await this.obtenerGanadoresServidor();
-        if (!Array.isArray(rows) || rows.length === 0) {
+        if (!Array.isArray(rows)) {
             return this.cargarGanadores();
         }
 
