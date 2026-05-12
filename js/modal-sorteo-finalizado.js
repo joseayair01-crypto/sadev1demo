@@ -1198,6 +1198,11 @@ class ModalSorteoFinalizado {
                 const target = e.target.closest('a');
                 if (!target) return;
 
+                // Si es el botón de acción del modal y la rifa está depurada, permitir navegación libre a index.html
+                if (target.id === 'btnVerMisBoletos' && this.esDepurada) {
+                    return;
+                }
+
                 const href = target.getAttribute('href');
                 
                 if (href && !href.includes('mis-boletos') && 
