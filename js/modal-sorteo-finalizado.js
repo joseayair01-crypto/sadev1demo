@@ -1096,7 +1096,16 @@ class ModalSorteoFinalizado {
         window.rifaplusModalScrollLock?.sync?.();
 
         this.log('Redirigiendo a mis-boletos-restringido.html (supresión activa)', 'navegacion');
-        window.location.href = 'mis-boletos-restringido.html';
+        
+        // 🌟 PRESERVAR EL SLUG DE LA RIFA ACTUAL EN LA URL DE DESTINO
+        const urlParams = new URLSearchParams(window.location.search);
+        const slug = urlParams.get('rifa') || urlParams.get('slug') || (window.rifaplusConfig?.obtenerSlugRifaActual?.()) || '';
+        
+        if (slug) {
+            window.location.href = `mis-boletos-restringido.html?rifa=${encodeURIComponent(slug)}`;
+        } else {
+            window.location.href = 'mis-boletos-restringido.html';
+        }
     }
 
     configurarEventListeners() {

@@ -1305,10 +1305,14 @@
                     
                     // ⚠️ CRÍTICO: Preservar parámetro 'rifa' para no mezclar rifas
                     const urlParams = new URLSearchParams(window.location.search);
-                    const rifaSlug = urlParams.get('rifa');
+                    const rifaSlug = urlParams.get('rifa') 
+                        || urlParams.get('slug') 
+                        || (window.rifaplusConfig && typeof window.rifaplusConfig.obtenerSlugRifaActual === 'function' ? window.rifaplusConfig.obtenerSlugRifaActual() : '')
+                        || sessionStorage.getItem('rifaplus_session_slug_v1')
+                        || '';
                     
                     if (rifaSlug) {
-                        // Si hay rifa en URL, regresar al index CON esa rifa
+                        // Si hay rifa, regresar al index CON esa rifa
                         window.location.href = `index.html?rifa=${encodeURIComponent(rifaSlug)}`;
                     } else {
                         // Sin rifa específica, ir al index normal
