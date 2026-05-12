@@ -13978,6 +13978,11 @@ const io = socketIO(server, {
         rifaService = new RifaService(db);
         await rifaService.inicializar();
         console.log('✅ RifaService inicializado (CRITICAL_PRIORITY)');
+
+        // 🔌 Inicializar RifaArchiveService para depuración de rifas
+        rifaArchiveService = new RifaArchiveService(db, rifaService);
+        rifaArchiveService.iniciar();
+        console.log('✅ RifaArchiveService inicializado e iniciado (CRITICAL_PRIORITY)');
     } catch (err) {
         console.error('❌ Error crítico inicializando RifaService:', err.message);
     }
