@@ -511,6 +511,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 root.querySelectorAll?.('a[href]')?.forEach((a) => {
                     const href = a.getAttribute('href');
                     if (!esDestinoInternoParaSlug(href)) return;
+                    if (a.dataset.skipMultirifa === 'true' || a.getAttribute('data-skip-multirifa') === 'true') return;
                     const nuevoHref = anexar(href);
                     if (nuevoHref && nuevoHref !== href) {
                         a.setAttribute('href', nuevoHref);
@@ -528,6 +529,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
                     const destino = String(match[1] || '').trim();
                     if (!esDestinoInternoParaSlug(destino)) return;
+                    if (el.dataset.skipMultirifa === 'true' || el.getAttribute('data-skip-multirifa') === 'true') return;
 
                     el.removeAttribute('onclick');
                     el.addEventListener('click', (evt) => {
@@ -550,6 +552,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 if (anchor.hasAttribute('download')) return;
                 if (anchor.target && anchor.target !== '_self') return;
                 if (evt.metaKey || evt.ctrlKey || evt.shiftKey || evt.altKey) return;
+                if (anchor.dataset.skipMultirifa === 'true' || anchor.getAttribute('data-skip-multirifa') === 'true') return;
 
                 const href = anchor.getAttribute('href');
                 if (!esDestinoInternoParaSlug(href)) return;

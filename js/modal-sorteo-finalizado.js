@@ -655,7 +655,7 @@ class ModalSorteoFinalizado {
                     <!-- BOTONES DE ACCIÓN -->
                     <div class="sorteo-acciones">
                         ${this.esDepurada ? `
-                            <a id="btnVerMisBoletos" class="btn btn-verificar" href="index.html">
+                            <a id="btnVerMisBoletos" class="btn btn-verificar" href="index.html" data-skip-multirifa="true">
                                 <span>IR AL SORTEO DISPONIBLE</span>
                                 <span class="btn-verificar-arrow" aria-hidden="true">→</span>
                             </a>

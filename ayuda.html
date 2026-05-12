@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,12 +10,12 @@
     <link rel="stylesheet" href="css/styles.css?v=20260410.6">
     <script src="js/image-delivery.js"></script>
     <script>
-        (function() {
+        (function () {
             const imageDelivery = window.RifaPlusImageDelivery;
             const rawLogo = localStorage.getItem('rifaplus_cached_logo') || 'images/placeholder-logo.svg';
             const cachedLogo = imageDelivery?.resolverUrlImagen(rawLogo, 'logo') || rawLogo;
             window.__RIFAPLUS_CACHED_LOGO__ = imageDelivery?.resolverUrlImagen(rawLogo, 'logo') || rawLogo;
-            
+
             // ⭐ Preload de imágenes - debe estar aquí dentro del scope para acceder a variables
             if (document.readyState === 'loading') {
                 document.write('<link rel="preload" as="image" href="' + cachedLogo + '" fetchpriority="high">');
@@ -23,7 +24,7 @@
             } else {
                 // Si el DOM ya se cargó, inyectar en head directamente
                 const head = document.head || document.documentElement;
-                
+
                 const preloadLogo = document.createElement('link');
                 preloadLogo.rel = 'preload';
                 preloadLogo.as = 'image';
@@ -54,7 +55,7 @@
     <script src="js/theme-loader.js?v=20251216"></script>
     <script>
         (function limpiarCacheYFechas() {
-            ['rifaplus_fecha_sorteo','rifaplus_timestamp_sorteo','rifaplus_fecha_cierre'].forEach(k => localStorage.removeItem(k));
+            ['rifaplus_fecha_sorteo', 'rifaplus_timestamp_sorteo', 'rifaplus_fecha_cierre'].forEach(k => localStorage.removeItem(k));
         })();
     </script>
     <script src="js/theme-dynamic.js?v=20260410.1"></script>
@@ -411,22 +412,47 @@
         }
 
         @media (max-width: 768px) {
-            .faq-title { font-size: 2rem; }
-            .instrucciones-title { font-size: 1.5rem; }
-            .confirmacion-title { font-size: 1.35rem; }
-            .confirmacion-grid { grid-template-columns: 1fr; }
-            .pasos-grid { grid-template-columns: 1fr; }
-            .paso-numero { width: 48px; height: 48px; font-size: 1.25rem; }
-            .contacto-title { font-size: 1.5rem; }
+            .faq-title {
+                font-size: 2rem;
+            }
+
+            .instrucciones-title {
+                font-size: 1.5rem;
+            }
+
+            .confirmacion-title {
+                font-size: 1.35rem;
+            }
+
+            .confirmacion-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .pasos-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .paso-numero {
+                width: 48px;
+                height: 48px;
+                font-size: 1.25rem;
+            }
+
+            .contacto-title {
+                font-size: 1.5rem;
+            }
+
             .contacto-faq {
                 padding: 1.4rem 1rem 1.2rem;
                 margin-top: 2rem;
             }
+
             .contacto-texto {
                 margin-bottom: 1rem;
                 font-size: 0.95rem;
                 line-height: 1.55;
             }
+
             .contacto-redes {
                 display: flex;
                 flex-wrap: wrap;
@@ -435,6 +461,7 @@
                 max-width: 280px;
                 margin: 1rem auto 0;
             }
+
             .social-icon-circle {
                 width: 56px;
                 height: 56px;
@@ -446,19 +473,23 @@
             .contacto-faq {
                 padding: 1.15rem 0.9rem 1rem;
             }
+
             .contacto-title {
                 font-size: 1.3rem;
                 margin-bottom: 0.7rem;
             }
+
             .contacto-texto {
                 font-size: 0.9rem;
                 margin-bottom: 0.85rem;
             }
+
             .contacto-redes {
                 justify-content: center;
                 gap: 0.7rem;
                 max-width: 240px;
             }
+
             .social-icon-circle {
                 width: 52px;
                 height: 52px;
@@ -467,6 +498,7 @@
         }
     </style>
 </head>
+
 <body>
     <!-- HEADER -->
     <header class="header">
@@ -483,7 +515,9 @@
                     <script>
                         document.write('<img src="' + (window.__RIFAPLUS_CACHED_LOGO__ || "images/placeholder-logo.svg") + '" alt="Logo del organizador" class="logo-image dynamic-logo" data-dynamic-logo="true" fetchpriority="high" width="320" height="137">');
                     </script>
-                    <noscript><img src="images/placeholder-logo.svg" alt="Logo del organizador" class="logo-image dynamic-logo" data-dynamic-logo="true" fetchpriority="high" width="320" height="137"></noscript>
+                    <noscript><img src="images/placeholder-logo.svg" alt="Logo del organizador"
+                            class="logo-image dynamic-logo" data-dynamic-logo="true" fetchpriority="high" width="320"
+                            height="137"></noscript>
                 </div>
                 <span class="logo-verified-badge" aria-hidden="true">✓</span>
             </a>
@@ -519,14 +553,18 @@
             <section class="faq-section">
                 <div class="faq-header">
                     <h1 class="faq-title">Centro de ayuda</h1>
-                    <p class="faq-subtitle">Aquí encuentras el proceso de compra, la validación del pago y las respuestas clave para participar con claridad.</p>
+                    <p class="faq-subtitle">Aquí encuentras el proceso de compra, la validación del pago y las
+                        respuestas clave para participar con claridad.</p>
                 </div>
 
                 <!-- CARD IMPORTANTE: Confirmación -->
                 <section class="confirmacion-card">
                     <div class="confirmacion-kicker"><i class="fas fa-receipt"></i> Confirmación de pago</div>
-                    <h2 class="confirmacion-title">Tu compra queda lista cuando la orden aparece como <strong>Confirmada</strong>.</h2>
-                    <p class="confirmacion-text">Después de subir tu comprobante, la revisión se realiza en un plazo máximo de 24 horas. La referencia final siempre es el estado de tu orden en <strong>Mis Boletos</strong>.</p>
+                    <h2 class="confirmacion-title">Tu compra queda lista cuando la orden aparece como
+                        <strong>Confirmada</strong>.</h2>
+                    <p class="confirmacion-text">Después de subir tu comprobante, la revisión se realiza en un plazo
+                        máximo de 24 horas. La referencia final siempre es el estado de tu orden en <strong>Mis
+                            Boletos</strong>.</p>
                     <div class="confirmacion-grid">
                         <div class="confirmacion-item">
                             <strong>1. Sube tu comprobante</strong>
@@ -546,38 +584,47 @@
                 <!-- INSTRUCCIONES DE COMPRA -->
                 <section class="instrucciones-card">
                     <h2 class="instrucciones-title">📋 Cómo Comprar Boletos</h2>
-                    <p class="instrucciones-subtitle">El proceso es sencillo: eliges tus boletos, guardas tu orden, haces el pago, subes tu comprobante y después revisas en <strong>"Mis Boletos"</strong> que tu orden ya aparezca como <strong>Confirmada</strong>.</p>
+                    <p class="instrucciones-subtitle">El proceso es sencillo: eliges tus boletos, guardas tu orden,
+                        haces el pago, subes tu comprobante y después revisas en <strong>"Mis Boletos"</strong> que tu
+                        orden ya aparezca como <strong>Confirmada</strong>.</p>
 
                     <div class="pasos-grid">
                         <div class="paso-item">
                             <div class="paso-numero">1</div>
                             <div class="paso-titulo">Elige tus boletos</div>
-                            <div class="paso-texto">Selecciona tus números manualmente o usa la máquina de la suerte.</div>
+                            <div class="paso-texto">Selecciona tus números manualmente o usa la máquina de la suerte.
+                            </div>
                         </div>
                         <div class="paso-item">
                             <div class="paso-numero">2</div>
                             <div class="paso-titulo">Guarda tu orden</div>
-                            <div class="paso-texto">Escribe tus datos y confirma la compra. Tus boletos quedan apartados a tu nombre.</div>
+                            <div class="paso-texto">Escribe tus datos y confirma la compra. Tus boletos quedan apartados
+                                a tu nombre.</div>
                         </div>
                         <div class="paso-item">
                             <div class="paso-numero">3</div>
                             <div class="paso-titulo">Realiza el pago</div>
-                            <div class="paso-texto">Haz tu transferencia o depósito usando los datos que aparecen en tu orden.</div>
+                            <div class="paso-texto">Haz tu transferencia o depósito usando los datos que aparecen en tu
+                                orden.</div>
                         </div>
                         <div class="paso-item">
                             <div class="paso-numero">4</div>
                             <div class="paso-titulo">Sube tu comprobante</div>
-                            <div class="paso-texto">Entra a "Mis Boletos" y sube una foto, captura o PDF de tu pago.</div>
+                            <div class="paso-texto">Entra a "Mis Boletos" y sube una foto, captura o PDF de tu pago.
+                            </div>
                         </div>
                         <div class="paso-item">
                             <div class="paso-numero">5</div>
                             <div class="paso-titulo">Verifica tu estado</div>
-                            <div class="paso-texto">Tu compra queda lista cuando en "Mis Boletos" veas la orden como <strong>Confirmada</strong>.</div>
+                            <div class="paso-texto">Tu compra queda lista cuando en "Mis Boletos" veas la orden como
+                                <strong>Confirmada</strong>.</div>
                         </div>
                     </div>
 
                     <div class="instrucciones-nota">
-                        <strong>Importante:</strong> guardar la orden no significa que el pago ya fue validado. Primero tus boletos quedan <strong>apartados</strong> y después pasan a <strong>confirmados</strong> cuando se revisa tu comprobante.
+                        <strong>Importante:</strong> guardar la orden no significa que el pago ya fue validado. Primero
+                        tus boletos quedan <strong>apartados</strong> y después pasan a <strong>confirmados</strong>
+                        cuando se revisa tu comprobante.
                     </div>
                 </section>
 
@@ -590,7 +637,8 @@
                 <!-- CONTACTO -->
                 <section class="contacto-faq">
                     <h2 class="contacto-title">📞 ¿Necesitas ayuda?</h2>
-                    <p class="contacto-texto">¡Estamos aquí para ayudarte! Contáctanos por cualquiera de estos medios:</p>
+                    <p class="contacto-texto">¡Estamos aquí para ayudarte! Contáctanos por cualquiera de estos medios:
+                    </p>
                     <div class="contacto-redes">
                         <!-- Se cargan dinámicamente desde config.js -->
                     </div>
@@ -605,7 +653,9 @@
             <!-- 📱 BOLETERA DIGITAL CTA - LÍNEA DISCRETA -->
             <div class="footer-boletera-cta">
                 <div class="boletera-content">
-                    ¿Necesitas una boletera digital? <a href="https://api.whatsapp.com/send?phone=524591153960&text=Hola%2C%20me%20interesa%20conocer%20m%C3%A1s%20sobre%20las%20boleteras%20digitales" class="btn-boletera-whatsapp" target="_blank" rel="noopener noreferrer">Consulta aquí</a>
+                    ¿Necesitas una boletera digital? <a
+                        href="https://api.whatsapp.com/send?phone=524591153960&text=Hola%2C%20me%20interesa%20conocer%20m%C3%A1s%20sobre%20las%20boleteras%20digitales"
+                        class="btn-boletera-whatsapp" target="_blank" rel="noopener noreferrer">Consulta aquí</a>
                 </div>
             </div>
 
@@ -613,7 +663,8 @@
                 <!-- Columna izquierda: Logo y nombre -->
                 <div class="footer-logo-section">
                     <div class="footer-logo-box">
-                        <img src="images/placeholder-logo.svg" alt="Logo del organizador" class="footer-logo-img dynamic-logo" data-dynamic-logo="true" width="200" height="100">
+                        <img src="images/placeholder-logo.svg" alt="Logo del organizador"
+                            class="footer-logo-img dynamic-logo" data-dynamic-logo="true" width="200" height="100">
                     </div>
                     <h3 id="footerNombre" class="footer-client-name">SORTEO</h3>
                     <p id="footerEslogan" class="footer-eslogan">Rifas 100% Transparentes y Seguras</p>
@@ -627,8 +678,10 @@
                         <!-- Se carga dinámicamente desde config.js -->
                     </div>
                     <div class="footer-contact-details">
-                        <p><i class="fas fa-envelope"></i> <a id="footerEmail" href="mailto:contacto@mirifa.com">contacto@mirifa.com</a></p>
-                        <p><i class="fas fa-phone"></i> <a id="footerTelefono" href="tel:+525512345678">+52 55-1234-5678</a></p>
+                        <p><i class="fas fa-envelope"></i> <a id="footerEmail"
+                                href="mailto:contacto@mirifa.com">contacto@mirifa.com</a></p>
+                        <p><i class="fas fa-phone"></i> <a id="footerTelefono" href="tel:+525512345678">+52
+                                55-1234-5678</a></p>
                     </div>
                 </div>
             </div>
@@ -644,191 +697,191 @@
     </footer>
 
     <script>
-    // Actualizar footer dinámicamente desde config.js
-    document.addEventListener('DOMContentLoaded', function() {
-        const config = window.rifaplusConfig;
-        if (!config) return;
+        // Actualizar footer dinámicamente desde config.js
+        document.addEventListener('DOMContentLoaded', function () {
+            const config = window.rifaplusConfig;
+            if (!config) return;
 
-        // Actualizar nombre en footer
-        // ✅ CENTRALIZADO: Usar función que se actualiza automáticamente
-        if (typeof window.rifaplusConfig !== 'undefined' && typeof window.rifaplusConfig.actualizarNombreClienteEnUI === 'function') {
-            window.rifaplusConfig.actualizarNombreClienteEnUI();
-        }
+            // Actualizar nombre en footer
+            // ✅ CENTRALIZADO: Usar función que se actualiza automáticamente
+            if (typeof window.rifaplusConfig !== 'undefined' && typeof window.rifaplusConfig.actualizarNombreClienteEnUI === 'function') {
+                window.rifaplusConfig.actualizarNombreClienteEnUI();
+            }
 
-        // Actualizar eslogan en footer
-        const footerEslogan = document.getElementById('footerEslogan');
-        if (footerEslogan) {
-            footerEslogan.textContent = config.cliente.eslogan || 'Rifas 100% Transparentes y Seguras';
-        }
-
-        // Actualizar redes sociales en footer
-        renderizarFooterSocial();
-
-        // Actualizar información de contacto
-        const footerEmail = document.getElementById('footerEmail');
-        if (footerEmail) {
-            footerEmail.href = `mailto:${config.cliente.email}`;
-            footerEmail.textContent = config.cliente.email;
-        }
-
-        const footerTelefono = document.getElementById('footerTelefono');
-        if (footerTelefono) {
-            footerTelefono.href = `tel:${config.cliente.telefono.replace(/[^0-9+]/g, '')}`;
-            footerTelefono.textContent = config.cliente.telefono;
-        }
-
-        // Actualizar copyright
-        const footerCopyright = document.getElementById('footerCopyright');
-        if (footerCopyright) {
-            const anio = config.cliente.anioActual || new Date().getFullYear();
-            // Nombre ya se actualiza con actualizarNombreClienteEnUI() en script anterior
-        }
-
-        if (window.rifaplusConfig?.sincronizarConfigDelBackend) {
-            window.rifaplusConfig.sincronizarConfigDelBackend().catch((error) => {
-                console.debug('ℹ️ [Ayuda] No se pudo revalidar config al cargar:', error?.message || error);
-            });
-        }
-    });
-    
-    // Función para actualizar redes sociales en footer
-    function renderizarFooterSocial() {
-        const footerSocial = document.getElementById('footerSocial');
-        const config = window.rifaplusConfig;
-        
-        if (!footerSocial || !config?.cliente?.redesSociales) return;
-        
-        const redes = config.cliente.redesSociales;
-        if (!redes || Object.values(redes).every(v => !v)) return;
-        
-        footerSocial.innerHTML = '';
-        
-        if (redes.whatsapp) {
-            const whatsappLink = document.createElement('a');
-            whatsappLink.href = `https://wa.me/${redes.whatsapp.replace(/[^0-9]/g, '')}`;
-            whatsappLink.target = '_blank';
-            whatsappLink.title = 'WhatsApp';
-            whatsappLink.innerHTML = '<i class="fab fa-whatsapp"></i>';
-            footerSocial.appendChild(whatsappLink);
-        }
-        if (redes.facebook) {
-            const facebookLink = document.createElement('a');
-            facebookLink.href = redes.facebook;
-            facebookLink.target = '_blank';
-            facebookLink.title = 'Facebook';
-            facebookLink.innerHTML = '<i class="fab fa-facebook-f"></i>';
-            footerSocial.appendChild(facebookLink);
-        }
-        if (redes.instagram) {
-            const instagramLink = document.createElement('a');
-            instagramLink.href = redes.instagram;
-            instagramLink.target = '_blank';
-            instagramLink.title = 'Instagram';
-            instagramLink.innerHTML = '<i class="fab fa-instagram"></i>';
-            footerSocial.appendChild(instagramLink);
-        }
-    }
-    
-    // Re-ejecutar footer cuando config-sync actualice
-    if (typeof window.rifaplusConfig !== 'undefined' && typeof window.rifaplusConfig.escucharEvento === 'function') {
-        window.rifaplusConfig.escucharEvento('configuracionActualizada', function() {
-            // ✅ Actualizar eslogan
+            // Actualizar eslogan en footer
             const footerEslogan = document.getElementById('footerEslogan');
             if (footerEslogan) {
-                footerEslogan.textContent = window.rifaplusConfig.cliente.eslogan || 'Rifas 100% Transparentes y Seguras';
+                footerEslogan.textContent = config.cliente.eslogan || 'Rifas 100% Transparentes y Seguras';
             }
-            
-            // ✅ Actualizar email y teléfono
-            const footerEmail = document.getElementById('footerEmail');
-            if (footerEmail && window.rifaplusConfig.cliente.email) {
-                footerEmail.href = `mailto:${window.rifaplusConfig.cliente.email}`;
-                footerEmail.textContent = window.rifaplusConfig.cliente.email;
-            }
-            
-            const footerTelefono = document.getElementById('footerTelefono');
-            if (footerTelefono && window.rifaplusConfig.cliente.telefono) {
-                footerTelefono.href = `tel:${window.rifaplusConfig.cliente.telefono.replace(/[^0-9+]/g, '')}`;
-                footerTelefono.textContent = window.rifaplusConfig.cliente.telefono;
-            }
-            
-            // ✅ Actualizar redes sociales
+
+            // Actualizar redes sociales en footer
             renderizarFooterSocial();
-        });
-    }
 
-    function renderizarRedesContactoAyuda() {
-        const contactoRedes = document.querySelector('.contacto-redes');
-        const configActual = window.rifaplusConfig;
-        const redes = configActual?.cliente?.redesSociales;
+            // Actualizar información de contacto
+            const footerEmail = document.getElementById('footerEmail');
+            if (footerEmail) {
+                footerEmail.href = `mailto:${config.cliente.email}`;
+                footerEmail.textContent = config.cliente.email;
+            }
 
-        if (!contactoRedes || !redes) return false;
+            const footerTelefono = document.getElementById('footerTelefono');
+            if (footerTelefono) {
+                footerTelefono.href = `tel:${config.cliente.telefono.replace(/[^0-9+]/g, '')}`;
+                footerTelefono.textContent = config.cliente.telefono;
+            }
 
-        const normalizarUrlSocial = (valor, baseUrl) => {
-            const limpio = String(valor || '').trim();
-            if (!limpio) return '';
-            if (/^https?:\/\//i.test(limpio)) return limpio;
-            return `${baseUrl}${limpio.replace(/^@/, '')}`;
-        };
+            // Actualizar copyright
+            const footerCopyright = document.getElementById('footerCopyright');
+            if (footerCopyright) {
+                const anio = config.cliente.anioActual || new Date().getFullYear();
+                // Nombre ya se actualiza con actualizarNombreClienteEnUI() en script anterior
+            }
 
-        const links = [];
-
-        if (redes.whatsapp) {
-            const whatsappPhone = String(redes.whatsapp).replace(/[^0-9]/g, '');
-            if (whatsappPhone) {
-                links.push({
-                    href: `https://wa.me/${whatsappPhone}`,
-                    className: 'social-icon-circle whatsapp-circle',
-                    title: 'WhatsApp',
-                    icon: 'fab fa-whatsapp'
+            if (window.rifaplusConfig?.sincronizarConfigDelBackend) {
+                window.rifaplusConfig.sincronizarConfigDelBackend().catch((error) => {
+                    console.debug('ℹ️ [Ayuda] No se pudo revalidar config al cargar:', error?.message || error);
                 });
             }
-        }
-
-        if (redes.facebook) {
-            links.push({
-                href: normalizarUrlSocial(redes.facebook, 'https://facebook.com/'),
-                className: 'social-icon-circle facebook-circle',
-                title: 'Facebook',
-                icon: 'fab fa-facebook-f'
-            });
-        }
-
-        if (redes.instagram) {
-            links.push({
-                href: normalizarUrlSocial(redes.instagram, 'https://instagram.com/'),
-                className: 'social-icon-circle instagram-circle',
-                title: 'Instagram',
-                icon: 'fab fa-instagram'
-            });
-        }
-
-        if (redes.tiktok) {
-            links.push({
-                href: normalizarUrlSocial(redes.tiktok, 'https://www.tiktok.com/@'),
-                className: 'social-icon-circle tiktok-circle',
-                title: 'TikTok',
-                icon: 'fab fa-tiktok'
-            });
-        }
-
-        contactoRedes.innerHTML = '';
-
-        links.forEach(({ href, className, title, icon }) => {
-            if (!href) return;
-
-            const link = document.createElement('a');
-            link.href = href;
-            link.target = '_blank';
-            link.rel = 'noopener noreferrer';
-            link.className = className;
-            link.title = title;
-            link.setAttribute('aria-label', title);
-            link.innerHTML = `<i class="${icon}"></i>`;
-            contactoRedes.appendChild(link);
         });
 
-        return links.length > 0;
-    }
+        // Función para actualizar redes sociales en footer
+        function renderizarFooterSocial() {
+            const footerSocial = document.getElementById('footerSocial');
+            const config = window.rifaplusConfig;
+
+            if (!footerSocial || !config?.cliente?.redesSociales) return;
+
+            const redes = config.cliente.redesSociales;
+            if (!redes || Object.values(redes).every(v => !v)) return;
+
+            footerSocial.innerHTML = '';
+
+            if (redes.whatsapp) {
+                const whatsappLink = document.createElement('a');
+                whatsappLink.href = `https://wa.me/${redes.whatsapp.replace(/[^0-9]/g, '')}`;
+                whatsappLink.target = '_blank';
+                whatsappLink.title = 'WhatsApp';
+                whatsappLink.innerHTML = '<i class="fab fa-whatsapp"></i>';
+                footerSocial.appendChild(whatsappLink);
+            }
+            if (redes.facebook) {
+                const facebookLink = document.createElement('a');
+                facebookLink.href = redes.facebook;
+                facebookLink.target = '_blank';
+                facebookLink.title = 'Facebook';
+                facebookLink.innerHTML = '<i class="fab fa-facebook-f"></i>';
+                footerSocial.appendChild(facebookLink);
+            }
+            if (redes.instagram) {
+                const instagramLink = document.createElement('a');
+                instagramLink.href = redes.instagram;
+                instagramLink.target = '_blank';
+                instagramLink.title = 'Instagram';
+                instagramLink.innerHTML = '<i class="fab fa-instagram"></i>';
+                footerSocial.appendChild(instagramLink);
+            }
+        }
+
+        // Re-ejecutar footer cuando config-sync actualice
+        if (typeof window.rifaplusConfig !== 'undefined' && typeof window.rifaplusConfig.escucharEvento === 'function') {
+            window.rifaplusConfig.escucharEvento('configuracionActualizada', function () {
+                // ✅ Actualizar eslogan
+                const footerEslogan = document.getElementById('footerEslogan');
+                if (footerEslogan) {
+                    footerEslogan.textContent = window.rifaplusConfig.cliente.eslogan || 'Rifas 100% Transparentes y Seguras';
+                }
+
+                // ✅ Actualizar email y teléfono
+                const footerEmail = document.getElementById('footerEmail');
+                if (footerEmail && window.rifaplusConfig.cliente.email) {
+                    footerEmail.href = `mailto:${window.rifaplusConfig.cliente.email}`;
+                    footerEmail.textContent = window.rifaplusConfig.cliente.email;
+                }
+
+                const footerTelefono = document.getElementById('footerTelefono');
+                if (footerTelefono && window.rifaplusConfig.cliente.telefono) {
+                    footerTelefono.href = `tel:${window.rifaplusConfig.cliente.telefono.replace(/[^0-9+]/g, '')}`;
+                    footerTelefono.textContent = window.rifaplusConfig.cliente.telefono;
+                }
+
+                // ✅ Actualizar redes sociales
+                renderizarFooterSocial();
+            });
+        }
+
+        function renderizarRedesContactoAyuda() {
+            const contactoRedes = document.querySelector('.contacto-redes');
+            const configActual = window.rifaplusConfig;
+            const redes = configActual?.cliente?.redesSociales;
+
+            if (!contactoRedes || !redes) return false;
+
+            const normalizarUrlSocial = (valor, baseUrl) => {
+                const limpio = String(valor || '').trim();
+                if (!limpio) return '';
+                if (/^https?:\/\//i.test(limpio)) return limpio;
+                return `${baseUrl}${limpio.replace(/^@/, '')}`;
+            };
+
+            const links = [];
+
+            if (redes.whatsapp) {
+                const whatsappPhone = String(redes.whatsapp).replace(/[^0-9]/g, '');
+                if (whatsappPhone) {
+                    links.push({
+                        href: `https://wa.me/${whatsappPhone}`,
+                        className: 'social-icon-circle whatsapp-circle',
+                        title: 'WhatsApp',
+                        icon: 'fab fa-whatsapp'
+                    });
+                }
+            }
+
+            if (redes.facebook) {
+                links.push({
+                    href: normalizarUrlSocial(redes.facebook, 'https://facebook.com/'),
+                    className: 'social-icon-circle facebook-circle',
+                    title: 'Facebook',
+                    icon: 'fab fa-facebook-f'
+                });
+            }
+
+            if (redes.instagram) {
+                links.push({
+                    href: normalizarUrlSocial(redes.instagram, 'https://instagram.com/'),
+                    className: 'social-icon-circle instagram-circle',
+                    title: 'Instagram',
+                    icon: 'fab fa-instagram'
+                });
+            }
+
+            if (redes.tiktok) {
+                links.push({
+                    href: normalizarUrlSocial(redes.tiktok, 'https://www.tiktok.com/@'),
+                    className: 'social-icon-circle tiktok-circle',
+                    title: 'TikTok',
+                    icon: 'fab fa-tiktok'
+                });
+            }
+
+            contactoRedes.innerHTML = '';
+
+            links.forEach(({ href, className, title, icon }) => {
+                if (!href) return;
+
+                const link = document.createElement('a');
+                link.href = href;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.className = className;
+                link.title = title;
+                link.setAttribute('aria-label', title);
+                link.innerHTML = `<i class="${icon}"></i>`;
+                contactoRedes.appendChild(link);
+            });
+
+            return links.length > 0;
+        }
     </script>
 
     <!-- MODAL CARRITO EXPANDIBLE -->
@@ -838,12 +891,13 @@
                 <h2>Tu Carrito 🛒</h2>
                 <button class="modal-carrito-close" id="closeCarrito" aria-label="Cerrar carrito">×</button>
             </div>
-            
+
             <div class="modal-carrito-body">
                 <!-- Mensaje si está vacío -->
                 <div class="carrito-vacio" id="carritoVacio">
                     <div class="carrito-vacio-content">
-                        <img src="images/placeholder-logo.svg" alt="Logo" class="carrito-logo dynamic-logo" data-dynamic-logo="true">
+                        <img src="images/placeholder-logo.svg" alt="Logo" class="carrito-logo dynamic-logo"
+                            data-dynamic-logo="true">
                         <p class="carrito-vacio-titulo">Tu carrito está vacío</p>
                         <p class="carrito-vacio-subtitulo">¡Comienza a seleccionar tus boletos favoritos!</p>
                         <button class="btn btn-primary btn-carrito-comprar" id="btnIrAComprar">
@@ -865,7 +919,8 @@
                             <span>Cantidad de boletos:</span>
                             <strong id="carritoResumenCantidad">0</strong>
                         </div>
-                        <button class="btn btn-danger btn-sm" id="btnLimpiarCarrito" title="Eliminar todos los boletos" aria-label="Eliminar todos los boletos del carrito">
+                        <button class="btn btn-danger btn-sm" id="btnLimpiarCarrito" title="Eliminar todos los boletos"
+                            aria-label="Eliminar todos los boletos del carrito">
                             Limpiar carrito
                         </button>
                     </div>
@@ -1008,53 +1063,53 @@
         }
 
         // Inicializar acordeón FAQ
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             renderizarFaqsAyuda();
             inicializarAcordeonFaqAyuda();
 
             if (window.rifaplusConfig?.escucharEvento) {
-                window.rifaplusConfig.escucharEvento('configuracionActualizada', function() {
+                window.rifaplusConfig.escucharEvento('configuracionActualizada', function () {
                     renderizarFaqsAyuda();
                     inicializarAcordeonFaqAyuda();
                 });
             }
-            
+
             // Funcionalidad del carrito modal
             const carritoModal = document.getElementById('carritoModal');
             const closeCarrito = document.getElementById('closeCarrito');
             const btnSeguirComprando = document.getElementById('btnSeguirComprando');
             const btnIrAComprar = document.getElementById('btnIrAComprar');
-            
+
             // Cerrar carrito al hacer click en el botón X
             if (closeCarrito) {
-                closeCarrito.addEventListener('click', function() {
+                closeCarrito.addEventListener('click', function () {
                     carritoModal.classList.remove('active');
                 });
             }
-            
+
             // Cerrar carrito al hacer click fuera del modal
             if (carritoModal) {
-                carritoModal.addEventListener('click', function(e) {
+                carritoModal.addEventListener('click', function (e) {
                     if (e.target === carritoModal) {
                         carritoModal.classList.remove('active');
                     }
                 });
             }
-            
+
             // Cerrar carrito al hacer click en "Seguir comprando"
             if (btnSeguirComprando) {
-                btnSeguirComprando.addEventListener('click', function() {
+                btnSeguirComprando.addEventListener('click', function () {
                     carritoModal.classList.remove('active');
                 });
             }
-            
+
             // Ir a comprar desde carrito vacío
             if (btnIrAComprar) {
-                btnIrAComprar.addEventListener('click', function() {
+                btnIrAComprar.addEventListener('click', function () {
                     window.location.href = 'compra.html';
                 });
             }
-            
+
             function intentarRenderizarRedesContacto(intentosRestantes = 12) {
                 const listo = renderizarRedesContactoAyuda();
                 if (!listo && intentosRestantes > 0) {
@@ -1063,7 +1118,7 @@
             }
 
             intentarRenderizarRedesContacto();
-            
+
             // También escuchar al evento configSyncCompleto para actualizar cuando config esté lista
             window.addEventListener('configSyncCompleto', () => {
                 console.log('[CONTACTO] 📢 Evento configSyncCompleto recibido, re-renderizando redes...');
@@ -1071,11 +1126,11 @@
             });
 
             if (window.rifaplusConfig?.escucharEvento) {
-                window.rifaplusConfig.escucharEvento('configuracionActualizada', function() {
+                window.rifaplusConfig.escucharEvento('configuracionActualizada', function () {
                     intentarRenderizarRedesContacto(3);
                 });
             }
-            
+
             // Animar botón flotante solo los primeros 2 segundos
             const btnFlotante = document.querySelector('.btn-flotante-comprobante');
             if (btnFlotante) {
@@ -1094,4 +1149,5 @@
     </a>
 
 </body>
+
 </html>
