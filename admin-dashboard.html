@@ -3519,8 +3519,13 @@
                 tokenAutenticacion = datosLogin.token;
                 localStorage.setItem('rifaplus_token', tokenAutenticacion);
                 localStorage.setItem('rifaplus_admin_token', tokenAutenticacion);
-                document.getElementById('loginScreen').style.display = 'none';
-                document.getElementById('dashboard').classList.add('logged-in');
+                const loginScreenEl = document.getElementById('loginScreen');
+                const dashboardEl = document.getElementById('dashboard');
+                if (loginScreenEl) loginScreenEl.style.display = 'none';
+                if (dashboardEl) {
+                    dashboardEl.classList.add('logged-in', 'active');
+                    dashboardEl.style.display = 'block';
+                }
 
                 // Mostrar usuario en header (dashboard)
                 mostrarUsuarioEnHeader();

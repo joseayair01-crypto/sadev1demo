@@ -657,6 +657,8 @@ body {
     max-height: 90vh;
     overflow-y: auto;
     position: relative;
+    align-self: center !important;
+    margin: auto !important;
 }
 
 .overlay-link {
@@ -1171,6 +1173,8 @@ body {
     .overlay-inner {
         padding: 2.3rem 1.4rem 1.3rem;
         max-width: 100%;
+        align-self: center !important;
+        margin: auto !important;
     }
 
     .admin-header-title-main {
