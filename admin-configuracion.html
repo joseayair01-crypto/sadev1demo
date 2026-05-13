@@ -17398,25 +17398,11 @@
                     localStorage.getItem('admin_token') ||
                     localStorage.getItem('token');
 
-                // 1️⃣ ELIMINAR DE CLOUDINARY (si tiene public_id)
-                if (imagenAEliminar?.publicId) {
-                    const deleteResponse = await fetch(`${API_BASE}/api/admin/cloudinary-image`, {
-                        method: 'DELETE',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`
-                        },
-                        body: JSON.stringify({
-                            publicId: imagenAEliminar.publicId
-                        })
-                    });
-
-                    if (deleteResponse.ok) {
-                        console.log('✅ Imagen eliminada de Cloudinary:', imagenAEliminar.publicId);
-                    } else {
-                        console.warn('⚠️ Error eliminando de Cloudinary, continuamos');
-                    }
-                }
+                // 1️⃣ EVITAR ELIMINACIÓN FÍSICA EN CLOUDINARY
+                // ⚠️ CRÍTICO: No eliminamos físicamente de Cloudinary para evitar romper imágenes en sorteos anteriores/archivados
+                // que estén usando la misma imagen (por ejemplo, al duplicar sorteos o reusar assets).
+                // El almacenamiento en Cloudinary es gratuito/amplio y es prioritario no romper el historial de sorteos pasados.
+                console.log('ℹ️ Imagen removida de la galería de este sorteo. El archivo físico se conserva de forma segura en Cloudinary.');
 
                 // 2️⃣ ELIMINAR DEL ARRAY LOCAL
                 const imagenesActualizadas = imagenes.filter((_, i) => i !== index);
